@@ -1,0 +1,3 @@
+https://malware.test/payload.exe
+http://danger.test/dropper
+https://malware.test/payload.exe
