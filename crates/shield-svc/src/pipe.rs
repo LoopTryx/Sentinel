@@ -43,11 +43,20 @@ struct FixtureRequest {
 pub struct LocalFixturePipe {
     file: File,
     binding: ServerBinding,
+    endpoint: Endpoint,
 }
 
 impl LocalFixturePipe {
     pub fn bind(name: &str) -> io::Result<Self> {
-        validate_fixture_name(name)?;
+        Self::bind_endpoint(name, Endpoint::User)
+    }
+
+    pub fn bind_admin(name: &str) -> io::Result<Self> {
+        Self::bind_endpoint(name, Endpoint::Admin)
+    }
+
+    fn bind_endpoint(name: &str, endpoint: Endpoint) -> io::Result<Self> {
+        validate_fixture_name(name, endpoint)?;
         let identity = OsIdentity::current_process()?;
         let logon_sid = OsIdentity::current_logon_sid()?;
         // Generic write would include FILE_CREATE_PIPE_INSTANCE. Clients receive
@@ -95,6 +104,7 @@ impl LocalFixturePipe {
         Ok(Self {
             file,
             binding: ServerBinding::new(&identity.sid, identity.session_id),
+            endpoint,
         })
     }
 
@@ -125,7 +135,7 @@ impl LocalFixturePipe {
         let caller = VerifiedCaller::from_os_identity(OsIdentity::from_pipe_client(
             self.file.as_raw_handle(),
         )?);
-        authorize(Endpoint::User, &self.binding, &caller, request.method)
+        authorize(self.endpoint, &self.binding, &caller, request.method)
             .map_err(|_| io::Error::new(io::ErrorKind::PermissionDenied, "unauthorized method"))?;
         if request.method != RpcMethod::CapabilitiesList {
             return Err(io::Error::new(
@@ -147,7 +157,15 @@ impl LocalFixturePipe {
 }
 
 pub fn connect_fixture(name: &str) -> io::Result<File> {
-    validate_fixture_name(name)?;
+    connect_endpoint(name, Endpoint::User)
+}
+
+pub fn connect_admin_fixture(name: &str) -> io::Result<File> {
+    connect_endpoint(name, Endpoint::Admin)
+}
+
+fn connect_endpoint(name: &str, endpoint: Endpoint) -> io::Result<File> {
+    validate_fixture_name(name, endpoint)?;
     let name_wide: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
     // SAFETY: The path is null terminated; requested rights exclude creating pipe instances.
     let handle = unsafe {
@@ -168,9 +186,13 @@ pub fn connect_fixture(name: &str) -> io::Result<File> {
     Ok(unsafe { File::from_raw_handle(handle) })
 }
 
-fn validate_fixture_name(name: &str) -> io::Result<()> {
+fn validate_fixture_name(name: &str, endpoint: Endpoint) -> io::Result<()> {
+    let prefix = match endpoint {
+        Endpoint::User => r"\\.\pipe\CyberShield-v3-fixture-",
+        Endpoint::Admin => r"\\.\pipe\CyberShield-v3-admin-fixture-",
+    };
     let suffix = name
-        .strip_prefix(r"\\.\pipe\CyberShield-v3-fixture-")
+        .strip_prefix(prefix)
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "invalid fixture pipe name"))?;
     if suffix.is_empty()
         || !suffix
@@ -306,6 +328,54 @@ mod tests {
         assert_eq!(
             io::Error::last_os_error().kind(),
             io::ErrorKind::PermissionDenied
+        );
+    }
+
+    #[test]
+    fn admin_fixture_name_is_distinct_from_user_fixture_name() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let admin = format!(
+            r"\\.\pipe\CyberShield-v3-admin-fixture-{}-{unique}",
+            std::process::id()
+        );
+        let user = format!(
+            r"\\.\pipe\CyberShield-v3-fixture-{}-{unique}",
+            std::process::id()
+        );
+        assert!(LocalFixturePipe::bind_admin(&admin).is_ok());
+        assert!(LocalFixturePipe::bind_admin(&user).is_err());
+        assert!(LocalFixturePipe::bind(&admin).is_err());
+    }
+
+    #[test]
+    fn admin_fixture_never_executes_policy_methods() {
+        if OsIdentity::current_process().unwrap().session_id == 0 {
+            return;
+        }
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let name = format!(
+            r"\\.\pipe\CyberShield-v3-admin-fixture-{}-{unique}",
+            std::process::id()
+        );
+        let server = LocalFixturePipe::bind_admin(&name).unwrap();
+        let thread = std::thread::spawn(move || server.serve_once());
+        let mut client = connect_admin_fixture(&name).unwrap();
+        let request = br#"{"version":{"major":1,"minor":0},"method":"usb.policy.apply"}"#;
+        client.write_all(&encode_frame(request).unwrap()).unwrap();
+        let error = thread.join().unwrap().unwrap_err();
+        assert_eq!(
+            error.kind(),
+            if OsIdentity::current_process().unwrap().elevated {
+                io::ErrorKind::Unsupported
+            } else {
+                io::ErrorKind::PermissionDenied
+            }
         );
     }
 }
