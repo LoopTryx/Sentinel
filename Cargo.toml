@@ -1,8 +1,7 @@
 [workspace]
-members = ["crates/shield-proto"]
+members = ["crates/shield-proto", "crates/shield-cli"]
 resolver = "3"
 
 [workspace.package]
 edition = "2024"
 rust-version = "1.98"
-

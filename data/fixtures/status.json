@@ -1,0 +1,55 @@
+{
+  "mode": "fixture",
+  "assessment": {
+    "id": "fixture-assessment-1",
+    "subjectRef": "fixture-subject-1",
+    "risk": "unknown",
+    "confidence": "low",
+    "coverage": "unavailable",
+    "checks": [
+      {
+        "id": "availability",
+        "state": "skipped",
+        "reasonKey": "assessment.check.unavailable",
+        "evidenceRefs": []
+      }
+    ],
+    "reasons": [
+      {
+        "code": "not_assessed",
+        "messageKey": "assessment.reason.not_assessed"
+      }
+    ],
+    "actions": [
+      { "id": "review_capabilities", "requiresAdmin": false }
+    ],
+    "engineVersions": {},
+    "observedAt": "2026-09-29T00:00:00Z",
+    "expiresAt": null,
+    "lessonIds": []
+  },
+  "capabilities": [
+    {
+      "id": "file_scan",
+      "state": "unavailable",
+      "reasonKey": "capability.not_implemented",
+      "observedAt": null,
+      "evidenceRefs": []
+    },
+    {
+      "id": "usb_storage_gate",
+      "state": "untested",
+      "reasonKey": "capability.hardware_test_pending",
+      "observedAt": null,
+      "evidenceRefs": []
+    },
+    {
+      "id": "usb_hid_gate",
+      "state": "untested",
+      "reasonKey": "capability.hid_fixture_missing",
+      "observedAt": null,
+      "evidenceRefs": []
+    }
+  ],
+  "job": { "id": "fixture-job-1", "ownerRef": "fixture-user", "state": "queued" }
+}

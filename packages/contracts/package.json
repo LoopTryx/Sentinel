@@ -1,0 +1,9 @@
+{
+  "name": "@cybershield/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./generated/*": "./src/generated/*.ts"
+  }
+}
