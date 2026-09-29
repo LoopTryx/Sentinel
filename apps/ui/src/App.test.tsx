@@ -10,6 +10,8 @@ describe('status fixture', () => {
     expect(html).toContain('File scanning');
     expect(html).toContain('USB storage gate');
     expect(html).toContain('Untested');
+    expect(html).toContain('fixture-job-1');
+    expect(html).toContain('Queued');
     expect(html).not.toContain('All protected');
   });
 });
