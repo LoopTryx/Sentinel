@@ -348,7 +348,10 @@ dependencies = [
 name = "shield-svc"
 version = "0.1.0"
 dependencies = [
+ "serde",
+ "serde_json",
  "shield-proto",
+ "windows-sys",
 ]
 
 [[package]]

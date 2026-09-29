@@ -47,6 +47,16 @@ impl VerifiedCaller {
             remote,
         }
     }
+
+    #[cfg(windows)]
+    pub(crate) fn from_os_identity(identity: crate::windows::OsIdentity) -> Self {
+        Self {
+            sid: identity.sid,
+            session_id: identity.session_id,
+            elevated: identity.elevated,
+            remote: false,
+        }
+    }
 }
 
 pub fn authorize(
