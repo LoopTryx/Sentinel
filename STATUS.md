@@ -5,7 +5,7 @@ Updated: 2026-09-29
 | Task | State | Evidence |
 | --- | --- | --- |
 | T00 Capability and threat-model dossier | In progress; policy/HID probes deferred | Read-only inventory confirmed an owned removable FAT32 `CRYPTIC` (E:) volume. No disposable Windows 11 machine or HID test device is available |
-| T01 Contracts, jobs, functional shell | In progress | Rust contracts, generated TS bindings, shared CLI/UI fixture, and CI added; final verification pending |
+| T01 Contracts, jobs, functional shell | In progress | Rust contracts, generated TS bindings, shared CLI/UI fixture, CI, safe defaults, and owner-bound in-memory jobs pass available checks. A live agent process and IPC remain open |
 | T02–T17 | Not started | No product implementation or verification evidence yet |
 
 ## Next T00 work
@@ -21,3 +21,4 @@ Software contracts, fixtures, and UI states may proceed while hardware evidence 
 ## T01 checkpoint
 
 Rust 1.98.1 GNU toolchain and MinGW 16.2.0 were installed because the MSVC linker was absent. The first contract and CLI/UI tests were observed failing before implementation and then passing after implementation. The shared fixture is explicitly labeled as a preview. No service, scan, or USB enforcement exists yet.
+The `shield-core` default disables provider requests and USB policy changes. `shield-agent` now enforces job ownership and terminal-state transitions in memory; no privileged pipe or persisted job exists yet.

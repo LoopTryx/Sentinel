@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/shield-proto", "crates/shield-cli"]
+members = ["crates/shield-proto", "crates/shield-cli", "crates/shield-core", "crates/shield-agent"]
 resolver = "3"
 
 [workspace.package]

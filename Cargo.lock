@@ -76,12 +76,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "shield-agent"
+version = "0.1.0"
+dependencies = [
+ "shield-proto",
+]
+
+[[package]]
 name = "shield-cli"
 version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
  "shield-proto",
+]
+
+[[package]]
+name = "shield-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
