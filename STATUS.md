@@ -5,7 +5,7 @@ Updated: 2026-09-29
 | Task | State | Evidence |
 | --- | --- | --- |
 | T00 Capability and threat-model dossier | In progress; policy/HID probes deferred | Read-only inventory confirmed an owned removable FAT32 `CRYPTIC` (E:) volume. No disposable Windows 11 machine or HID test device is available |
-| T01 Contracts, jobs, functional shell | In progress | Rust contracts, generated TS bindings, shared CLI/UI fixture, CI, safe defaults, and owner-bound in-memory jobs pass available checks. A live agent process and IPC remain open |
+| T01 Contracts, jobs, functional shell | In progress | Rust contracts, generated TS bindings, shared CLI/UI fixture, CI, safe defaults, owner-bound in-memory jobs, and bounded RPC framing pass available checks. A live agent process and IPC remain open |
 | T02–T17 | Not started | No product implementation or verification evidence yet |
 
 ## Next T00 work

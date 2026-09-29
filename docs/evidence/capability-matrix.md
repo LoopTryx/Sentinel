@@ -7,7 +7,7 @@ Recorded 2026-09-29. `Observed` means a read-only fact was seen in this environm
 | Local Git history | Observed | Repository was initialized with no commits and no remote before this stage |
 | Windows edition/build | Partial | Registry returned Professional, 25H2, 26200.9457; legacy ProductName conflicts. Confirm authorized OS inventory |
 | Defender active | Untested | `Get-MpComputerStatus` returned Access denied in medium-integrity shell |
-| Rust/Cargo toolchain | Unavailable in current PATH | `Get-Command` found Node, pnpm, Git but not Rust/Cargo; install/pin after dependency review |
+| Rust/Cargo toolchain | Observed | Rust 1.98.1 and MinGW 16.2.0 installed; `tools/verify.ps1` passes local Rust and UI checks. MSVC linker remains absent for native Tauri build |
 | Admin access, RAM, CPU | Untested | CIM calls denied; authorized host inventory pending |
 | Disposable Windows 11 machine and owned HID lab device | Unavailable | Owner reported none available on 2026-09-29; HID gate testing deferred |
 | Owned removable storage `CRYPTIC` (E:) | Partial | Read-only `.NET DriveInfo` query returned `Removable`, FAT32, 31,896,633,344 bytes total, 31,206,572,032 bytes available. It contains existing owner files. No scan, mount-policy mutation, timing, or recovery test has run |
