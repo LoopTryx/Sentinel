@@ -37,6 +37,24 @@ fn no_arguments_cannot_claim_a_live_status() {
 }
 
 #[test]
+fn local_file_scan_reports_partial_coverage_and_checked_count() {
+    let path =
+        std::env::temp_dir().join(format!("cybershield-cli-scan-{}.txt", std::process::id()));
+    std::fs::write(&path, b"benign CLI fixture").unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_shield-cli"))
+        .args(["scan", "file", path.to_str().unwrap()])
+        .output()
+        .unwrap();
+    std::fs::remove_file(path).unwrap();
+    assert!(output.status.success());
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(report["mode"], "local_read_only_preview");
+    assert_eq!(report["coverage"], "partial");
+    assert_eq!(report["result"]["filesChecked"], 1);
+    assert_eq!(report["result"]["fullSignatureEngineActive"], false);
+}
+
+#[test]
 fn local_feed_import_and_offline_lookup_report_listing_without_safety_claim() {
     let cache_dir =
         std::env::temp_dir().join(format!("cybershield-cli-intel-{}", std::process::id()));

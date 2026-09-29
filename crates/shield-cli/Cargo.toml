@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+shield-scan = { path = "../shield-scan" }
 shield-proto = { path = "../shield-proto" }
 shield-intel = { path = "../shield-intel" }
 serde = { version = "1", features = ["derive"] }

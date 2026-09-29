@@ -8,7 +8,8 @@ Updated: 2026-09-30
 | T01 Contracts, jobs, functional shell | In progress | Rust contracts, generated TS bindings, shared CLI/UI fixture, CI, safe defaults, owner-bound in-memory jobs, and bounded RPC framing pass available checks. A fixture-only agent process answers one framed standard-input request. Authenticated live IPC remains open |
 | T02 Privilege boundary and recovery | In progress | A file-backed lease journal and separate fixture recovery executable pass recovery tests. Separate fixture-only user and admin Windows named pipes verify the client's token SID/session after reading, reject remote clients, and pass DACL, method, elevation, and frame tests. No installed service, actual policy mutation, or scheduled recovery trigger exists yet |
 | T03 Intel cache and provider controls | In progress | URLhaus-format fixture parser, offline exact-match cache, and local import/lookup CLI validate bounds, provenance, expiry, duplicates, corruption, and interrupted activation. Authenticated downloads, provider consent UI, signature policy, and performance gate remain open |
-| T04–T17 | Not started | No product implementation or verification evidence yet |
+| T04 Restricted worker and scanner | In progress | A read-only single-file CLI preview streams SHA-256 and detects the EICAR test string, including across read boundaries. Reports checked/skipped/access errors and partial coverage. No isolated worker, full signature engine, archives, scan jobs, or quarantine |
+| T05–T17 | Not started | No product implementation or verification evidence yet |
 
 ## Next T00 work
 
@@ -28,6 +29,10 @@ Software contracts, fixtures, and UI states may proceed while hardware evidence 
 ## T03 checkpoint
 
 The `shield-intel` crate parses a URLhaus-format fixture with strict URL and size limits, then activates a disk snapshot only after validation. On offline startup it selects a valid snapshot and reports `listed`, `not listed`, `stale`, or `unavailable` without calling an unlisted URL safe. A digest detects accidental cache corruption; it is not a provider signature. Provider network access remains disabled by default and no API key is stored. See [provider registry](docs/evidence/provider-registry.md).
+
+## T04 checkpoint
+
+`shield-scan` opens a user-selected regular file read-only, streams SHA-256 with a 512 MiB per-file cap, and detects the EICAR test string across read chunks. The CLI exposes `shield-cli scan file <path>` with `local_read_only_preview` mode and `partial` coverage. Missing, unsupported, changed, and size-limited files are never counted as checked. The full signature engine is inactive. This is neither an isolated hostile-file worker nor comprehensive malware detection; archives, YARA-X, ClamAV, cancellation, scan profiles, progress, and quarantine remain open. Do not use a clean preview result to release USB storage.
 
 ## T01 checkpoint
 

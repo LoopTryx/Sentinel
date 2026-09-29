@@ -308,6 +308,7 @@ dependencies = [
  "serde_json",
  "shield-intel",
  "shield-proto",
+ "shield-scan",
 ]
 
 [[package]]
@@ -342,6 +343,14 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "shield-scan"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "sha2",
 ]
 
 [[package]]
