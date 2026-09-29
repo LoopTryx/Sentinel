@@ -1,0 +1,485 @@
+CyberShield — Product Requirements Document (v1.0)
+
+Audience: an autonomous AI coding agent + the human owner (Loop). How to use this doc: read §0–§6 fully, then execute Phase 1 milestone by milestone (§9), then Phase 2 (§10). Never start Phase 2 before the Phase 1 gate passes. Date: 29 Sep 2026 · Primary platform: Windows 10/11 (x64) · Type: defensive security software only.
+
+0. TL;DR
+CyberShield = antivirus-grade protection + a teach-as-you-protect awareness layer + built-in password manager, delivered as a desktop app + Windows service + browser extension that talk to each other.
+Hero differentiators (build these best):
+Shield Dock — BadUSB / rogue-USB quarantine. New USB devices are held, analysed, and only "mounted" after they pass.
+Wi-Fi Guard — rogue router / evil-twin / DNS-hijack / traffic-tamper detection with a plain-language Trust Score.
+Awareness Engine — 25+ interactive "teachable moment" cards (e.g. Password Autopsy).
+Also: file inspection, real-time AV, ransomware guard, Web Shield, Mail Guard (Gmail/Outlook web), Chat Guard (WhatsApp Web), password vault, system hygiene audit.
+Two master phases: Phase 1 = everything works (headless-first, plain UI) → Phase 2 = everything is beautiful (glass UI, motion, a11y, i18n).
+1. Vision & positioning
+One-liner: "The antivirus that explains itself — and defends the places other antiviruses ignore (USB ports and Wi-Fi)."
+Why now: most AVs are file-scanners. Attacks now arrive via USB keystroke injection, evil-twin Wi-Fi, phishing mail, and WhatsApp scams. Users don't know why something is dangerous, so they click through warnings.
+Positioning: a layered second-opinion suite that runs alongside Microsoft Defender (see §5-R1), not a Defender replacement.
+Design goal: looks like a premium privacy product (calm, glassy, purple/cyan gradients, one big status hero — Proton VPN–style clarity), with accessibility built-in.
+2. Principles (non-negotiable)
+Privacy-first / local-first. File contents, emails, chats, and passwords never leave the device. Network lookups use hash prefixes (k-anonymity) or public feed downloads.
+Defensive only. No deauth, packet injection, credential brute-forcing, keylogging of users, or exploit code — ever. Test payloads are benign (see §11).
+Honest failure. If a check cannot run (no admin rights, no network, unsupported edition), the UI/log says so explicitly. No silent fallbacks and no fake "All clear".
+Explain every verdict. Every block/warn carries reasons[] in plain language + evidence.
+Fail-safe. A protective feature must never lock the user out of their own machine (especially USB policy — see F3).
+Headless-first. All logic reachable via a typed API/CLI so Phase 2 is a pure re-skin.
+Ship small, verify each step. Every milestone has acceptance tests and a demo script.
+3. Personas
+P1 — Everyday user (student/family): wants "am I safe?" in one glance; needs plain language.
+P2 — Curious/tech user: wants details (hashes, descriptors, BSSIDs, YARA hits).
+P3 — Parent/teacher (later): wants a hygiene score + lessons.
+4. Scope
+
+In scope (v1): Windows desktop app, Windows service, Chrome/Edge/Brave extension (MV3), Firefox extension (Phase 1 stretch), all features in §8. Out of scope (v1): macOS/Linux/Android/iOS clients, kernel minifilter driver (backlog B1), cloud backend/sync (backlog B3), parental controls, VPN.
+
+5. Reality checks the agent MUST design around
+#	Constraint	Design consequence
+R1	Only Microsoft-vetted partners register as the primary AV in Windows Security Center.	CyberShield runs beside Defender. Don't disable/tamper with Defender. Read its state via WMI root\SecurityCenter2.
+R2	True pre-execution blocking of every file open needs a signed kernel minifilter (needs EV/attestation signing).	v1 = user-mode real-time (FS change notifications + USN journal + ETW process events). Document the gap; minifilter = backlog B1.
+R3	A "sandbox simulation" cannot execute-test a USB's firmware; a BadUSB acts as a keyboard within milliseconds of enumeration.	Primary defence = block-before-install via Windows device-installation policy (F3), then analyse descriptors, then scan storage, then release. Runtime keystroke-timing monitor is a second layer.
+R4	Windows Sandbox / Hyper-V exist only on Pro/Enterprise/Education, not Home.	F3 has Tier A (all editions: isolated user-mode parser) and Tier B (Pro+: Windows Sandbox detonation). UI must show which tier is active.
+R5	Windows can't put a normal Wi-Fi NIC in monitor mode → can't see raw deauth/beacon frames.	Wi-Fi Guard uses WLAN API scan data + gateway/DNS/TLS/HTTP behavioural tests. Say "cannot detect deauth floods on this adapter" honestly.
+R6	Npcap redistribution has licensing limits.	v1 avoids raw packet capture; use OS APIs (GetIpNetTable2, WLAN API). Npcap-based features = optional/backlog.
+R7	WhatsApp mobile/desktop app content is not accessible.	Chat Guard works on WhatsApp Web via content script only. Selectors live in one config file (WhatsApp changes DOM often).
+R8	Manifest V3 limits blocking webRequest.	Use declarativeNetRequest (static + dynamic rules) and a service-worker–friendly design (no persistent background page).
+R9	Free intel APIs have terms/limits: Google Safe Browsing = non-commercial use; VirusTotal free ≈ 4 req/min & 500/day; HIBP email search needs a paid key, Pwned Passwords range API is free.	Cache aggressively, prefer local feeds, make every online source optional & pluggable; decide commercial status (see §14).
+R10	Reading browsers' saved-password DBs is infostealer behaviour and blocked by OS-bound encryption.	Import passwords only via the user's CSV export or extension-captured form submits (explicit consent).
+R11	Crack-time numbers are estimates.	Always label "estimated", show the attacker model used.
+6. Architecture & stack
+6.1 Components
+┌───────────────────────────┐    JSON-RPC over named pipe (ACL'd)
+│ shield-ui  (Tauri 2)      │◄──────────────────────────────┐
+│ React+TS+Tailwind (user)  │                               │
+└───────────────────────────┘                               ▼
+┌───────────────────────────┐   Native Messaging   ┌──────────────────────┐
+│ browser extension (MV3)   │◄────────────────────►│ shield-native-host   │
+│ WXT + React + TS          │      stdin/stdout    │ (Rust, tiny relay)   │
+└───────────────────────────┘                      └──────────┬───────────┘
+                                                              │ named pipe
+                                            ┌─────────────────▼─────────────────┐
+                                            │ shield-svc  (Windows Service,     │
+                                            │ Rust, runs as SYSTEM)             │
+                                            │  engine: scan │ intel │ vault     │
+                                            │  netguard │ usbguard │ hygiene    │
+                                            │  awareness-bus │ storage │ update │
+                                            └───────────────────────────────────┘
+Privilege split: UI + native host run as the user. Only shield-svc does privileged work (USB policy, quarantine vault ACLs, ETW, service control). Vault decryption happens in a user-session process, not SYSTEM (keys never live in the service).
+IPC: JSON-RPC 2.0 over a named pipe with per-user ACL + a per-session auth token. One shared schema crate (shield-proto) generates TS types (use ts-rs or specta).
+6.2 Recommended stack (with reasons)
+Layer	Choice	Why
+Core engine + service	Rust (windows-rs, tokio, serde, tracing)	memory safety for a security product, native Win32 access, small binaries
+Desktop shell	Tauri 2 (WebView2)	~10× lighter than Electron; UI in web tech; window-vibrancy gives real Mica/Acrylic
+UI	React + TypeScript + Vite + Tailwind + shadcn/ui (Radix) + Motion (Framer Motion) + Lucide + Recharts/visx	fast to build, accessible primitives, great glass/gradient control
+Extension	WXT (MV3, TS) + React popup + Shadow-DOM overlays	one codebase → Chrome/Edge/Brave/Firefox
+Signature AV	ClamAV (libclamav / clamd) + YARA-X rules + custom heuristics	proven signatures + flexible rules
+Binary analysis	goblin (PE), lopdf, zip/sevenz-rust/unrar (isolated), OLE/OOXML macro parser	static inspection
+Vault crypto	Argon2id KDF + XChaCha20-Poly1305 (RustCrypto), SQLCipher or per-record AEAD in SQLite; zeroize, secrecy	modern, audited primitives
+Password strength	zxcvbn (Rust port)	gives crack-time estimates per attacker model
+Breach check	HIBP Pwned Passwords range API (SHA-1 prefix, Add-Padding: true)	k-anonymity, free
+URL intel	Google Safe Browsing Update API (local hash prefixes) (non-commercial), URLhaus, OpenPhish/PhishTank feeds, Tranco top list (lookalike baseline), RDAP for domain age	mostly local & free
+File intel	MalwareBazaar, VirusTotal hash lookup (optional)	reputation without uploading files
+Vuln intel	CISA KEV, OSV.dev	outdated-software awareness
+Email/chat ML	small classifier trained offline → ONNX, run with onnxruntime-web (WASM) in extension	on-device, no data leaves
+Phone parsing	libphonenumber-js	country-code anomaly checks
+Storage	SQLite (rusqlite), TOML config	simple, embeddable
+Packaging	Tauri bundler (WiX/MSI + NSIS), Tauri updater, code-signing (Azure Trusted Signing or OV/EV cert)	installable + auto-update
+CI	GitHub Actions windows-latest (fmt, clippy, tests, build, artifact)	repeatable
+Tests	cargo test, proptest, Vitest, Playwright (extension + UI), Storybook + axe-core, Chromatic/Playwright snapshots	coverage + a11y + visual
+
+Language note for the owner: Rust is recommended for the engine. If Rust is a blocker, the fallback is Python engine (PyInstaller service) + Tauri UI; performance and hardening are weaker. Decision D1 in §14.
+
+6.3 Repo layout (monorepo)
+cybershield/
+  AGENTS.md            # agent operating rules (copy §13)
+  STATUS.md            # living milestone tracker
+  DECISIONS.md         # ADR log
+  crates/
+    shield-proto/      # RPC schema + TS type generation
+    shield-core/       # shared types, config, logging, error model
+    shield-intel/      # feeds, caches, reputation
+    shield-scan/       # AV engine, inspector, quarantine, ransomware guard
+    shield-vault/      # crypto + vault + generator + audit
+    shield-usb/        # Shield Dock
+    shield-wifi/       # Wi-Fi Guard
+    shield-hygiene/    # system audit
+    shield-awareness/  # event bus, catalog, scoring
+    shield-svc/        # Windows service binary
+    shield-native-host/# native messaging relay
+    shield-cli/        # headless CLI (dev + tests)
+  apps/
+    ui/                # Tauri 2 + React
+    extension/         # WXT MV3
+  data/
+    awareness/         # lesson JSON (i18n-ready)
+    rules/             # YARA, heuristics, scam-phrase packs
+    fixtures/          # SAFE test artifacts only
+  design/
+    tokens/  refs/  storybook/
+  tools/               # scripts (feed sync, dataset builders)
+7. Cross-cutting requirements
+Verdict model (shared by all modules): Verdict { level: Safe|Info|Suspicious|Dangerous|Unknown, score: 0-100, reasons: Reason[], evidence: Evidence[], actions: Action[], teach?: AwarenessCardId }
+Event bus: every module emits AwarenessEvent { id, type, severity, subject, evidence, teach_id, ts }. The awareness engine decides whether/when to teach (rate-limited, dismissible, never nagging).
+Logging: structured tracing → rotating local log; in-app Activity Log; export button. No PII in logs (hash/redact paths' user segment).
+Config: TOML + UI; every feature has an on/off switch and a "learn more".
+Update system: signature/feed updater (scheduled, resumable, integrity-checked with hashes/signatures) separate from app updater.
+Performance budgets: idle RAM: UI ≤ 150 MB, svc ≤ 80 MB; idle CPU < 1%; quick scan on 100k files < 60 s on SSD; cold start UI < 2 s; extension bundle < 1 MB (excl. ONNX model).
+Self-protection: service ACLs, signed updates, tamper-check of own binaries/rules, anti-injection for the pipe, no secrets in logs.
+i18n-ready from day 1: all strings via keys (i18next), logical CSS properties (RTL-safe). Languages targeted: English (v1), Arabic + Hindi + Malayalam (Phase 2).
+8. Feature specifications
+F1 — Core Antivirus Engine
+On-demand scans: Quick (user dirs, startup, temp, downloads), Full, Custom folder, Removable drive, "Scan this file" (shell context menu).
+Detection stack (in order): allowlist/known-good (Authenticode + Tranco-like trust for publishers) → hash reputation (local MalwareBazaar cache, optional VT hash) → ClamAV signatures → YARA-X rules → heuristics (PE anomalies, high entropy sections, suspicious imports, packers, script obfuscation, Office macros, PDF JS, LNK abuse, double extensions).
+Real-time (user-mode): file create/modify watcher (ReadDirectoryChangesW + USN journal), process-start events via ETW (Microsoft-Windows-Kernel-Process), new-download hook via the extension. Scan-on-write for Downloads/Desktop/Temp/USB; debounce + size limits.
+Ransomware Guard: canary files in user folders; alert + suspend suspect process on mass-rename/mass-encrypt patterns (entropy jump + extension churn); protected-folder list.
+Quarantine: encrypted, ACL'd vault (AES-GCM per item, metadata DB); restore/delete/submit-hash; never executes quarantined content.
+Persistence audit: Run/RunOnce keys, scheduled tasks, services, startup folder, WMI subscriptions, browser extensions list, hosts-file tamper → flagged with explanations.
+Network connection monitor: list live connections per process, flag IPs/domains on threat feeds (read-only, no blocking in v1).
+Acceptance: EICAR detected in files/zip/nested zip; YARA test rule hits; quarantine round-trip works; ransomware-canary simulation (benign script that renames files) is flagged in < 5 s; zero crashes on a corpus of 10k mixed clean files.
+F2 — File Inspector (deep, single-file report)
+Drag-and-drop or right-click → report: hashes (MD5/SHA-1/SHA-256/ssdeep-style fuzzy), true type vs extension, size, entropy, signer/cert chain, PE sections/imports/resources, embedded URLs/IPs, strings of interest, macro/JS/script extraction (view-only), archive tree (safe, bomb-limited), timestamp anomalies, reputation lookups, YARA/AV hits.
+Verdict + "Why?" panel (plain-language reasons) + Teach card ("Why a .pdf.exe is a trap").
+Never executes the file. Parsing runs in a restricted child process (job object, low integrity, no network, memory/time caps).
+Acceptance: 20 sample types produce correct type/verdict; malformed/fuzzed inputs never crash the host (fuzz with cargo-fuzz 30 min per parser in CI nightly).
+F3 — Shield Dock (USB Protection) ⭐ hero feature
+
+Goal: no unknown USB device gets to type, mount, or install a driver until CyberShield has inspected it and the user approves.
+
+Pipeline
+
+Baseline (first run): snapshot currently attached keyboards/mice/hubs/storage → auto-allow-list them (by hardware ID + instance/serial). Also allow built-in/PS/2/Bluetooth/internal HID classes so the machine is never locked out.
+Block-before-install: enable Windows Device Installation Restrictions (HKLM\SOFTWARE\Policies\Microsoft\Windows\DeviceInstall\Restrictions — deny-unspecified + allow-list of trusted IDs/classes) managed by shield-svc. New devices enumerate but no driver binds → no keystrokes, no drive letter.
+Quarantine state: device shown as "Held — inspecting". Read PnP properties without binding drivers (Hardware IDs, Compatible IDs, Class GUIDs, container ID, child interface nodes MI_xx, serial, manufacturer strings, bus-reported speed/power).
+Descriptor risk analysis (rules, weighted):
+Storage device that also exposes an HID/keyboard interface (composite) → Dangerous.
+Claims keyboard/HID but no serial, generic/DIY-board VID/PID (dev boards, known keystroke-injector families), or VID/PID that mismatches its claimed vendor string → Suspicious+.
+Advertises network adapter (CDC-ECM/RNDIS) unexpectedly (can hijack traffic/DNS) → Dangerous.
+Unknown class combos, excessive interface count, fake "charge-only" that exposes data lines → flag.
+Maintain data/rules/usb_vidpid.json (community-updatable, signed).
+Storage inspection (Tier A — all editions): allow storage class only for this device, but keep it offline / no drive letter / read-only (disable automount for it, set disk read-only/offline via IOCTL/Storage APIs). Acquire a raw read-only image or stream sectors, parse FAT/exFAT/NTFS in an isolated user-mode parser process (not the kernel filesystem driver), then run F1/F2 pipeline on every file. Extra USB-specific checks: autorun.inf, hidden/system-attribute folders + .lnk "shortcut virus" pattern, executables masquerading as folders, oversized .lnk args, suspicious scripts in root.
+Detonation Chamber (Tier B — Pro+/Windows Sandbox available): copy extracted files into a networkless Windows Sandbox session (generated .wsb, read-only mapped input, no clipboard/audio/GPU), execute only user-approved executables with a lightweight behaviour monitor (process/file/registry/network attempts via ETW inside sandbox), return a behaviour report. If unavailable → UI says "Tier A only (Windows Sandbox not available on this edition)".
+Verdict & release: Clean → prompt: Allow (read-only) / Allow (read-write) / Keep blocked / Eject. Keyboard-class devices are never auto-released; user confirms via on-screen approval requiring a mouse/touch/or trusted keyboard (never approvable by the new device itself).
+Runtime keystroke guard (second layer, for approved & baseline HID): Raw Input API per-device timing → flag sustained inhuman typing (default > 15 chars/s for > 1 s, or near-zero variance between keys), or Win+R / PowerShell / cmd launched within 5 s of a new HID appearing → freeze the new device (disable via PnP), kill spawned process tree, show "USB Autopsy" (replay of what it tried to type, in a safe view). Thresholds configurable; tune against real typists to keep false positives low.
+Safety nets (mandatory): never allow-list-lock out all keyboards; timed auto-revert of policy if the UI can't be reached within N seconds ("recovery countdown"); "Emergency: allow all devices" reachable from tray + a documented Safe-Mode/registry recovery step; Bluetooth & internal devices exempt by default.
+Modes: Strict (deny all new), Balanced (default: deny new HID/network/composite; auto-scan storage), Learn (log-only for 24 h after install).
+
+Acceptance (use only your own lab devices): benign HID test device (e.g. Raspberry Pi Pico typing "hello" instantly) is held and never types before approval; storage stick with EICAR is detected before a drive letter appears; composite storage+HID is flagged Dangerous; existing keyboard/mouse keep working through install, reboot, and policy toggling; recovery path verified.
+
+F4 — Wi-Fi Guard ⭐ hero feature
+
+Inputs (no monitor mode required): WLAN API (WlanScan, WlanGetNetworkBssList, connection attributes), GetIpNetTable2/adapter info, DHCP lease info, DoH resolvers for cross-check, direct HTTPS/HTTP probes.
+
+Checks → Trust Score (0–100) with reasons
+
+Encryption posture: Open / WEP / WPA-TKIP / WPA2-PSK / WPA2-Enterprise / WPA3 / mixed transition mode → score + explanation.
+Evil-twin / clone signals: same SSID with multiple BSSIDs having different security, vendor OUI, channel plan, or suspiciously strong RSSI; TOFU baseline for "home/school" networks (store known-good BSSID/OUI/security; alert on change); hidden-SSID mismatches.
+Gateway integrity: gateway MAC vs baseline; duplicate MAC in ARP table / gateway MAC flips (ARP-spoof indicator); unexpected extra first hop; abnormal RTT/TTL to gateway.
+DNS integrity: resolve canary domains via system resolver and via DoH (Cloudflare/Google/Quad9); mismatches, NXDOMAIN hijacking, private-IP answers for public domains, captive redirection → flag.
+TLS / MITM check: fetch a few known HTTPS endpoints; verify chain validity and compare SPKI pin/fingerprint sets (pin list updated via signed feed); unexpected issuer = Dangerous.
+HTTP tamper check: fetch small static HTTP resources with known hashes; injected content/ads/scripts → flag.
+Captive portal analysis: detect via Microsoft NCSI / generate_204 style probes; portals that ask for passwords/cards/OTP → warn.
+Router health (non-intrusive): vendor from OUI; gateway admin ports/services reachable from LAN (Telnet, UPnP exposed, HTTP admin without TLS) → advisory; "default credentials not changed?" is an advice card only — never attempt logins.
+Rogue DHCP (stretch): detect more than one DHCP server responding (only if implementable without Npcap; else backlog).
+Hotspot-look-alike heuristics: SSID similar to a known network but not identical (e.g., Free_Airport_WiFi vs Free-Airport-WiFi), phone-hotspot patterns in public places, SSIDs with homoglyphs.
+
+Actions: Disconnect & forget, Force DoH, Suggest VPN, Block sensitive sites (banking/vault autofill) on low-trust nets (via extension), Public-Wi-Fi Mode (disables file-sharing/discovery, warns before logins). Modes: auto-check on connect, manual "Test this network", background re-check every N minutes. Acceptance: lab test with your own second router cloning your SSID with different security/OUI triggers Evil-Twin flag; DNS-tamper simulated via a local test resolver triggers flag; captive-portal network detected; results always list which checks could not run and why.
+
+F5 — Vault (Password Manager)
+Crypto: master password → Argon2id (tunable, benchmarked on device) → key-encryption; per-item XChaCha20-Poly1305; encrypted SQLite; recovery key/Emergency Kit (PDF/printable); auto-lock timer; lock on sleep/RDP; clipboard auto-clear (20 s) and clipboard-history exclusion flag; Windows Hello unlock (optional, WebAuthn/DPAPI-NG).
+Items: logins, secure notes, cards (masked), identities, TOTP (RFC 6238), attachments (small).
+Generator: length/charset/passphrase (EFF wordlist), pronounceable, live crack-time meter.
+Import/Export: CSV from Chrome/Edge/Firefox/Bitwarden/1Password/LastPass; encrypted export; no direct browser-DB reading (R10).
+Security Audit (feeds Awareness): weak (zxcvbn score ≤ 2), breached (HIBP range check), reused, old, missing 2FA (known-2FA-sites list), HTTP-only sites, similar-passwords (edit distance).
+Password Autopsy data model (for the popup): { item, score, crack_times{online_throttled, online_unthrottled, offline_slow, offline_fast}, patterns[{type, span}], breach_count, keys_used[], suggestions[], fixed_candidate }
+Acceptance: vault round-trips 10k items; wrong-password attempts rate-limited; memory zeroized on lock (verify in tests); HIBP check sends only 5-char prefix (assert in test via mock server); crack-time output matches zxcvbn reference on fixtures.
+F6 — Web Shield (Extension core)
+URL verdict pipeline: allow/deny lists → local Safe Browsing hash prefixes → URLhaus/OpenPhish/PhishTank cache → heuristics (punycode/homoglyph, typosquat distance vs Tranco top-N, suspicious TLDs, very young domain via RDAP, URL entropy, IP-literal hosts, deceptive subdomains, brand-in-path) → verdict.
+Interstitial block page (bundled, works offline) with "Why blocked", "Go back", "Proceed anyway (logged)".
+Download guard: on downloads.onCreated/Changed → hash + type check → hand to service for scan; warn on double extensions/.exe from unusual origins.
+Login-page protection: password field on non-matching origin for a saved login → Phishing Alert; block autofill on lookalikes.
+Tracker/ad blocking: declarativeNetRequest static rulesets (EasyList/EasyPrivacy-derived, license-checked) + dynamic rules; per-site toggle; counters.
+Extension permission risk audit (awareness) and HTTPS-only upgrade.
+Acceptance: known-bad test URLs (URLhaus test entries, Google Safe Browsing test pages) blocked; typosquat paypa1.com-style test domains flagged; block page shows reasons; MV3 service worker survives suspend/resume without losing state.
+F7 — Mail Guard (Gmail / Outlook Web)
+How: content scripts on mail.google.com, outlook.live.com, outlook.office.com read the open message DOM (read-only). All analysis local.
+Signals: display-name vs address mismatch, look-alike sender domain, Reply-To mismatch, link text ≠ href, shorteners/punycode, dangerous attachment types/double ext, urgency/payment/gift-card/OTP/invoice language, QR-code images (quishing), mismatched brand vs domain, first-time sender + link, "[EXTERNAL]" spoof, header auth results where the UI exposes them (SPF/DKIM/DMARC).
+Scoring: rules + tiny ONNX classifier (trained offline on public corpora like SpamAssassin/Enron-spam/phishing corpora — record dataset licences in DECISIONS.md).
+UI hook: unobtrusive banner inside the email (Shadow DOM) with score, reasons, "Teach me" → awareness card ("Anatomy of a phish").
+Acceptance: ≥ 90% detection / ≤ 3% false positives on the held-out test set; no network calls containing email text (assert in tests).
+F8 — Chat Guard (WhatsApp Web)
+How: content script on web.whatsapp.com; MutationObserver on the active chat; read-only (never sends/automates messages).
+Signals: unknown-number first contact; country-code anomaly vs user's home region (configurable, default from OS locale); links (→ Web Shield engine); scam pattern packs (task/"like-and-earn" jobs, crypto/investment, fake delivery/customs, "send the 6-digit code", loan/KYC, romance/emergency, prize/lottery, impersonating a contact with a new number); rapid-fire group-invite spam; media with QR.
+Number reputation: local blocklist (user reports + shipped list) → "Report as scam" (local first; community sync = backlog B3). Do not scrape third-party caller-ID services.
+UI hook: small shield chip on the chat header + collapsible warning banner; one-tap "Block & report in WhatsApp" instructions (no automation).
+Resilience: all DOM selectors in selectors.json; smoke test in CI against a recorded fixture; graceful "Chat Guard paused — WhatsApp layout changed" state.
+Acceptance: fixture chats with each scam pattern flagged; benign chats not flagged; guard degrades gracefully when selectors fail.
+F9 — Awareness Engine ⭐ hero feature
+
+Concept: every detection is a teachable moment. Engine = triggers → card → micro-interaction → score.
+
+Card tiers: (1) inline chip/banner, (2) modal/popover interactive card, (3) full lesson (2–4 min, gamified). Rate-limited (max N/day, snooze, "don't show again", per-topic mastery reduces repeats).
+Cyber Hygiene Score (0–1000) + streaks + weekly report; explains how to gain points; never shames.
+Data-driven: lessons live in data/awareness/*.json (steps, media refs, quiz items, i18n keys) so content can grow without code changes.
+
+Catalog (v1 target: 25 cards; each has ID, trigger, interaction, takeaway):
+
+ID	Card	Trigger	Interaction
+A01	Password Autopsy	weak/breached password found	On-screen keyboard highlights the keys/patterns used, animated crack-time meter per attacker model, breach count, "fix it" generator with live meter
+A02	Reuse Radar	same password on ≥2 logins	node-graph of accounts sharing it; "one leak, many doors"
+A03	Breach Timeline	breach match (email API optional)	timeline of what leaked & what to change
+A04	Phishing Dojo	Mail Guard hit / weekly	spot-the-red-flags on a simulated email (tap hotspots)
+A05	URL X-Ray	suspicious link	domain anatomy (subdomain/host/TLD), homoglyph highlighter
+A06	Wi-Fi Trust Meter	Wi-Fi Guard result	explains each failed check with visuals
+A07	"What a hacker sees on open Wi-Fi"	open network joined	safe animated storyboard (no real capture)
+A08	USB Autopsy	Shield Dock block	replay of blocked keystrokes in a sandboxed viewer
+A09	Why "charge-only" cables matter	new USB cable/device	quick explainer + data-blocker tip
+A10	Double-Extension Trap	.pdf.exe etc.	drag-the-extension mini-game
+A11	Download Danger Meter	risky download	file-origin/type/reputation gauge
+A12	2FA Coach	login without 2FA	which accounts support it, TOTP vs SMS vs passkey
+A13	Passkeys 101	2FA lesson done	interactive comparison
+A14	Email Header Explainer	flagged mail	SPF/DKIM/DMARC visual
+A15	Scam Number Explainer	Chat Guard hit	country-code map + scripts scammers use
+A16	OTP Never-Share	"send me the code" pattern	scenario choose-your-path
+A17	Ransomware Drill	canary alert / monthly	safe simulation of encrypted files + backup lesson
+A18	Tracker Footprint	Web Shield counters	what trackers learned about "you today"
+A19	Extension Permission Audit	risky extension	permission → plain-language risk cards
+A20	Update Nudger	vulnerable app version (CISA KEV/OSV)	"why patching matters" + one-click open winget/updater
+A21	Quishing Guard	QR seen in mail/chat	safe URL preview of the QR
+A22	Clipboard Guard	crypto-address swap / password in clipboard	clipboard hygiene demo
+A23	Fake Login Lab	phishing login blocked	side-by-side real vs fake page
+A24	Social-Engineering Quiz	daily/weekly	60-second scenario quiz
+A25	Hygiene Report	weekly	shareable-safe summary (no personal data)
+
+Acceptance: each card renders from JSON with a triggering test event; scoring unit tests; no card fires more than the configured cap; every card has at least one "Do this now" action.
+
+F10 — System Hygiene Audit
+
+Defender/firewall/SmartScreen/BitLocker state (via WMI/registry, read-only), Windows Update status, risky settings (SMBv1, RDP exposed, AutoRun, UAC level), open listening ports, outdated apps (winget list vs KEV/OSV where matchable), browser hardening checklist. Output = score + fix-it guidance. No auto-changing of OS settings without explicit click.
+
+F11 — Threat Intel Layer (shield-intel)
+Scheduled feed sync with ETag/If-Modified-Since, integrity hashes, size caps, backoff; local SQLite/bloom filters for fast lookups.
+Sources: Safe Browsing (hash prefixes), URLhaus, OpenPhish/PhishTank, MalwareBazaar, ThreatFox (IOC), Tranco, CISA KEV, OSV; optional VT/HIBP-email with user-supplied keys.
+Each source has: licence note, refresh cadence, on/off, last-sync status shown in UI. Offline mode works from cache and says so.
+F12 — Settings, Privacy, Updates
+
+Per-feature toggles, protection profiles (Balanced/Strict/Learn), exclusions, telemetry off by default (opt-in, anonymous counters only), data export/delete, app + rule auto-update with signature verification, diagnostic bundle export (redacted).
+
+9. PHASE 1 — "Everything works" (functionality complete)
+
+Phase 1 UI rule: a plain functional shell (shadcn defaults, dark theme, no glass/gradients/animations). Every feature must be usable through this shell and the CLI. Do not spend time on beauty. But: use the design-token file from day one (empty/default values) so Phase 2 can skin without refactors, and put all logic behind the typed RPC API.
+
+Milestones (execute in order; each ends with acceptance tests + demo script + STATUS.md update)
+ID	Milestone	Key deliverables	Gate (must pass)
+M1.0	Foundation + de-risk spikes	monorepo, CI, service skeleton, named-pipe RPC, Tauri shell, extension stub, native host, logging/config; Spike-USB (PnP property read without driver binding + device-install policy toggle w/ rollback) & Spike-WiFi (WLAN scan + BSS list + gateway/ARP read)	spikes run on a real Windows 11 box; write findings to DECISIONS.md; go/no-go on each approach
+M1.1	Threat Intel layer	feed sync, caches, bloom filters, Tranco, RDAP, offline mode	feed sync idempotent; lookup < 5 ms local
+M1.2	Shield Dock (USB) — Tier A	baseline snapshot, deny-by-default policy + allow-list, quarantine state, descriptor rules, storage offline/read-only raw scan via isolated parser, release flow, recovery countdown	F3 acceptance (Tier A) incl. no-lockout tests
+M1.3	AV engine core	scanner pipeline (ClamAV + YARA-X + heuristics), quarantine vault, on-demand scans, CLI	F1 detection tests
+M1.4	Wi-Fi Guard	all checks in F4 (except stretch), Trust Score, baselines (TOFU), actions	F4 acceptance
+M1.5	Real-time + Ransomware Guard + persistence audit + connection monitor	user-mode watchers, ETW, canaries	F1 real-time/ransomware acceptance
+M1.6	File Inspector	deep report, restricted parser process, fuzz targets	F2 acceptance
+M1.7	Vault	crypto, CRUD, generator, TOTP, import/export, audit, Autopsy data	F5 acceptance
+M1.8	Extension core + native messaging	Web Shield (F6), download guard, tracker DNR rules, interstitial data, login-page protection	F6 acceptance
+M1.9	Autofill + Vault bridge	extension ↔ service ↔ vault (secrets never in page context; per-origin matching; user-gesture required)	phishing-origin autofill refused in tests
+M1.10	Mail Guard	Gmail/Outlook web analyzers, ONNX model, banner data	F7 acceptance
+M1.11	Chat Guard	WhatsApp Web analyzer, number heuristics, selector config	F8 acceptance
+M1.12	Shield Dock Tier B + keystroke guard	Windows Sandbox detonation, behaviour report, Raw Input timing monitor, USB Autopsy data	F3 acceptance (Tier B + runtime guard)
+M1.13	Awareness Engine	event bus, 25 cards as JSON + trigger rules + quiz data + scoring, plain-list UI	F9 acceptance
+M1.14	System Hygiene + Settings/Updates	F10, F12, feed/app updater, redacted diagnostics	works on clean Win10 & Win11 VMs
+M1.15	Phase 1 Gate	full regression, fuzz nightly green, perf budgets, installer builds (MSI/NSIS), threat-model review, docs	see gate below
+
+Order rationale: hardest/riskiest and hero features (USB, Wi-Fi) come first; browser features later because they depend on the intel + service being stable.
+
+Phase 1 Gate (all must be true)
+All F1–F12 acceptance criteria pass on Windows 10 22H2 and Windows 11 VMs (Home + Pro).
+No silent fallbacks: every "cannot run" state surfaces in UI/log (audit checklist).
+CI green: fmt, clippy -D warnings, unit/integration, Playwright extension tests, fuzz smoke.
+Perf budgets (§7) met; installer installs/uninstalls cleanly (no orphaned policy keys, services, or drivers).
+Recovery test: USB policy fully reverts on uninstall and via emergency path.
+STATUS.md shows every milestone ✅ with links to test evidence.
+10. PHASE 2 — "Everything is beautiful" (UI/UX, motion, a11y, i18n)
+
+Rule: Phase 2 changes presentation only. Any new backend need → log in DECISIONS.md, keep tiny, add tests. Do not regress Phase 1 tests.
+
+10.1 Design language: "Aurora Glass"
+Feel: calm, trustworthy, premium — status-first like Proton VPN's clarity (one big protection hero, minimal chrome, left sidebar, friendly explanations), but with CyberShield's own identity (shield ring, aurora gradient).
+Dark-first with a full light theme and high-contrast theme.
+Glass rule (critical): glass is for chrome and containers (sidebar, cards, popovers, nav). Body text and dense data sit on a more-opaque inner layer that guarantees WCAG 4.5:1 against the worst-case backdrop. No text directly on raw blur.
+Backdrop: slow-moving aurora gradient blobs (paused when window unfocused / reduced-motion), plus a subtle noise overlay for depth.
+Real OS materials: use window-vibrancy for Mica/Acrylic on Windows 11 (Acrylic on Win10 has drag-lag — provide setting to disable); CSS backdrop-filter inside the WebView.
+10.2 Design tokens (starter — tune in Figma/Storybook)
+css
+:root {
+  /* surfaces */
+  --bg-0: #07080f;            /* app base */
+  --bg-1: #0e1020;            /* raised */
+  --glass-fill: rgba(255,255,255,.06);
+  --glass-fill-strong: rgba(18,20,38,.72);   /* inner text layer */
+  --glass-border: rgba(255,255,255,.14);
+  --glass-blur: 24px;
+  --glass-sat: 160%;
+
+  /* brand gradient */
+  --accent-a: #7c5cff;  /* violet */
+  --accent-b: #22d3ee;  /* cyan */
+  --grad-brand: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+
+  /* semantic (always paired with icon + text, never colour alone) */
+  --safe: #34d399;  --warn: #fbbf24;  --danger: #f87171;  --info: #60a5fa;
+
+  /* text */
+  --text-1: #f5f6ff;  --text-2: #c4c8e4;  --text-3: #9aa0c7;
+
+  /* shape / motion */
+  --radius-card: 20px; --radius-pill: 999px;
+  --ease: cubic-bezier(.2,.8,.2,1);
+  --dur-fast: 150ms; --dur-med: 240ms; --dur-slow: 400ms;
+}
+
+.glass {
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+          backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  box-shadow: 0 8px 32px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.12);
+  border-radius: var(--radius-card);
+}
+@supports not (backdrop-filter: blur(1px)) { .glass { background: var(--glass-fill-strong); } }
+@media (prefers-reduced-transparency: reduce) { .glass { backdrop-filter: none; background: var(--glass-fill-strong); } }
+@media (prefers-contrast: more) { .glass { background: var(--glass-fill-strong); border-color: #fff; } }
+@media (forced-colors: active) { .glass { background: Canvas; border: 1px solid CanvasText; } }
+@media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }
+Typography: Inter (UI), Space Grotesk or Sora (display headings), JetBrains Mono (hashes, BSSIDs, keys). Scale 12/14/16/20/24/32/48; body ≥ 14px; line-height 1.5.
+Icons: Lucide (stroke 1.75). Charts: Recharts/visx with pattern fills + labels (not colour-only).
+Elevation: 3 levels (base / glass card / floating popover). Avoid stacking more than 2 blur layers (perf).
+10.3 Screens & signature experiences
+Onboarding (3–4 steps): welcome → permissions explained (why admin is needed) → USB baseline capture → vault creation → extension pairing.
+Dashboard: big Shield Ring (Protected / Attention / At risk) with gradient glow, 4–6 status tiles (AV, Web, Wi-Fi, USB, Vault, Hygiene), "Next best action" card, live activity feed, Hygiene Score.
+Scan center: quick/full/custom with animated progress; results list with filters; Inspector side panel with the "Why?" section; Quarantine grid.
+Shield Dock: "Detonation Chamber" visual — device icon slides into a glass chamber, stages animate (Held → Identify → Scan → Behaviour → Verdict), then a release sheet. Include the USB Autopsy replay view.
+Wi-Fi Guard: radar visualization of nearby networks (BSSID dots, colour + shape by risk), Trust Meter dial, per-check checklist with expandable explanations, one-tap actions.
+Vault: list + detail split, breach/weak badges, TOTP ring countdown, generator sheet, Password Autopsy (interactive on-screen keyboard with heat-highlighted keys/patterns, crack-time bars per attacker model in friendly units — seconds → years → centuries).
+Awareness Hub ("Academy"): card grid by topic, streaks, score, "today's 60-second lesson", progress rings; lessons use step-through with motion, confetti-lite on completion (respect reduced motion).
+Extension UI: popup (site verdict, trackers blocked, autofill), full-page block interstitial (glass, big reason, safe exit), in-page Shadow-DOM banners for Mail/Chat Guard (must not break host page CSS), Wi-Fi low-trust site warning.
+Tray flyout: compact status + quick scan + emergency USB allow + lock vault.
+Settings, Activity Log, About/Licences, Empty/Error/Offline states (friendly illustrations, never blame the user).
+10.4 Accessibility (WCAG 2.2 AA minimum)
+Contrast: text ≥ 4.5:1, large text/UI ≥ 3:1 — measured against worst-case backdrop (automate with axe + a contrast script over token combos).
+Full keyboard operability, visible :focus-visible rings (≥ 3:1), logical tab order, no keyboard traps, skip-links; target size ≥ 24×24 px (aim 40+).
+Screen readers: semantic landmarks, aria-live for scan/USB/Wi-Fi status changes, meaningful names for icons/charts (provide data-table alternatives for radar/dial).
+Never colour-only meaning; motion respects prefers-reduced-motion; transparency respects prefers-reduced-transparency/prefers-contrast/forced-colors.
+Text scaling to 200%, zoom to 400% w/o loss; optional dyslexia-friendly font + larger text setting.
+i18n/RTL: Arabic (RTL), Hindi, Malayalam packs; logical properties; test with pseudo-locale (long strings).
+Plain-language rule: reading level ≤ grade 8 for all warnings; jargon gets a "What's this?" tooltip.
+10.5 Motion
+Micro-interactions 150–240 ms, page/sheet transitions ≤ 400 ms, spring easing via Motion; shield ring "breathing" idle animation (≤ 2% CPU); pause all ambient animation when window is hidden.
+Signature animations: Shield Ring state morph, Detonation Chamber sequence, Radar sweep, Crack-time counter roll-up, Score count-up. Optional Rive/Lottie for the mascot-free shield animation.
+10.6 Phase 2 Milestones
+ID	Milestone	Deliverables	Gate
+M2.0	Design system	tokens, Tailwind theme, Glass* primitives (Card, Sheet, Popover, Nav, Button, Toggle, Badge, Meter), Storybook, axe + visual tests, 3 themes	Storybook a11y = 0 serious/critical
+M2.1	App shell	frameless window, vibrancy, titlebar, sidebar, tray flyout, routing, aurora backdrop	60 fps on mid laptop, RAM budget met
+M2.2	Dashboard	Shield Ring, tiles, next-best-action, activity feed	all states (safe/attention/risk/offline)
+M2.3	Scan/Inspector/Quarantine	full flows + empty/error states	keyboard-only complete flow
+M2.4	Shield Dock experience	Chamber, release sheet, USB Autopsy	reduced-motion variant works
+M2.5	Wi-Fi Guard experience	radar, trust dial, checks list, actions	data-table alt for radar
+M2.6	Vault UI + Password Autopsy	list/detail, TOTP, generator, keyboard heatmap	SR-friendly, clipboard flows tested
+M2.7	Awareness Hub + all 25 cards	lesson player, quizzes, scoring UI	each card visual + a11y test
+M2.8	Extension UI	popup, interstitial, Shadow-DOM overlays for Mail/Chat, options page	no host-page style leakage (Playwright)
+M2.9	Onboarding, Settings, i18n/RTL	flows + 3 extra languages	pseudo-locale + RTL screenshots pass
+M2.10	Phase 2 Gate	motion polish, perf pass, full a11y audit (axe + manual NVDA/keyboard), visual regression suite, marketing screenshots	see below
+Phase 2 Gate
+Lighthouse-style a11y ≥ 95 on extension pages; axe: 0 serious/critical across app.
+Manual NVDA + keyboard-only walkthrough of: onboarding, scan, USB release, Wi-Fi test, vault unlock/autofill, one awareness lesson.
+Visual-regression baselines committed; all Phase 1 tests still green.
+Owner review of screenshots against reference boards (§15).
+11. Testing & QA (safe by design)
+AV: EICAR + zipped/nested EICAR; benign "suspicious-looking" fixtures for heuristics; YARA unit rules; large clean corpus for false-positive checks.
+USB (own hardware only): a benign HID test device (e.g., dev board that types a harmless string at inhuman speed); storage stick containing EICAR + a decoy autorun.inf + shortcut-pattern fixtures; composite-device fixture. Never use real malicious payloads.
+Wi-Fi (own network only): second router/hotspot you own configured to mimic your SSID with different security/OUI; local test DNS resolver returning wrong answers; local HTTP server that injects a harmless marker.
+Extension: Playwright with real Chromium + extension; Gmail/Outlook/WhatsApp recorded DOM fixtures (no real accounts in CI).
+Vault: property tests (encrypt/decrypt), KDF benchmarks, zeroize checks, tamper tests.
+Fuzzing: cargo-fuzz on PE/OLE/PDF/archive/FS parsers (nightly).
+VM matrix: Win10 22H2 + Win11, Home + Pro, with/without admin, with Defender on.
+Security review: threat model for the pipe, native host (validate extension IDs allow-list), extension messaging, update channel.
+12. Security of CyberShield itself (threat model summary)
+Named pipe: ACL to the interactive user + SYSTEM only; per-session token; strict message schema; size/rate limits.
+Native messaging host manifest allow-lists exact extension IDs; never accept arbitrary origins.
+Extension: minimal permissions (justify each in DECISIONS.md), CSP strict, no eval, content scripts talk only via runtime.sendMessage; page scripts can never read vault data.
+Updates: signed manifests, pinned public key, rollback protection.
+Vault: keys in user process memory only, zeroize on lock, no plaintext on disk/logs, secure clipboard handling.
+Supply chain: cargo-deny, cargo-audit, npm audit, lockfiles, SBOM at release.
+13. Agent operating rules (copy into AGENTS.md)
+Read the milestone spec, then plan in ≤ 10 lines, then implement. Ask the owner only when blocked on an item in §14.
+Output complete files (no "…rest unchanged" snippets). Keep commits small and buildable.
+Test-first for logic; every milestone ends with: tests green, demo script (docs/demos/Mx.y.md), STATUS.md updated.
+Honest failure reporting: never swallow errors or fake success; surface "cannot run because…" in UI + logs.
+No offensive capability. If a task seems to need deauth/injection/bruteforce/keylogging-of-user, stop and log it — find a defensive alternative.
+Don't over-engineer: prefer the simplest approach that meets acceptance criteria; log alternatives in DECISIONS.md (ADR: context, options, decision, consequences).
+Lockout safety: before touching device-install policy, implement + test the revert path first.
+Privacy checks in tests: assert that no network request contains file contents, email/chat text, or full password hashes.
+Design references: use the links in §15 as human-curated inspiration. Do not scrape sites that forbid crawling; the owner will drop screenshots into design/refs/. Build from tokens, not from copied assets.
+Licensing hygiene: record licence for every dataset/rule pack/library in DECISIONS.md; no GPL contamination without an explicit decision (ClamAV is GPL — isolate as a separate process/dynamic boundary and document).
+Definition of Done (per feature): code + tests + docs + telemetry-free + a11y hook (strings via i18n keys) + Awareness event emitted.
+Suggested agent loop per milestone
+
+read spec → write ADR if new decision → scaffold types in shield-proto → implement core logic + tests → expose RPC + CLI → minimal UI (Phase 1) or component (Phase 2) → run full test suite → demo script → update STATUS.md → commit
+
+14. Open decisions for the owner (agent must ask before guessing)
+ID	Decision	Default if unanswered
+D1	Engine language: Rust (recommended) vs Python	Rust
+D2	Commercial or personal/non-commercial? (affects Safe Browsing/VirusTotal/HIBP-email terms, licences, ClamAV/GPL handling)	Non-commercial; Safe Browsing on, VT/HIBP-email optional with user's own keys
+D3	Windows edition of dev/test machines (Home vs Pro → Windows Sandbox Tier B testing)	Assume Pro VM available for Tier B tests
+D4	Code-signing budget (SmartScreen reputation; needed for public distribution)	Unsigned dev builds for now
+D5	Firefox support in Phase 1 stretch or Phase 3	Chrome/Edge/Brave first
+D6	Name check: "CyberShield" is a common name — confirm trademark/domain before public launch	Working title only
+15. Reference library (for Phase 2 — human-curated inspiration & tooling)
+
+Product-UI libraries (real shipped apps — best for flows & patterns):
+
+Mobbin — https://mobbin.com
+Refero — https://refero.design
+Page Flows — https://pageflows.com
+SaaSFrame — https://www.saasframe.io
+The Component Gallery — https://component.gallery
+Collect UI — https://collectui.com
+
+Visual/web showcases (mood, gradients, glass, motion):
+
+Dribbble — https://dribbble.com (search: "glassmorphism dashboard", "VPN app", "security dashboard")
+Behance — https://www.behance.net (search: "cybersecurity app UI")
+Awwwards — https://www.awwwards.com
+Godly — https://godly.website (no-AI-crawl policy: browse manually)
+Land-book — https://land-book.com · Siteinspire — https://www.siteinspire.com · Lapa Ninja — https://www.lapa.ninja
+
+Direct reference product: Proton VPN apps (calm status-first home, sidebar, profiles, real-time stats) — https://protonvpn.com · also study Proton Pass and NordVPN/Surfshark dashboards for "shield status" patterns.
+
+Glass, gradient & CSS resources:
+
+Superdesign glassmorphism guide/generator (includes worst-case contrast badge) — https://superdesign.dev/styles/glassmorphism
+Uiverse (copy-paste components) — https://uiverse.io
+Coolors (palettes) — https://coolors.co · Realtime Colors — https://www.realtimecolors.com
+
+Components & motion:
+
+shadcn/ui — https://ui.shadcn.com · Radix Primitives — https://www.radix-ui.com · Tailwind — https://tailwindcss.com
+Motion (Framer Motion) — https://motion.dev · Lucide icons — https://lucide.dev
+Aceternity UI — https://ui.aceternity.com · Magic UI — https://magicui.design (effects; audit perf/a11y before use)
+Rive — https://rive.app (optional shield animations)
+
+Accessibility (must-read before Phase 2):
+
+WCAG 2.2 Quick Reference — https://www.w3.org/WAI/WCAG22/quickref/
+WebAIM Contrast Checker — https://webaim.org/resources/contrastchecker/
+Axess Lab, "Glassmorphism meets accessibility" — https://axesslab.com
+Nielsen Norman Group on Apple's Liquid Glass usability issues — https://www.nngroup.com
+
+Tech docs:
+
+Tauri 2 — https://tauri.app · window-vibrancy crate · WXT — https://wxt.dev
+HIBP Pwned Passwords API — https://haveibeenpwned.com/API/v3#PwnedPasswords
+Google Safe Browsing Update API — https://developers.google.com/safe-browsing/v4/update-api
+URLhaus — https://urlhaus.abuse.ch · MalwareBazaar — https://bazaar.abuse.ch
+MITRE ATT&CK T1557.004 (Evil Twin) — https://attack.mitre.org/techniques/T1557/004/
+Windows Device Installation Restrictions — Microsoft Learn (search: "device installation restrictions policy")
+16. Backlog (post-v1)
+
+B1 signed minifilter driver for true pre-execution blocking · B2 macOS/Linux/Android · B3 optional E2EE cloud sync + community scam-number/URL reports · B4 Gmail/Outlook API mode with OAuth · B5 SMS/Telegram guards · B6 family/school dashboard · B7 passkey support in vault · B8 rogue-DHCP + deauth detection with a compatible monitor-mode adapter · B9 enterprise policy pack.
+
+End of PRD v1.0 — start at M1.0.
