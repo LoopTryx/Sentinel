@@ -5,7 +5,7 @@ Updated: 2026-09-29
 | Task | State | Evidence |
 | --- | --- | --- |
 | T00 Capability and threat-model dossier | In progress; policy/HID probes deferred | Read-only inventory confirmed an owned removable FAT32 `CRYPTIC` (E:) volume. No disposable Windows 11 machine or HID test device is available |
-| T01 Contracts, jobs, functional shell | In progress | Rust contracts, generated TS bindings, shared CLI/UI fixture, CI, safe defaults, owner-bound in-memory jobs, and bounded RPC framing pass available checks. A live agent process and IPC remain open |
+| T01 Contracts, jobs, functional shell | In progress | Rust contracts, generated TS bindings, shared CLI/UI fixture, CI, safe defaults, owner-bound in-memory jobs, and bounded RPC framing pass available checks. A fixture-only agent process answers one framed standard-input request. Authenticated live IPC remains open |
 | T02–T17 | Not started | No product implementation or verification evidence yet |
 
 ## Next T00 work
@@ -22,4 +22,5 @@ Software contracts, fixtures, and UI states may proceed while hardware evidence 
 
 Rust 1.98.1 GNU toolchain and MinGW 16.2.0 were installed because the MSVC linker was absent. The first contract and CLI/UI tests were observed failing before implementation and then passing after implementation. The shared fixture is explicitly labeled as a preview. No service, scan, or USB enforcement exists yet.
 The `shield-core` default disables provider requests and USB policy changes. `shield-agent` now enforces job ownership and terminal-state transitions in memory; no privileged pipe or persisted job exists yet.
+The agent's `--fixture-stdio` mode accepts only a versioned `status_fixture` request and returns the same typed status fixture used by the CLI and UI. Process-level tests cover its exact output, protocol mismatch, malformed/truncated requests, and the 1 MiB limit. It is a development endpoint, not a protection service.
 The first Windows CI runs passed tests and build but the generated-binding check falsely flagged rewritten files because it used `git status`; a fresh CRLF checkout reproduced status changes with no content diff. The verifier now checks actual diffs and untracked outputs. Windows CI run 4 completed successfully on commit `b7010e9`.
