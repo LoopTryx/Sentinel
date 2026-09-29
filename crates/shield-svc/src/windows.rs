@@ -4,8 +4,8 @@ use std::ptr::null_mut;
 use windows_sys::Win32::Foundation::{CloseHandle, HANDLE, LocalFree};
 use windows_sys::Win32::Security::Authorization::ConvertSidToStringSidW;
 use windows_sys::Win32::Security::{
-    GetTokenInformation, RevertToSelf, TOKEN_ELEVATION, TOKEN_QUERY, TOKEN_USER, TokenElevation,
-    TokenSessionId, TokenUser,
+    GetTokenInformation, RevertToSelf, TOKEN_ELEVATION, TOKEN_GROUPS, TOKEN_QUERY, TOKEN_USER,
+    TokenElevation, TokenLogonSid, TokenSessionId, TokenUser,
 };
 use windows_sys::Win32::System::Pipes::ImpersonateNamedPipeClient;
 use windows_sys::Win32::System::Threading::{
@@ -52,6 +52,47 @@ impl OsIdentity {
         }
         let token = OwnedHandle(token);
         Self::from_token(token.0)
+    }
+
+    pub fn current_logon_sid() -> io::Result<String> {
+        let mut token: HANDLE = null_mut();
+        // SAFETY: The output pointer is valid and the process pseudo-handle is current.
+        if unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) } == 0 {
+            return Err(io::Error::last_os_error());
+        }
+        let token = OwnedHandle(token);
+        let mut required = 0u32;
+        // SAFETY: A zero-length query requests the TokenLogonSid buffer size.
+        unsafe { GetTokenInformation(token.0, TokenLogonSid, null_mut(), 0, &mut required) };
+        if required < size_of::<TOKEN_GROUPS>() as u32 || required > 65_536 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid logon SID length",
+            ));
+        }
+        let mut words = vec![0usize; (required as usize).div_ceil(size_of::<usize>())];
+        // SAFETY: The usize buffer is aligned and has at least `required` bytes.
+        if unsafe {
+            GetTokenInformation(
+                token.0,
+                TokenLogonSid,
+                words.as_mut_ptr().cast(),
+                required,
+                &mut required,
+            )
+        } == 0
+        {
+            return Err(io::Error::last_os_error());
+        }
+        // SAFETY: A successful TokenLogonSid query populated TOKEN_GROUPS.
+        let groups = unsafe { &*(words.as_ptr().cast::<TOKEN_GROUPS>()) };
+        if groups.GroupCount != 1 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "missing logon SID",
+            ));
+        }
+        sid_to_string(groups.Groups[0].Sid)
     }
 
     pub(crate) fn from_pipe_client(pipe: HANDLE) -> io::Result<Self> {
@@ -177,5 +218,14 @@ mod tests {
     fn process_identity_comes_from_windows_token() {
         let identity = OsIdentity::current_process().unwrap();
         assert!(identity.sid.starts_with("S-1-"));
+    }
+
+    #[test]
+    fn interactive_process_has_a_logon_session_sid() {
+        if OsIdentity::current_process().unwrap().session_id == 0 {
+            return;
+        }
+        let sid = OsIdentity::current_logon_sid().unwrap();
+        assert!(sid.starts_with("S-1-5-5-"));
     }
 }

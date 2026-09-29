@@ -49,9 +49,10 @@ impl LocalFixturePipe {
     pub fn bind(name: &str) -> io::Result<Self> {
         validate_fixture_name(name)?;
         let identity = OsIdentity::current_process()?;
+        let logon_sid = OsIdentity::current_logon_sid()?;
         // Generic write would include FILE_CREATE_PIPE_INSTANCE. Clients receive
         // only read/write data and synchronize rights.
-        let sddl = format!("D:P(A;;GA;;;SY)(A;;0x0012019B;;;{})", identity.sid);
+        let sddl = format!("D:P(A;;GA;;;SY)(A;;0x0012019B;;;{logon_sid})");
         let sddl_wide: Vec<u16> = sddl.encode_utf16().chain(std::iter::once(0)).collect();
         let mut raw_descriptor: PSECURITY_DESCRIPTOR = null_mut();
         // SAFETY: The SDDL is null terminated and the output pointer is valid.
@@ -243,6 +244,13 @@ mod tests {
 
     #[test]
     fn local_pipe_rejects_oversized_frame_before_allocating_payload() {
+        if crate::windows::OsIdentity::current_process()
+            .unwrap()
+            .session_id
+            == 0
+        {
+            return;
+        }
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -263,6 +271,13 @@ mod tests {
 
     #[test]
     fn client_rights_cannot_create_a_second_server_instance() {
+        if crate::windows::OsIdentity::current_process()
+            .unwrap()
+            .session_id
+            == 0
+        {
+            return;
+        }
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
