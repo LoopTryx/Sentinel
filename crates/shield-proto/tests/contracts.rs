@@ -1,6 +1,7 @@
 use shield_proto::assessment::{Assessment, CheckState, Coverage, Risk};
 use shield_proto::jobs::{Job, JobState};
 use shield_proto::rpc::{ProtocolError, ProtocolVersion};
+use shield_proto::status::{StatusMode, StatusSnapshot};
 
 #[test]
 fn assessment_round_trips_without_claiming_unchecked_safety() {
@@ -40,4 +41,14 @@ fn job_states_are_monotonic_and_cancelled_job_cannot_complete() {
     assert_eq!(job.state, JobState::Cancelled);
     assert!(job.complete().is_err());
     assert!(job.start().is_err());
+}
+
+#[test]
+fn shared_status_fixture_has_a_typed_fixture_mode() {
+    let report: StatusSnapshot =
+        serde_json::from_str(include_str!("../../../data/fixtures/status.json")).unwrap();
+    assert_eq!(report.mode, StatusMode::Fixture);
+    assert_eq!(report.assessment.coverage, Coverage::Unavailable);
+    assert_eq!(report.job.unwrap().state, JobState::Queued);
+    assert!(serde_json::from_str::<StatusMode>("\"protected\"").is_err());
 }

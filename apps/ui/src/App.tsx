@@ -1,19 +1,10 @@
-import type { Assessment } from '@cybershield/contracts/generated/Assessment';
-import type { CapabilityStatus } from '@cybershield/contracts/generated/CapabilityStatus';
-import type { Job } from '@cybershield/contracts/generated/Job';
 import type { JobState } from '@cybershield/contracts/generated/JobState';
 import type { Risk } from '@cybershield/contracts/generated/Risk';
+import type { StatusSnapshot } from '@cybershield/contracts/generated/StatusSnapshot';
 import fixture from '../../../data/fixtures/status.json';
 import { t, type MessageKey } from './i18n/en';
 
-type StatusFixture = {
-  mode: 'fixture';
-  assessment: Assessment;
-  capabilities: CapabilityStatus[];
-  job: Job;
-};
-
-const status = fixture as StatusFixture;
+const status = fixture as StatusSnapshot;
 
 function capabilityName(id: string): string {
   const key = `capability.${id}` as MessageKey;
@@ -90,10 +81,12 @@ export function App() {
         </ul>
       </section>
 
-      <section aria-labelledby="job-heading" className="panel">
-        <h2 id="job-heading">{t('job.heading')}</h2>
-        <p>{status.job.id}: {t(jobLabels[status.job.state])}</p>
-      </section>
+      {status.job && (
+        <section aria-labelledby="job-heading" className="panel">
+          <h2 id="job-heading">{t('job.heading')}</h2>
+          <p>{status.job.id}: {t(jobLabels[status.job.state])}</p>
+        </section>
+      )}
 
       <details className="panel">
         <summary>{t('details.heading')}</summary>
