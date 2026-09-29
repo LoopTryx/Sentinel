@@ -1,4 +1,5 @@
 use crate::providers::{UrlhausFeed, canonical_url};
+use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -14,7 +15,8 @@ pub enum CacheError {
     StaleCandidate,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum LookupVerdict {
     Listed,
     NotListed,
@@ -23,7 +25,8 @@ pub enum LookupVerdict {
     InvalidUrl,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LookupResult {
     pub verdict: LookupVerdict,
     pub provider: Option<String>,
