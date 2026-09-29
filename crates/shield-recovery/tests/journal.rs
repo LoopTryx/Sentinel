@@ -1,5 +1,6 @@
 use shield_recovery::{Journal, JournalError, Lease};
 use std::path::PathBuf;
+use std::process::Command;
 
 fn path(name: &str) -> PathBuf {
     std::env::temp_dir().join(format!(
@@ -100,4 +101,68 @@ fn complete_corrupt_record_is_not_silently_discarded() {
     std::fs::write(&path, b"not-json\n").unwrap();
     assert_eq!(Journal::open(&path).err(), Some(JournalError::Corrupt));
     std::fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn separate_recovery_process_restores_fixture_with_agent_closed() {
+    let dir = std::env::temp_dir().join(format!(
+        "cybershield-recovery-process-{}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir(&dir).unwrap();
+    let journal_path = dir.join("journal.jsonl");
+    let state_path = dir.join("fixture-key.txt");
+    let mut journal = Journal::open(&journal_path).unwrap();
+    journal
+        .begin(Lease::new("test-4", "fixture-key.txt", "prior", 1))
+        .unwrap();
+    std::fs::write(&state_path, "mutated").unwrap();
+    drop(journal);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_shield-recovery"))
+        .args([
+            "--fixture-recover",
+            journal_path.to_str().unwrap(),
+            dir.to_str().unwrap(),
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(std::fs::read_to_string(&state_path).unwrap(), "prior");
+    assert_eq!(Journal::open(&journal_path).unwrap().active_count(), 0);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn fixture_recovery_rejects_path_escape_and_keeps_lease_pending() {
+    let dir = std::env::temp_dir().join(format!(
+        "cybershield-recovery-escape-{}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir(&dir).unwrap();
+    let journal_path = dir.join("journal.jsonl");
+    let mut journal = Journal::open(&journal_path).unwrap();
+    journal
+        .begin(Lease::new("test-5", "fixture-../outside.txt", "prior", 1))
+        .unwrap();
+    drop(journal);
+    let output = Command::new(env!("CARGO_BIN_EXE_shield-recovery"))
+        .args([
+            "--fixture-recover",
+            journal_path.to_str().unwrap(),
+            dir.to_str().unwrap(),
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert_eq!(Journal::open(&journal_path).unwrap().active_count(), 1);
+    std::fs::remove_dir_all(dir).unwrap();
 }

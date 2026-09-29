@@ -6,7 +6,7 @@ Updated: 2026-09-29
 | --- | --- | --- |
 | T00 Capability and threat-model dossier | In progress; policy/HID probes deferred | Read-only inventory confirmed an owned removable FAT32 `CRYPTIC` (E:) volume. No disposable Windows 11 machine or HID test device is available |
 | T01 Contracts, jobs, functional shell | In progress | Rust contracts, generated TS bindings, shared CLI/UI fixture, CI, safe defaults, owner-bound in-memory jobs, and bounded RPC framing pass available checks. A fixture-only agent process answers one framed standard-input request. Authenticated live IPC remains open |
-| T02 Privilege boundary and recovery | In progress | A file-backed lease journal passes harmless fixture tests for restart replay, expiry, failed restore retry, torn final write, and corruption rejection. No service, actual policy mutation, or independent recovery executable exists yet |
+| T02 Privilege boundary and recovery | In progress | A file-backed lease journal and separate fixture recovery executable pass restart, expiry, retry, torn write, corruption, and path escape tests. No service, actual policy mutation, or scheduled recovery trigger exists yet |
 | T03–T17 | Not started | No product implementation or verification evidence yet |
 
 ## Next T00 work
@@ -21,7 +21,7 @@ Software contracts, fixtures, and UI states may proceed while hardware evidence 
 
 ## T02 checkpoint
 
-`shield-recovery` records a lease and its prior value before a future mutation, syncs each journal event, and replays expired entries after restart. A restore callback must be idempotent because a crash can occur after restoration but before the completion event is durable. The current tests use only harmless fixture values. This journal has no OS policy adapter, access-control hardening, or independent scheduled recovery process, so it does not satisfy the T02 gate.
+`shield-recovery` records a lease and its prior value before a future mutation, syncs each journal event, and replays expired entries after restart. A restore callback must be idempotent because a crash can occur after restoration but before the completion event is durable. A separate executable restores a fixture file with the agent closed; it rejects target names outside the fixture directory. This has no OS policy adapter, access-control hardening, or scheduled recovery trigger, so it does not satisfy the T02 gate.
 
 ## T01 checkpoint
 
