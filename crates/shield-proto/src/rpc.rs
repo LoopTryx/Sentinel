@@ -4,6 +4,43 @@ use ts_rs::TS;
 pub const MAX_MESSAGE_BYTES: usize = 1_048_576;
 const FRAME_HEADER_BYTES: usize = 4;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum RpcMethod {
+    #[serde(rename = "capabilities.list")]
+    CapabilitiesList,
+    #[serde(rename = "scan.start")]
+    ScanStart,
+    #[serde(rename = "jobs.get")]
+    JobsGet,
+    #[serde(rename = "jobs.cancel")]
+    JobsCancel,
+    #[serde(rename = "assessment.get")]
+    AssessmentGet,
+    #[serde(rename = "usb.list")]
+    UsbList,
+    #[serde(rename = "usb.policy.preview")]
+    UsbPolicyPreview,
+    #[serde(rename = "usb.policy.apply")]
+    UsbPolicyApply,
+    #[serde(rename = "usb.policy.revert")]
+    UsbPolicyRevert,
+    #[serde(rename = "wifi.assess")]
+    WifiAssess,
+    #[serde(rename = "quarantine.restore")]
+    QuarantineRestore,
+    #[serde(rename = "vault.unlock")]
+    VaultUnlock,
+    #[serde(rename = "vault.fill")]
+    VaultFill,
+    #[serde(rename = "awareness.next")]
+    AwarenessNext,
+    #[serde(rename = "settings.update")]
+    SettingsUpdate,
+    #[serde(rename = "url.assess")]
+    UrlAssess,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FrameError {
     Truncated,

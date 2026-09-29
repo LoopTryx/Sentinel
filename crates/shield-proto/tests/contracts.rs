@@ -1,7 +1,8 @@
 use shield_proto::assessment::{Assessment, CheckState, Coverage, Risk};
 use shield_proto::jobs::{Job, JobState};
 use shield_proto::rpc::{
-    FrameError, MAX_MESSAGE_BYTES, ProtocolError, ProtocolVersion, decode_frame, encode_frame,
+    FrameError, MAX_MESSAGE_BYTES, ProtocolError, ProtocolVersion, RpcMethod, decode_frame,
+    encode_frame,
 };
 use shield_proto::status::{StatusMode, StatusSnapshot};
 
@@ -77,4 +78,14 @@ fn rpc_frames_reject_oversize_truncation_and_trailing_bytes() {
         Err(FrameError::Oversized)
     );
     assert_eq!(decode_frame(&[0, 16, 0, 1]), Err(FrameError::Oversized));
+}
+
+#[test]
+fn rpc_method_allowlist_rejects_arbitrary_commands() {
+    assert_eq!(
+        serde_json::from_str::<RpcMethod>("\"capabilities.list\"").unwrap(),
+        RpcMethod::CapabilitiesList
+    );
+    assert!(serde_json::from_str::<RpcMethod>("\"execute\"").is_err());
+    assert!(serde_json::from_str::<RpcMethod>("\"registry.write\"").is_err());
 }

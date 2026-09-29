@@ -1,0 +1,8 @@
+[package]
+name = "shield-svc"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+shield-proto = { path = "../shield-proto" }
