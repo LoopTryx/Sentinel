@@ -1,0 +1,7 @@
+# Scanner preview boundary
+
+`shield-scan` is a read-only user-session preview. It hashes readable regular files and checks for the EICAR test string. It has no isolated worker, full signature engine, archive parser, or quarantine action. Every CLI report states `partial` coverage, and a no-finding result must not authorize USB release.
+
+On Windows, the file open requests `FILE_FLAG_OPEN_REPARSE_POINT`, then checks the opened handle's attributes. Microsoft's [CreateFile documentation](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew) specifies that this flag opens a symbolic link itself rather than its target. Directory discovery skips reparse points, but concurrent replacement of an ancestor directory is still possible because traversal is path-based. The final restricted worker must receive approved handles rather than arbitrary paths.
+
+The file cap is 512 MiB. Directory traversal caps entries, depth, pending directories, and retained findings. A skipped, changed, cancelled, or unreadable item is not counted as checked. A local Windows Defender race removed an EICAR fixture before the directory scanner opened it; the scanner recorded an access error. Tests cover readable EICAR detection, chunk boundaries, skipped-size accounting, cancellation, and traversal limits. These tests do not establish broad malware detection or hostile-input containment.

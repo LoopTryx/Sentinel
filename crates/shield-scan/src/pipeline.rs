@@ -1,6 +1,7 @@
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::fs::{self, File, Metadata};
+use std::io;
 use std::io::Read;
 use std::path::Path;
 
@@ -108,7 +109,8 @@ impl DirectoryReport {
     }
 }
 
-/// Traverses one chosen directory without following reparse points or symlinks.
+/// Skips discovered reparse points and symlinks. Concurrent replacement of an
+/// ancestor path remains outside this preview's guarantees.
 /// Cancellation is checked between entries and between read chunks.
 pub fn scan_directory(
     root: impl AsRef<Path>,
@@ -279,7 +281,7 @@ fn scan_file_with_cancel(
     if initial.len() > limits.max_file_bytes {
         return result.skip(ScanState::SkippedLimit);
     }
-    let mut file = match File::open(path) {
+    let mut file = match open_read_only_no_follow(path) {
         Ok(file) => file,
         Err(_) => return result.error(),
     };
@@ -287,13 +289,15 @@ fn scan_file_with_cancel(
         Ok(metadata) => metadata,
         Err(_) => return result.error(),
     };
+    if !opened.is_file() || is_reparse_point(&opened) {
+        return result.skip(ScanState::SkippedUnsupported);
+    }
     if !same_basic_identity(&initial, &opened) {
         return result.skip(ScanState::ChangedDuringScan);
     }
     let mut digest = Sha256::new();
     let mut buffer = [0u8; READ_CHUNK_BYTES];
-    let mut tail = Vec::with_capacity(EICAR.len() - 1);
-    let mut found_test_signature = false;
+    let mut matcher = EicarMatcher::new();
     loop {
         if cancelled() {
             return result.skip(ScanState::Cancelled);
@@ -310,12 +314,7 @@ fn scan_file_with_cancel(
             return result.skip(ScanState::SkippedLimit);
         }
         digest.update(&buffer[..read]);
-        tail.extend_from_slice(&buffer[..read]);
-        if tail.windows(EICAR.len()).any(|window| window == EICAR) {
-            found_test_signature = true;
-        }
-        let retain = tail.len().min(EICAR.len() - 1);
-        tail.drain(..tail.len() - retain);
+        matcher.observe(&buffer[..read]);
     }
     let final_metadata = match file.metadata() {
         Ok(metadata) => metadata,
@@ -326,12 +325,95 @@ fn scan_file_with_cancel(
     }
     result.sha256 = Some(format!("{:x}", digest.finalize()));
     result.files_checked = 1;
-    if found_test_signature {
+    if matcher.found {
         result.state = ScanState::TestSignatureFound;
     }
     result
 }
 
+struct EicarMatcher {
+    tail: Vec<u8>,
+    found: bool,
+}
+
+impl EicarMatcher {
+    fn new() -> Self {
+        Self {
+            tail: Vec::with_capacity(EICAR.len() - 1),
+            found: false,
+        }
+    }
+
+    fn observe(&mut self, bytes: &[u8]) {
+        self.tail.extend_from_slice(bytes);
+        if self.tail.windows(EICAR.len()).any(|window| window == EICAR) {
+            self.found = true;
+        }
+        let retain = self.tail.len().min(EICAR.len() - 1);
+        self.tail.drain(..self.tail.len() - retain);
+    }
+}
+
 fn same_basic_identity(left: &Metadata, right: &Metadata) -> bool {
     left.len() == right.len() && left.modified().ok() == right.modified().ok()
+}
+
+#[cfg(windows)]
+fn open_read_only_no_follow(path: &Path) -> io::Result<File> {
+    use std::fs::OpenOptions;
+    use std::os::windows::fs::OpenOptionsExt;
+    use windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT;
+
+    OpenOptions::new()
+        .read(true)
+        .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+        .open(path)
+}
+
+#[cfg(not(windows))]
+fn open_read_only_no_follow(path: &Path) -> io::Result<File> {
+    File::open(path)
+}
+
+#[cfg(all(test, windows))]
+mod windows_tests {
+    use super::*;
+    use std::os::windows::fs::symlink_file;
+
+    #[test]
+    fn opened_reparse_handle_is_visible_as_reparse_point() {
+        let directory =
+            std::env::temp_dir().join(format!("cybershield-reparse-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&directory);
+        fs::create_dir_all(&directory).unwrap();
+        let target = directory.join("target.txt");
+        let link = directory.join("link.txt");
+        fs::write(&target, b"fixture").unwrap();
+        if symlink_file(&target, &link).is_err() {
+            fs::remove_dir_all(directory).unwrap();
+            return;
+        }
+        let file = open_read_only_no_follow(&link).unwrap();
+        assert!(is_reparse_point(&file.metadata().unwrap()));
+        let result = scan_file(&link, ScanLimits::default());
+        assert_eq!(result.state, ScanState::SkippedUnsupported);
+        assert_eq!(result.files_checked, 0);
+        fs::remove_dir_all(directory).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod matcher_tests {
+    use super::*;
+
+    #[test]
+    fn eicar_signature_crosses_read_boundary() {
+        let mut bytes = vec![b'.'; READ_CHUNK_BYTES - 2];
+        bytes.extend_from_slice(EICAR);
+        let mut matcher = EicarMatcher::new();
+        matcher.observe(&bytes[..READ_CHUNK_BYTES]);
+        assert!(!matcher.found);
+        matcher.observe(&bytes[READ_CHUNK_BYTES..]);
+        assert!(matcher.found);
+    }
 }
