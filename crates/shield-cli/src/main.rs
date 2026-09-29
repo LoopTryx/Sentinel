@@ -1,7 +1,7 @@
 use shield_intel::cache::Cache;
 use shield_intel::providers::{MAX_FEED_BYTES, UrlhausFeed};
 use shield_proto::status::StatusSnapshot;
-use shield_scan::pipeline::{ScanLimits, scan_file};
+use shield_scan::pipeline::{DirectoryLimits, ScanLimits, scan_directory, scan_file};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn main() {
@@ -17,9 +17,12 @@ fn main() {
             lookup_offline(cache_dir, url)
         }
         [command, action, path] if command == "scan" && action == "file" => scan_local_file(path),
+        [command, action, path] if command == "scan" && action == "directory" => {
+            scan_local_directory(path)
+        }
         _ => {
             eprintln!(
-                "Usage: shield-cli status --fixture | intel import-local <feed-file> <cache-dir> | intel lookup-offline <cache-dir> <url> | scan file <path>"
+                "Usage: shield-cli status --fixture | intel import-local <feed-file> <cache-dir> | intel lookup-offline <cache-dir> <url> | scan file <path> | scan directory <path>"
             );
             eprintln!("No live protection or provider download is installed");
             std::process::exit(2);
@@ -29,6 +32,26 @@ fn main() {
         eprintln!("{error}");
         std::process::exit(1);
     }
+}
+
+fn scan_local_directory(path: &str) -> Result<(), &'static str> {
+    let result = scan_directory(
+        path,
+        ScanLimits::default(),
+        DirectoryLimits::default(),
+        || false,
+    );
+    println!(
+        "{}",
+        serde_json::to_string(&serde_json::json!({
+            "mode": "local_read_only_preview",
+            "profile": "custom_directory",
+            "coverage": "partial",
+            "result": result,
+        }))
+        .expect("scan report is serializable")
+    );
+    Ok(())
 }
 
 fn scan_local_file(path: &str) -> Result<(), &'static str> {

@@ -55,6 +55,28 @@ fn local_file_scan_reports_partial_coverage_and_checked_count() {
 }
 
 #[test]
+fn local_directory_scan_reports_actual_counts_and_partial_coverage() {
+    let path =
+        std::env::temp_dir().join(format!("cybershield-cli-directory-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&path);
+    std::fs::create_dir_all(&path).unwrap();
+    std::fs::write(path.join("one.txt"), b"one").unwrap();
+    std::fs::write(path.join("two.txt"), b"two").unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_shield-cli"))
+        .args(["scan", "directory", path.to_str().unwrap()])
+        .output()
+        .unwrap();
+    std::fs::remove_dir_all(path).unwrap();
+    assert!(output.status.success());
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(report["profile"], "custom_directory");
+    assert_eq!(report["coverage"], "partial");
+    assert_eq!(report["result"]["filesVisited"], 2);
+    assert_eq!(report["result"]["filesChecked"], 2);
+    assert_eq!(report["result"]["complete"], true);
+}
+
+#[test]
 fn local_feed_import_and_offline_lookup_report_listing_without_safety_claim() {
     let cache_dir =
         std::env::temp_dir().join(format!("cybershield-cli-intel-{}", std::process::id()));

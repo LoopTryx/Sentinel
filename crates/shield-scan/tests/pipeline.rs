@@ -1,4 +1,4 @@
-use shield_scan::pipeline::{ScanLimits, ScanState, scan_file};
+use shield_scan::pipeline::{DirectoryLimits, ScanLimits, ScanState, scan_directory, scan_file};
 use std::fs;
 
 fn fixture_dir() -> std::path::PathBuf {
@@ -53,5 +53,82 @@ fn oversized_or_unreadable_items_are_never_counted_as_checked() {
     assert_eq!(missing.state, ScanState::AccessError);
     assert_eq!(missing.files_checked, 0);
     assert_eq!(missing.access_errors, 1);
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn folder_scan_counts_checked_and_skipped_files_without_clean_claim() {
+    let dir = fixture_dir();
+    fs::create_dir(dir.join("nested")).unwrap();
+    fs::write(dir.join("clean.txt"), b"fixture").unwrap();
+    fs::write(dir.join("large.txt"), b"more than eight bytes").unwrap();
+    fs::write(dir.join("nested/third.txt"), b"third fixture").unwrap();
+    let report = scan_directory(
+        &dir,
+        ScanLimits { max_file_bytes: 80 },
+        DirectoryLimits::default(),
+        || false,
+    );
+    assert!(report.complete, "{report:?}");
+    assert_eq!(report.files_visited, 3);
+    assert_eq!(report.files_checked, 3);
+    assert!(report.findings.is_empty());
+    let limited = scan_directory(
+        &dir,
+        ScanLimits { max_file_bytes: 8 },
+        DirectoryLimits::default(),
+        || false,
+    );
+    assert_eq!(limited.files_checked, 1);
+    assert_eq!(limited.files_skipped, 2);
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn folder_scan_reports_cancelled_and_entry_limit_as_incomplete() {
+    let dir = fixture_dir();
+    fs::write(dir.join("one.txt"), b"one").unwrap();
+    fs::write(dir.join("two.txt"), b"two").unwrap();
+    let cancelled = scan_directory(
+        &dir,
+        ScanLimits::default(),
+        DirectoryLimits::default(),
+        || true,
+    );
+    assert!(cancelled.cancelled);
+    assert!(!cancelled.complete);
+    assert_eq!(cancelled.files_checked, 0);
+    let limited = scan_directory(
+        &dir,
+        ScanLimits::default(),
+        DirectoryLimits {
+            max_entries: 1,
+            ..DirectoryLimits::default()
+        },
+        || false,
+    );
+    assert!(limited.limit_reached);
+    assert!(!limited.complete);
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn cancellation_during_large_file_does_not_count_it_as_checked() {
+    let dir = fixture_dir();
+    fs::write(dir.join("large.txt"), vec![b'x'; 20_000]).unwrap();
+    let mut polls = 0;
+    let report = scan_directory(
+        &dir,
+        ScanLimits::default(),
+        DirectoryLimits::default(),
+        || {
+            polls += 1;
+            polls >= 3
+        },
+    );
+    assert!(report.cancelled);
+    assert_eq!(report.files_checked, 0);
+    assert_eq!(report.files_skipped, 1);
+    assert!(!report.complete);
     fs::remove_dir_all(dir).unwrap();
 }
