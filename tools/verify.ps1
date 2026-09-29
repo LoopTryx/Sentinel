@@ -25,7 +25,12 @@ Invoke-Check 'TypeScript typecheck' { & $pnpm -r typecheck }
 Invoke-Check 'TypeScript tests' { & $pnpm -r test }
 Invoke-Check 'UI build' { & $pnpm -r build }
 
-$generatedChanges = git status --porcelain -- packages/contracts/src/generated
-if ($LASTEXITCODE -ne 0) { throw 'Could not check generated bindings status' }
-if ($generatedChanges) { throw 'Generated TypeScript bindings differ from the committed Rust contracts' }
+$generatedPath = 'packages/contracts/src/generated'
+git diff --quiet -- $generatedPath
+if ($LASTEXITCODE -ne 0) { throw 'Generated TypeScript bindings differ from the committed Rust contracts' }
+git diff --cached --quiet -- $generatedPath
+if ($LASTEXITCODE -ne 0) { throw 'Staged TypeScript bindings differ from the committed Rust contracts' }
+$untrackedBindings = git ls-files --others --exclude-standard -- $generatedPath
+if ($LASTEXITCODE -ne 0) { throw 'Could not check untracked generated bindings' }
+if ($untrackedBindings) { throw 'New generated TypeScript bindings are not committed' }
 Write-Host 'All available T01 checks passed.'
