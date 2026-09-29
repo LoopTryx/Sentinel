@@ -5,7 +5,8 @@ Updated: 2026-09-29
 | Task | State | Evidence |
 | --- | --- | --- |
 | T00 Capability and threat-model dossier | In progress; hardware probes deferred | Initial host inventory and untested capability matrix in `docs/evidence/capability-matrix.md`; owner reports no disposable Windows 11 machine or owned USB/HID test equipment |
-| T01–T17 | Not started | No product implementation or verification evidence yet |
+| T01 Contracts, jobs, functional shell | In progress | Rust assessment/capability/RPC/job contracts; four passing contract tests. CLI, UI, generated TS, and CI remain open |
+| T02–T17 | Not started | No product implementation or verification evidence yet |
 
 ## Next T00 work
 
@@ -16,3 +17,7 @@ Updated: 2026-09-29
 
 No USB enforcement experiment should run on the daily-use machine during discovery.
 Software contracts, fixtures, and UI states may proceed while hardware evidence is pending. The USB Gate remains disabled and R1 cannot be declared complete until its physical acceptance matrix passes.
+
+## T01 checkpoint
+
+Rust 1.98.1 GNU toolchain was installed because the MSVC linker was absent. The first contract tests were observed failing before implementation and then passing after implementation. `cargo test --workspace` passed four tests and `cargo clippy --workspace --all-targets -- -D warnings` passed. This is a contract foundation only; no service, scan, or USB enforcement exists yet.
