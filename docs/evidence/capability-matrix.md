@@ -9,7 +9,8 @@ Recorded 2026-09-29. `Observed` means a read-only fact was seen in this environm
 | Defender active | Untested | `Get-MpComputerStatus` returned Access denied in medium-integrity shell |
 | Rust/Cargo toolchain | Unavailable in current PATH | `Get-Command` found Node, pnpm, Git but not Rust/Cargo; install/pin after dependency review |
 | Admin access, RAM, CPU | Untested | CIM calls denied; authorized host inventory pending |
-| Disposable Windows 11 machine and owned USB/HID lab devices | Unavailable | Owner reported none available on 2026-09-29; physical gate testing deferred |
+| Disposable Windows 11 machine and owned HID lab device | Unavailable | Owner reported none available on 2026-09-29; HID gate testing deferred |
+| Owned removable storage `CRYPTIC` (E:) | Partial | Read-only `.NET DriveInfo` query returned `Removable`, FAT32, 31,896,633,344 bytes total, 31,206,572,032 bytes available. It contains existing owner files. No scan, mount-policy mutation, timing, or recovery test has run |
 | USB enumeration and policy precedence | Untested | Physical Windows 11 Home/Pro device matrix required, including composite parent/child and previously installed paths |
 | Removable storage pre-access hold | Untested | Need physical plug-in/read attempt, scan/release, exposure timing, crash/reboot/uninstall recovery |
 | New HID pre-input approval | Untested | Need owned benign HID fixture and proof of no delivered input before approval; record no key content |
@@ -22,4 +23,4 @@ No untested row can be promoted to proven by a fixture or an API documentation c
 
 ## Fallback decision
 
-Continue read-only host probes and software-only contracts, fixtures, and capability reporting. Do not apply experimental device-installation restrictions to the daily-use machine. Storage pre-access hold and HID pre-input approval stay disabled and unclaimed until an owned physical test setup can prove them. If such a setup remains unavailable, an R1 release claiming the USB Gate is a no-go under the v3 master plan.
+Continue read-only host probes and software-only contracts, fixtures, and capability reporting. The owner's `CRYPTIC` USB can support non-destructive read-only storage observations and later scanner tests with a dedicated harmless fixture. Do not apply experimental device-installation restrictions to the daily-use machine. Storage pre-access hold and HID pre-input approval stay disabled and unclaimed until a disposable physical test setup can prove policy and recovery. If such a setup remains unavailable, an R1 release claiming the USB Gate is a no-go under the v3 master plan.

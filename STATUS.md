@@ -4,7 +4,7 @@ Updated: 2026-09-29
 
 | Task | State | Evidence |
 | --- | --- | --- |
-| T00 Capability and threat-model dossier | In progress; hardware probes deferred | Initial host inventory and untested capability matrix in `docs/evidence/capability-matrix.md`; owner reports no disposable Windows 11 machine or owned USB/HID test equipment |
+| T00 Capability and threat-model dossier | In progress; policy/HID probes deferred | Read-only inventory confirmed an owned removable FAT32 `CRYPTIC` (E:) volume. No disposable Windows 11 machine or HID test device is available |
 | T01 Contracts, jobs, functional shell | In progress | Rust contracts, generated TS bindings, shared CLI/UI fixture, and CI added; final verification pending |
 | T02–T17 | Not started | No product implementation or verification evidence yet |
 
@@ -12,7 +12,7 @@ Updated: 2026-09-29
 
 1. Confirm OS edition/build and Defender state with an authorized host inventory; the current shell denied CIM and Defender status queries.
 2. Complete read-only host and dependency probes that do not change system policy.
-3. When a disposable Windows 11 setup and owned USB/HID devices become available, run policy, storage, HID, recovery, and isolation probes there.
+3. Use `CRYPTIC` only for non-destructive storage observations and harmless scanner fixtures. When a disposable Windows 11 setup and owned HID device become available, run policy, pre-access storage, HID, recovery, and isolation probes there.
 4. Record actual results, fallback decisions, dependency licenses, and a working pinned toolchain before closing T00.
 
 No USB enforcement experiment should run on the daily-use machine during discovery.
