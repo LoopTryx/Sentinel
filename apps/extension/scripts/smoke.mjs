@@ -18,7 +18,17 @@ const requiredFiles = [
   'src/status.js',
 ];
 
-const mirroredFromSource = ['manifest.json', 'popup.html', 'rules/fixture-block.json', 'src/status.js'];
+// Every dist file is a copy of a source file, including the runtime scripts:
+// a stale service-worker.js or popup.js in dist must fail parity, not just
+// static assets.
+const mirroredFromSource = [
+  'manifest.json',
+  'popup.html',
+  'rules/fixture-block.json',
+  'src/service-worker.js',
+  'src/popup.js',
+  'src/status.js',
+];
 
 function fail(message) {
   console.error(`smoke: FAIL — ${message}`);
