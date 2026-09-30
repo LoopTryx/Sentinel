@@ -49,6 +49,6 @@ Deliberately absent: `host_permissions` (no page content is read), `nativeMessag
 - Not connected to the Sentinel agent; no native messaging host exists yet.
 - No real feed, no URL classification, no download scanning, no offline interstitial, no expiring exceptions.
 - The block/allow toggle covers exactly one reserved test domain.
-- Manual Chrome smoke steps (3–7 above) have not been executed by the owner yet; see [evidence](../docs/evidence/extension-harness.md).
+- Manual Chrome smoke steps (3–7 above) have not been executed by the owner yet; see [evidence](../../docs/evidence/extension-harness.md).
 
 Next stages: local URL verdict protocol; native host with exact extension ID allowlist and bounded framing; offline interstitial and expiring exceptions; completed-download handoff; then live browser restart, hostile-message, and rule-capacity checks.
