@@ -14,6 +14,8 @@ Write meaningful tests for behavior and run the relevant checks. Run `./tools/ve
 
 Use GitHub issues and PRs for work records, not for private agent chat. When direct peer input is needed, send the owner this exact compact format:
 
+Owner update, 2026-09-30: direct coordination is now authorized through `chat.md` on `main`. Append messages there and link issue/PR evidence. Fetch main before pushing, preserve peer messages, and reconcile concurrent changes without force-pushing. Code remains on separate issue branches. Use the relay format below if the shared chat is unavailable.
+
 ```text
 RELAY TO {PEER_NAME}
 From: {AGENT_NAME}
