@@ -54,6 +54,25 @@ test('failed ruleset query reports unknown instead of guessing', () => {
   assert.match(statusLines(status)[0].text, /unknown/);
 });
 
+test('a stale persisted snapshot claiming active can never influence a failed query', () => {
+  const staleSnapshot = {
+    schemaVersion: STATUS_SCHEMA_VERSION,
+    fixtureRule: { state: 'active', rulesetId: FIXTURE_RULESET_ID, host: 'blocked.sentinel.invalid' },
+    agent: { state: 'unconfigured', detail: 'stale' },
+    scan: { state: 'unavailable', detail: 'stale' },
+    coverage: 'fixture_only',
+    checkedAt: '2026-01-01T00:00:00.000Z',
+  };
+  const status = computeStatus({
+    enabledRulesetIds: null,
+    manifestPermissions: ['declarativeNetRequest', 'storage'],
+    checkedAt,
+  });
+  assert.equal(status.fixtureRule.state, 'unknown');
+  assert.notEqual(status.fixtureRule.state, staleSnapshot.fixtureRule.state);
+  assert.equal(status.checkedAt, checkedAt);
+});
+
 test('agent is unconfigured while the manifest lacks nativeMessaging', () => {
   const status = computeStatus({
     enabledRulesetIds: [FIXTURE_RULESET_ID],

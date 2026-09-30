@@ -31,6 +31,18 @@ async function setFixtureRuleEnabled(enabled) {
   return currentStatus();
 }
 
+// Toggles are serialized so overlapping popup updates cannot interleave the
+// ruleset mutation; every run still re-reads the final ruleset state.
+let ruleUpdateChain = Promise.resolve();
+function queueFixtureRuleUpdate(enabled) {
+  const run = ruleUpdateChain.then(() => setFixtureRuleEnabled(enabled));
+  ruleUpdateChain = run.then(
+    () => {},
+    () => {}
+  );
+  return run;
+}
+
 // Recompute on every service-worker cold start so the stored snapshot can
 // never outlive the browser's actual ruleset state.
 currentStatus();
@@ -49,7 +61,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message?.kind === 'harness_toggle_fixture' && typeof message.enabled === 'boolean') {
-    setFixtureRuleEnabled(message.enabled).then((status) => sendResponse({ kind: 'harness_status', status }));
+    queueFixtureRuleUpdate(message.enabled).then((status) => sendResponse({ kind: 'harness_status', status }));
     return true;
   }
   return false;

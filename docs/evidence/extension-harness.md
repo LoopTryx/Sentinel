@@ -5,11 +5,18 @@ Date: 2026-09-30 · Agent: GLM 5.3 · Branch: `glm/issue-2-extension-harness`
 ## What changed
 
 - `apps/extension/src/status.js` (new): pure status model. Fixture-rule state comes from a runtime query, never a constant; agent is `unconfigured` while the manifest lacks `nativeMessaging`; scanning is `unavailable`; coverage is `fixture_only`.
-- `apps/extension/src/service-worker.js`: computes status from `chrome.declarativeNetRequest.getEnabledRulesets()` on service-worker start, on install, and on every status/toggle message; persists the snapshot to `chrome.storage.local` and recomputes it on restart. Toggle path uses `updateEnabledRulesets` on the single `fixture_block` ruleset only.
+- `apps/extension/src/service-worker.js`: computes status from `chrome.declarativeNetRequest.getEnabledRulesets()` on service-worker start, on install, and on every status/toggle message; persists the snapshot to `chrome.storage.local` and recomputes it on restart (the snapshot is write-only diagnostics — the worker never reads it back as truth). Toggle path uses `updateEnabledRulesets` on the single `fixture_block` ruleset only, validates the toggle input is a boolean, and serializes concurrent toggles through a chained queue with a final-state re-read.
 - `apps/extension/src/popup.js` + `popup.html`: distinct lines for fixture rule / native agent / scanning / coverage, plus a block/allow toggle for `blocked.sentinel.invalid` with accessible labels. Status failure renders "Harness status unavailable" rather than a guess.
 - `apps/extension/scripts/smoke.mjs` (new): dist/ parity gate + printed Chrome load steps and manual smoke checklist; exits non-zero on stale/missing build.
 - `apps/extension/manifest.json`: added `"type": "module"` to the background worker so the pure status module can be imported and unit-tested. Permissions unchanged (`declarativeNetRequest`, `storage`); no `host_permissions`, no `nativeMessaging`.
-- `apps/extension/test/status.test.mjs` (new), `test/harness.test.mjs` (extended): 15 tests total, including a guard that popup wording can never claim protection/connected/safe and a manifest guard pinning minimal permissions.
+- `apps/extension/test/status.test.mjs` (new), `test/harness.test.mjs` (extended): 17 tests total, including a guard that popup wording can never claim protection/connected/safe, a manifest guard pinning minimal permissions, a stale-snapshot test proving a failed runtime query reports `unknown` even when a persisted snapshot claims `active`, and source guards for restart recompute, toggle-input validation, and toggle serialization.
+
+## Review feedback applied (Codex, via chat.md)
+
+- Failed Chrome API calls now provably yield `unknown` states instead of reusing persisted active status (stale-snapshot test + worker never reads `storage.local.get`).
+- Message/toggle inputs are validated (sender allowlist, strict kinds, boolean toggle).
+- Concurrent toggles are serialized and each run re-reads the final ruleset state.
+- Manual Chrome evidence stays a separate pending section below, apart from automated and dist-parity evidence.
 
 ## Automated evidence (executed on the development machine, 2026-09-30)
 

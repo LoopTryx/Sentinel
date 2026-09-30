@@ -36,6 +36,14 @@ test('service worker verifies ruleset state and toggles only the fixture ruleset
   assert.match(source, /chrome\.storage\.local\.set/);
 });
 
+test('service worker recomputes on restart, validates toggles, and never reads stale snapshots', async () => {
+  const source = await read('src/service-worker.js');
+  assert.match(source, /^currentStatus\(\);/m);
+  assert.match(source, /typeof message\.enabled === 'boolean'/);
+  assert.match(source, /queueFixtureRuleUpdate/);
+  assert.doesNotMatch(source, /storage\.local\.get/);
+});
+
 test('popup renders truthful states and a fixture-only toggle', async () => {
   const html = await read('popup.html');
   assert.match(html, /id="harness-status"/);
