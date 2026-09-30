@@ -2,7 +2,7 @@
 
 Updated: 2026-09-30
 
-The product and active repository identity are being renamed to **Sentinel** at the owner's request. The original pasted PRD remains a historical source under its original filename. This naming change does not upgrade any protection capability.
+The product, source packages, UI, extension, and private GitHub repository are named **Sentinel** at the owner's request. The original pasted PRD remains a historical source under its original filename. The renamed preview runs locally, but this naming change does not upgrade any protection capability.
 
 ## Owner's Phase 1-70 / Phase 1-30 split
 
