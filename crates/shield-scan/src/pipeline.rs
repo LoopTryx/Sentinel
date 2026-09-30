@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs::{self, File, Metadata};
 use std::io;
@@ -40,7 +40,7 @@ impl Default for ScanLimits {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ScanState {
     NoKnownFinding,
@@ -52,8 +52,9 @@ pub enum ScanState {
     Cancelled,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
 pub struct ScanResult {
     pub state: ScanState,
     pub bytes_read: u64,
@@ -220,13 +221,13 @@ pub fn scan_directory(
 }
 
 #[cfg(windows)]
-fn is_reparse_point(metadata: &Metadata) -> bool {
+pub(crate) fn is_reparse_point(metadata: &Metadata) -> bool {
     use std::os::windows::fs::MetadataExt;
     metadata.file_attributes() & 0x400 != 0
 }
 
 #[cfg(not(windows))]
-fn is_reparse_point(metadata: &Metadata) -> bool {
+pub(crate) fn is_reparse_point(metadata: &Metadata) -> bool {
     metadata.file_type().is_symlink()
 }
 
@@ -247,12 +248,16 @@ impl ScanResult {
 
     fn skip(mut self, state: ScanState) -> Self {
         self.state = state;
+        self.files_checked = 0;
         self.files_skipped = 1;
+        self.sha256 = None;
         self
     }
 
     fn error(mut self) -> Self {
         self.state = ScanState::AccessError;
+        self.files_checked = 0;
+        self.sha256 = None;
         self.access_errors = 1;
         self
     }
@@ -295,6 +300,28 @@ fn scan_file_with_cancel(
     if !same_basic_identity(&initial, &opened) {
         return result.skip(ScanState::ChangedDuringScan);
     }
+    result = scan_stream(&mut file, limits, cancelled);
+    if result.files_checked == 0 {
+        return result;
+    }
+    let final_metadata = match file.metadata() {
+        Ok(metadata) => metadata,
+        Err(_) => return result.error(),
+    };
+    if !same_basic_identity(&opened, &final_metadata) || result.bytes_read != opened.len() {
+        return result.skip(ScanState::ChangedDuringScan);
+    }
+    result
+}
+
+/// Reads a pre-approved stream without resolving any path. The caller must
+/// verify the source handle before and after this scan.
+pub fn scan_stream(
+    reader: &mut impl Read,
+    limits: ScanLimits,
+    cancelled: &mut impl FnMut() -> bool,
+) -> ScanResult {
+    let mut result = ScanResult::with_state(ScanState::NoKnownFinding);
     let mut digest = Sha256::new();
     let mut buffer = [0u8; READ_CHUNK_BYTES];
     let mut matcher = EicarMatcher::new();
@@ -302,7 +329,7 @@ fn scan_file_with_cancel(
         if cancelled() {
             return result.skip(ScanState::Cancelled);
         }
-        let read = match file.read(&mut buffer) {
+        let read = match reader.read(&mut buffer) {
             Ok(read) => read,
             Err(_) => return result.error(),
         };
@@ -315,13 +342,6 @@ fn scan_file_with_cancel(
         }
         digest.update(&buffer[..read]);
         matcher.observe(&buffer[..read]);
-    }
-    let final_metadata = match file.metadata() {
-        Ok(metadata) => metadata,
-        Err(_) => return result.error(),
-    };
-    if !same_basic_identity(&opened, &final_metadata) || result.bytes_read != opened.len() {
-        return result.skip(ScanState::ChangedDuringScan);
     }
     result.sha256 = Some(format!("{:x}", digest.finalize()));
     result.files_checked = 1;
@@ -354,12 +374,12 @@ impl EicarMatcher {
     }
 }
 
-fn same_basic_identity(left: &Metadata, right: &Metadata) -> bool {
+pub(crate) fn same_basic_identity(left: &Metadata, right: &Metadata) -> bool {
     left.len() == right.len() && left.modified().ok() == right.modified().ok()
 }
 
 #[cfg(windows)]
-fn open_read_only_no_follow(path: &Path) -> io::Result<File> {
+pub(crate) fn open_read_only_no_follow(path: &Path) -> io::Result<File> {
     use std::fs::OpenOptions;
     use std::os::windows::fs::OpenOptionsExt;
     use windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT;
@@ -371,7 +391,7 @@ fn open_read_only_no_follow(path: &Path) -> io::Result<File> {
 }
 
 #[cfg(not(windows))]
-fn open_read_only_no_follow(path: &Path) -> io::Result<File> {
+pub(crate) fn open_read_only_no_follow(path: &Path) -> io::Result<File> {
     File::open(path)
 }
 

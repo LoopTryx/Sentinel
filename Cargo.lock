@@ -350,7 +350,9 @@ name = "shield-scan"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "serde_json",
  "sha2",
+ "shield-proto",
  "windows-sys",
 ]
 
@@ -362,6 +364,16 @@ dependencies = [
  "serde_json",
  "shield-proto",
  "windows-sys",
+]
+
+[[package]]
+name = "shield-worker"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "shield-proto",
+ "shield-scan",
 ]
 
 [[package]]

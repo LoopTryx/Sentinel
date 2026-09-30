@@ -1,4 +1,6 @@
-use shield_scan::pipeline::{DirectoryLimits, ScanLimits, ScanState, scan_directory, scan_file};
+use shield_scan::pipeline::{
+    DirectoryLimits, ScanLimits, ScanState, scan_directory, scan_file, scan_stream,
+};
 use std::fs;
 
 fn fixture_dir() -> std::path::PathBuf {
@@ -27,23 +29,26 @@ fn benign_file_is_checked_with_partial_engine_coverage() {
 }
 
 #[test]
-fn eicar_file_is_detected_when_still_readable() {
-    let dir = fixture_dir();
-    let path = dir.join("eicar.txt");
+fn approved_stream_respects_byte_limit_without_file_path() {
+    let mut input = std::io::Cursor::new(b"stream fixture".to_vec());
+    let result = scan_stream(&mut input, ScanLimits { max_file_bytes: 4 }, &mut || false);
+    assert_eq!(result.state, ScanState::SkippedLimit);
+    assert_eq!(result.files_checked, 0);
+    assert!(result.sha256.is_none());
+}
+
+#[test]
+fn eicar_stream_is_detected_without_writing_a_test_file() {
     let marker = b"X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*";
     let mut bytes = vec![b'.'; 8190];
     bytes.extend_from_slice(marker);
-    fs::write(&path, bytes).unwrap();
-    let result = scan_file(&path, ScanLimits::default());
-    match result.state {
-        ScanState::TestSignatureFound => assert_eq!(result.files_checked, 1),
-        ScanState::AccessError if fs::File::open(&path).is_err() => {
-            assert_eq!(result.files_checked, 0);
-            assert_eq!(result.access_errors, 1);
-        }
-        other => panic!("EICAR fixture was readable but not detected: {other:?}"),
-    }
-    fs::remove_dir_all(dir).unwrap();
+    let result = scan_stream(
+        &mut std::io::Cursor::new(bytes),
+        ScanLimits::default(),
+        &mut || false,
+    );
+    assert_eq!(result.state, ScanState::TestSignatureFound);
+    assert_eq!(result.files_checked, 1);
 }
 
 #[test]
