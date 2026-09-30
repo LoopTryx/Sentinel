@@ -14,25 +14,41 @@ const RESPONSE_TIMEOUT_MS = 1000;
 
 let instanceCounter = 0;
 
-function createChromeMock({ enabledRulesets = ['fixture_block'], updateRejectsFirst = 0, storageError = null } = {}) {
+function createChromeMock({
+  enabledRulesets = ['fixture_block'],
+  updateRejectsFirst = 0,
+  storageError = null,
+  rulesetQueryError = null,
+  manifestError = null,
+} = {}) {
   let current = [...enabledRulesets];
   const calls = { queries: 0, updates: [], storageSets: [] };
   const chrome = {
     runtime: {
       id: EXTENSION_ID,
-      getManifest: () => ({ permissions: ['declarativeNetRequest', 'storage'] }),
+      getManifest: () => {
+        if (manifestError) {
+          throw manifestError;
+        }
+        return { permissions: ['declarativeNetRequest', 'storage'] };
+      },
       onMessage: {
         addListener(fn) {
           chrome.__listener = fn;
         },
       },
       onInstalled: {
-        addListener() {},
+        addListener(fn) {
+          chrome.__onInstalled = fn;
+        },
       },
     },
     declarativeNetRequest: {
       async getEnabledRulesets() {
         calls.queries += 1;
+        if (rulesetQueryError) {
+          throw rulesetQueryError;
+        }
         return [...current];
       },
       async updateEnabledRulesets(update) {
@@ -209,11 +225,45 @@ test('startup with rejecting storage produces no unhandled rejection', async () 
   const onUnhandled = (reason) => unhandled.push(reason);
   process.on('unhandledRejection', onUnhandled);
   try {
-    const { chrome } = await loadWorker({ storageError: new Error('mocked storage failure') });
+    await loadWorker({ storageError: new Error('mocked storage failure') });
     await sleep(20);
-    chrome.storage.local.set({ harnessInstalledAt: 'x' }).catch(() => {});
     assert.equal(unhandled.length, 0, `unhandled rejections: ${format(unhandled)}`);
   } finally {
     process.off('unhandledRejection', onUnhandled);
   }
+});
+
+test('captured onInstalled listener performs install writes and status recompute', async () => {
+  const { chrome, calls } = await loadWorker();
+  const before = { queries: calls.queries, sets: calls.storageSets.length };
+  assert.ok(chrome.__onInstalled, 'worker did not register an onInstalled listener');
+  chrome.__onInstalled();
+  await waitFor(
+    () => calls.storageSets.length > before.sets && calls.queries > before.queries,
+    'install-time diagnostics and status recompute'
+  );
+  const newWrites = calls.storageSets.slice(before.sets);
+  assert.ok(
+    newWrites.some((write) => write.harnessInstalledAt),
+    'install timestamp not recorded'
+  );
+  assert.ok(
+    newWrites.some((write) => write.harnessStatus),
+    'status snapshot not refreshed on install'
+  );
+});
+
+test('ruleset query rejection answers once with an unknown rule state', async () => {
+  const { listener } = await loadWorker({ rulesetQueryError: new Error('mocked query failure') });
+  const { responses } = await request(listener, { kind: 'harness_status' });
+  assert.equal(responses.length, 1);
+  assert.equal(responses[0].status.fixtureRule.state, 'unknown');
+  assert.equal(responses[0].status.agent.state, 'unconfigured');
+});
+
+test('unexpected status computation failure answers exactly once with null status', async () => {
+  const { listener } = await loadWorker({ manifestError: new Error('mocked manifest failure') });
+  const { responses } = await request(listener, { kind: 'harness_status' });
+  assert.equal(responses.length, 1);
+  assert.equal(responses[0].status, null, 'the rejection fallback must deliver a null status, not hang');
 });
