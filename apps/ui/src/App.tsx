@@ -1,6 +1,6 @@
-import type { JobState } from '@cybershield/contracts/generated/JobState';
-import type { Risk } from '@cybershield/contracts/generated/Risk';
-import type { StatusSnapshot } from '@cybershield/contracts/generated/StatusSnapshot';
+import type { JobState } from '@sentinel/contracts/generated/JobState';
+import type { Risk } from '@sentinel/contracts/generated/Risk';
+import type { StatusSnapshot } from '@sentinel/contracts/generated/StatusSnapshot';
 import fixture from '../../../data/fixtures/status.json';
 import { t, type MessageKey } from './i18n/en';
 
@@ -48,7 +48,7 @@ export function App() {
   return (
     <main className="shell">
       <header className="masthead">
-        <div className="mark" aria-hidden="true">C</div>
+        <div className="mark" aria-hidden="true">S</div>
         <div>
           <p className="eyebrow">{t('app.fixture')}</p>
           <h1>{t('app.title')}</h1>

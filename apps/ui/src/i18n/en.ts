@@ -1,5 +1,5 @@
 export const en = {
-  'app.title': 'CyberShield',
+  'app.title': 'Sentinel',
   'app.fixture': 'Fixture preview',
   'app.noProtection': 'No live protection is installed',
   'app.intro': 'This screen shows a shared test report while the security components are being built.',

@@ -1,6 +1,6 @@
 # IPC boundary evidence and next implementation gate
 
-The `shield-svc` crate contains a deny-by-default method policy and a fixture-only local named pipe. It returns checked-in capability fixture data after verifying the connected client's token. It is not installed as a Windows service and does not authorize or perform policy mutations.
+The `sentinel-svc` crate contains a deny-by-default method policy and a fixture-only local named pipe. It returns checked-in capability fixture data after verifying the connected client's token. It is not installed as a Windows service and does not authorize or perform policy mutations.
 
 The fixture has distinct user and admin pipe names. Each sets an explicit DACL for the process token's logon-session SID and `PIPE_REJECT_REMOTE_CLIENTS`. Microsoft's [named pipe security guidance](https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipe-security-and-access-rights) says the default descriptor grants read access to Everyone and anonymous users. It also warns that generic write includes `FILE_CREATE_PIPE_INSTANCE`; the fixture DACL excludes that right, and a same-user second-server test observes access denied. The final service still needs installed and isolated endpoints.
 

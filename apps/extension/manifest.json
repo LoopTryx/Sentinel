@@ -1,15 +1,15 @@
 {
   "manifest_version": 3,
-  "name": "CyberShield Web Shield Harness",
+  "name": "Sentinel Web Shield Harness",
   "version": "0.1.0",
-  "description": "A narrow local fixture for testing the CyberShield Chrome extension boundary.",
+  "description": "A narrow local fixture for testing the Sentinel Chrome extension boundary.",
   "permissions": ["declarativeNetRequest", "storage"],
   "background": {
     "service_worker": "src/service-worker.js"
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "CyberShield harness"
+    "default_title": "Sentinel harness"
   },
   "declarative_net_request": {
     "rule_resources": [

@@ -168,7 +168,7 @@ importers:
 
   apps/ui:
     dependencies:
-      '@cybershield/contracts':
+      '@sentinel/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
       react:

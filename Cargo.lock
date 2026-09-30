@@ -238,6 +238,91 @@ dependencies = [
 ]
 
 [[package]]
+name = "sentinel-agent"
+version = "0.1.0"
+dependencies = [
+ "sentinel-proto",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sentinel-cli"
+version = "0.1.0"
+dependencies = [
+ "sentinel-intel",
+ "sentinel-proto",
+ "sentinel-scan",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sentinel-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "sentinel-intel"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+ "url",
+]
+
+[[package]]
+name = "sentinel-proto"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "ts-rs",
+]
+
+[[package]]
+name = "sentinel-recovery"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sentinel-scan"
+version = "0.1.0"
+dependencies = [
+ "sentinel-proto",
+ "serde",
+ "serde_json",
+ "sha2",
+ "windows-sys",
+]
+
+[[package]]
+name = "sentinel-svc"
+version = "0.1.0"
+dependencies = [
+ "sentinel-proto",
+ "serde",
+ "serde_json",
+ "windows-sys",
+]
+
+[[package]]
+name = "sentinel-worker"
+version = "0.1.0"
+dependencies = [
+ "sentinel-proto",
+ "sentinel-scan",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "serde"
 version = "1.0.229"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -289,91 +374,6 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest",
-]
-
-[[package]]
-name = "shield-agent"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "shield-proto",
-]
-
-[[package]]
-name = "shield-cli"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "shield-intel",
- "shield-proto",
- "shield-scan",
-]
-
-[[package]]
-name = "shield-core"
-version = "0.1.0"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "shield-intel"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "sha2",
- "url",
-]
-
-[[package]]
-name = "shield-proto"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "ts-rs",
-]
-
-[[package]]
-name = "shield-recovery"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "shield-scan"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "sha2",
- "shield-proto",
- "windows-sys",
-]
-
-[[package]]
-name = "shield-svc"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "shield-proto",
- "windows-sys",
-]
-
-[[package]]
-name = "shield-worker"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "shield-proto",
- "shield-scan",
 ]
 
 [[package]]

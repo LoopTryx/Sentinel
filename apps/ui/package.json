@@ -1,5 +1,5 @@
 {
-  "name": "@cybershield/ui",
+  "name": "@sentinel/ui",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "build": "tsc --noEmit && vite build"
   },
   "dependencies": {
-    "@cybershield/contracts": "workspace:*",
+    "@sentinel/contracts": "workspace:*",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },

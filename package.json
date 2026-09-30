@@ -1,5 +1,5 @@
 {
-  "name": "cybershield-workspace",
+  "name": "sentinel-workspace",
   "private": true,
   "packageManager": "pnpm@12.4.2",
   "scripts": {

@@ -2,7 +2,7 @@
 
 Status: provisional, 2026-09-29. Source: v3 master plan sections 1–5, 8/T00, 10, and 16.
 
-CyberShield targets Windows 11 x64 Home/Pro for personal use, with Microsoft Defender active. The architecture uses a small privileged broker, per-user agent and vault, restricted workers, desktop UI, and browser extension. The initial release has no kernel driver. Windows 10 is optional legacy compatibility, not a release promise.
+Sentinel targets Windows 11 x64 Home/Pro for personal use, with Microsoft Defender active. The architecture uses a small privileged broker, per-user agent and vault, restricted workers, desktop UI, and browser extension. The initial release has no kernel driver. Windows 10 is optional legacy compatibility, not a release promise.
 
 The USB storage hold and new HID approval gate are R1 requirements only on a **declared, physically tested** configuration. Each device path must be labeled proven pre-access hold, measured post-mount containment, or unsupported. Descriptor labels do not authenticate a device. R1 cannot be declared complete until the hardware matrix and recovery gate pass.
 

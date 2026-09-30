@@ -8,6 +8,7 @@ const json = async (path) => JSON.parse(await readFile(new URL(path, root), 'utf
 test('manifest requests only fixture-blocking capability', async () => {
   const manifest = await json('manifest.json');
   assert.equal(manifest.manifest_version, 3);
+  assert.equal(manifest.name, 'Sentinel Web Shield Harness');
   assert.deepEqual(manifest.permissions, ['declarativeNetRequest', 'storage']);
   assert.equal(manifest.host_permissions, undefined);
   assert.equal(manifest.background.service_worker, 'src/service-worker.js');
@@ -20,13 +21,13 @@ test('enabled packaged rule blocks only the synthetic fixture host', async () =>
   const rules = await json('rules/fixture-block.json');
   assert.equal(rules.length, 1);
   assert.deepEqual(rules[0].action, { type: 'block' });
-  assert.equal(rules[0].condition.urlFilter, '||blocked.cybershield.invalid^');
+  assert.equal(rules[0].condition.urlFilter, '||blocked.sentinel.invalid^');
   assert.deepEqual(rules[0].condition.resourceTypes, ['main_frame']);
 });
 
 test('popup describes the narrow fixture coverage', async () => {
   const html = await readFile(new URL('popup.html', root), 'utf8');
   assert.match(html, /Fixture URL blocking active/);
-  assert.match(html, /not yet connected to the CyberShield agent/i);
+  assert.match(html, /not yet connected to the Sentinel agent/i);
   assert.match(html, /No browsing history is collected/);
 });

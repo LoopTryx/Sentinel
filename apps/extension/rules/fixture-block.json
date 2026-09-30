@@ -4,7 +4,7 @@
     "priority": 1,
     "action": { "type": "block" },
     "condition": {
-      "urlFilter": "||blocked.cybershield.invalid^",
+      "urlFilter": "||blocked.sentinel.invalid^",
       "resourceTypes": ["main_frame"]
     }
   }

@@ -1,6 +1,6 @@
-# CyberShield v3
+# Sentinel v3
 
-Local-first Windows security companion, following [the v3 master plan](docs/CyberShield-Master-Plan.md). Microsoft Defender remains enabled. This repository is at the R0 feasibility stage; it does not currently provide protection.
+Local-first Windows security companion, following [the v3 master plan](docs/Sentinel-Master-Plan.md). Microsoft Defender remains enabled. This repository is at the R0 feasibility stage; it does not currently provide protection.
 
 ## Delivery order
 
@@ -15,9 +15,9 @@ The owner's [Phase 1-70 / Phase 1-30 checkpoints](docs/phase-1-70-30.md) set a b
 Run `./tools/verify.ps1` on Windows to check the Rust workspace, UI, and extension harness. The CLI supports a fixture status and an offline URL feed demo:
 
 ```powershell
-cargo run -p shield-cli -- status --fixture
-cargo run -p shield-cli -- intel import-local data/fixtures/feeds/urlhaus-sample.txt .local-intel-cache
-cargo run -p shield-cli -- intel lookup-offline .local-intel-cache https://malware.test/payload.exe
+cargo run -p sentinel-cli -- status --fixture
+cargo run -p sentinel-cli -- intel import-local data/fixtures/feeds/urlhaus-sample.txt .local-intel-cache
+cargo run -p sentinel-cli -- intel lookup-offline .local-intel-cache https://malware.test/payload.exe
 ```
 
 The feed uses benign `.test` URLs. Lookup never visits the URL. A `not_listed` result means only that the URL is absent from the loaded feed; it is not a safety verdict. The cache directory is local demo data and should be removed when no longer needed.

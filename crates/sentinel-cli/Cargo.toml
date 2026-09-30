@@ -1,0 +1,12 @@
+[package]
+name = "sentinel-cli"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+sentinel-scan = { path = "../sentinel-scan" }
+sentinel-proto = { path = "../sentinel-proto" }
+sentinel-intel = { path = "../sentinel-intel" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
