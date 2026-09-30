@@ -2,6 +2,12 @@
 
 Updated: 2026-09-30
 
+## Owner's Phase 1-70 / Phase 1-30 split
+
+The requested checkpoints and their evidence gates are recorded in [docs/phase-1-70-30.md](docs/phase-1-70-30.md). Phase 1-70 is a basic-UI functional preview across the feature areas; Phase 1-30 closes privileged USB/HID enforcement, recovery, installer, security review, and release acceptance. These labels do not replace the master PRD's R1/R2 gates. The 70% demo has not been reached.
+
+The first Chrome extension harness stage has a loadable Manifest V3 package, a synthetic-domain DNR block rule, and a popup that reports fixture-only coverage and no agent connection. Static tests pass. It has not yet been loaded in Chrome or connected to a native host, so it is not a working Web Shield.
+
 | Task | State | Evidence |
 | --- | --- | --- |
 | T00 Capability and threat-model dossier | In progress; policy/HID probes deferred | Read-only inventory confirmed an owned removable FAT32 `CRYPTIC` (E:) volume. No disposable Windows 11 machine or HID test device is available |

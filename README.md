@@ -8,9 +8,11 @@ R0 establishes platform evidence, contracts, and recovery boundaries. R1 targets
 
 See [STATUS.md](STATUS.md) for observed progress and remaining gates. Historical plans in `docs/` are references; the v3 master plan is authoritative.
 
+The owner's [Phase 1-70 / Phase 1-30 checkpoints](docs/phase-1-70-30.md) set a basic functional preview before the final protection and release gates. The [Chrome extension harness](apps/extension/README.md) currently blocks one synthetic fixture domain only; it is not a general Web Shield.
+
 ## Available development commands
 
-Run `./tools/verify.ps1` on Windows to check the Rust workspace and UI. The CLI supports a fixture status and an offline URL feed demo:
+Run `./tools/verify.ps1` on Windows to check the Rust workspace, UI, and extension harness. The CLI supports a fixture status and an offline URL feed demo:
 
 ```powershell
 cargo run -p shield-cli -- status --fixture

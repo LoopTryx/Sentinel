@@ -1,0 +1,11 @@
+{
+  "name": "@cybershield/extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "node --check src/service-worker.js && node --check src/popup.js",
+    "test": "node --test",
+    "build": "node scripts/build.mjs"
+  }
+}

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CyberShield harness</title>
+    <style>
+      body { width: 300px; margin: 0; padding: 18px; font: 14px/1.45 system-ui, sans-serif; color: #152432; background: #f5f8fa; }
+      h1 { margin: 0 0 10px; font-size: 20px; }
+      p { margin: 9px 0; }
+      .status { padding: 10px; border: 1px solid #8fabc0; border-radius: 6px; background: white; }
+      .muted { color: #445869; }
+    </style>
+  </head>
+  <body>
+    <h1>CyberShield</h1>
+    <div class="status" role="status" id="harness-status">Checking extension harness…</div>
+    <p>Fixture URL blocking active only for <code>blocked.cybershield.invalid</code>.</p>
+    <p class="muted">This harness is not yet connected to the CyberShield agent. It does not classify other websites or scan downloads.</p>
+    <p class="muted">No browsing history is collected.</p>
+    <script type="module" src="src/popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "CyberShield Web Shield Harness",
+  "version": "0.1.0",
+  "description": "A narrow local fixture for testing the CyberShield Chrome extension boundary.",
+  "permissions": ["declarativeNetRequest", "storage"],
+  "background": {
+    "service_worker": "src/service-worker.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "CyberShield harness"
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "fixture_block",
+        "enabled": true,
+        "path": "rules/fixture-block.json"
+      }
+    ]
+  }
+}
