@@ -1,6 +1,6 @@
 # Implementation status
 
-Updated: 2026-09-30
+Updated: 2026-10-01
 
 The product, source packages, UI, extension, and private GitHub repository are named **Sentinel** at the owner's request. The original pasted PRD remains a historical source under its original filename. The renamed preview runs locally, but this naming change does not upgrade any protection capability.
 
@@ -8,7 +8,7 @@ The product, source packages, UI, extension, and private GitHub repository are n
 
 The requested checkpoints and their evidence gates are recorded in [docs/phase-1-70-30.md](docs/phase-1-70-30.md). Phase 1-70 is a basic-UI functional preview across the feature areas; Phase 1-30 closes privileged USB/HID enforcement, recovery, installer, security review, and release acceptance. These labels do not replace the master PRD's R1/R2 gates. The 70% demo has not been reached.
 
-The first native Windows desktop preview is on issue #1. A WPF window has Overview, Files, Devices, Wi-Fi, Web, Vault, Messages, Learning, and Settings pages. Only the selected-file read-only CLI scan is wired; other pages show unavailable or untested states. The window does not imply an installed protection service. A native-handle smoke test passes. This is a first UI increment, not the Phase 1-70 checkpoint.
+The first native Windows desktop preview is on issue #1. A WPF window has Overview, Files, Devices, Wi-Fi, Web, Vault, Messages, Learning, and Settings pages. Selected file and folder read-only CLI scans now run asynchronously with elapsed activity, cancel, timeout and incomplete-error states; other pages show unavailable or untested states. These local process jobs are not durable authenticated agent jobs. See [desktop scan evidence](docs/evidence/desktop-scan-jobs.md). The window does not imply an installed protection service. A native-handle smoke test passes. This is a first UI increment, not the Phase 1-70 checkpoint.
 
 The first Chrome extension harness stage has a loadable Manifest V3 package, a synthetic-domain DNR block rule, and a popup that reports fixture-only coverage and no agent connection. Static tests pass. It has not yet been loaded in Chrome or connected to a native host, so it is not a working Web Shield.
 

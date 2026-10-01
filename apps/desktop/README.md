@@ -15,3 +15,19 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\apps\desktop\tests\smo
 ```
 
 The smoke check creates an actual Windows window handle, checks the Sentinel title and fixture coverage label, then closes the window. It does not test protection or system policy.
+
+## Asynchronous selected scans
+
+The Files page now supports selecting a file or a folder. A dedicated local CLI process runs outside the WPF dispatcher; navigation remains available. An indeterminate activity bar and elapsed time show that work is running, without inventing percentage progress. One scan runs at a time.
+
+Cancel terminates this preview CLI process; a 120-second deadline also stops hung processes. Cancelled/timed-out/failed jobs have incomplete coverage and no completed verdict. Closing the window requests termination of the owned scanner. Diagnostics are not copied into the UI, because they may contain selected paths. Results are kept only in the current window.
+
+These are local preview process jobs, not persisted authenticated agent jobs. The CLI still runs its scanner in process with the user's token: this change does not add restricted-worker isolation, quarantine, protection, or USB access controls. Folder results show bounded traversal counts and finding counts; detailed finding inspection is still pending.
+
+Additional checks (build sentinel-cli first):
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\apps\desktop\tests\jobs.ps1
+```
+
+The tests execute real child processes for nonblocking start, completion, nonzero exit, cancellation, timeout and spaced/trailing-backslash arguments, plus actual CLI file/folder scans on disposable harmless text samples. They do not exercise file dialogs or prove full UI accessibility.
