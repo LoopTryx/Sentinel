@@ -5,19 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sentinel harness</title>
     <style>
-      body { width: 300px; margin: 0; padding: 18px; font: 14px/1.45 system-ui, sans-serif; color: #152432; background: #f5f8fa; }
+      body { width: 320px; margin: 0; padding: 18px; font: 14px/1.45 system-ui, sans-serif; color: #152432; background: #f5f8fa; }
       h1 { margin: 0 0 10px; font-size: 20px; }
       p { margin: 9px 0; }
-      .status { padding: 10px; border: 1px solid #8fabc0; border-radius: 6px; background: white; }
+      .status { padding: 10px; border: 1px solid #8fabc0; border-radius: 6px; background: white; margin: 0; padding-left: 26px; }
+      .status li { margin: 6px 0; }
+      .status li[data-tone="ok"]::marker { color: #1d7a46; }
+      .status li[data-tone="off"]::marker { color: #8a6d1a; }
+      .status li[data-tone="gap"]::marker { color: #a54949; }
       .muted { color: #445869; }
+      button { margin-top: 8px; padding: 7px 10px; font: inherit; border: 1px solid #445869; border-radius: 6px; background: white; cursor: pointer; }
+      button:disabled { opacity: 0.55; cursor: default; }
     </style>
   </head>
   <body>
     <h1>Sentinel</h1>
-    <div class="status" role="status" id="harness-status">Checking extension harness…</div>
-    <p>Fixture URL blocking active only for <code>blocked.sentinel.invalid</code>.</p>
-    <p class="muted">This harness is not yet connected to the Sentinel agent. It does not classify other websites or scan downloads.</p>
-    <p class="muted">No browsing history is collected.</p>
+    <ul class="status" role="status" id="harness-status" aria-live="polite">
+      <li data-tone="gap">Checking extension harness…</li>
+    </ul>
+    <button id="fixture-toggle" type="button">Checking rule state…</button>
+    <p class="muted">The only rule this harness can change targets <code>blocked.sentinel.invalid</code>, a reserved test domain that cannot host a real website.</p>
+    <p class="muted">This harness is not connected to the Sentinel agent and does not classify websites, scan downloads, or collect browsing history.</p>
     <script type="module" src="src/popup.js"></script>
   </body>
 </html>

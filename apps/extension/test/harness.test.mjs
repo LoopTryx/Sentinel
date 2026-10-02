@@ -4,6 +4,7 @@ import { test } from 'node:test';
 
 const root = new URL('../', import.meta.url);
 const json = async (path) => JSON.parse(await readFile(new URL(path, root), 'utf8'));
+const read = (path) => readFile(new URL(path, root), 'utf8');
 
 test('manifest requests only fixture-blocking capability', async () => {
   const manifest = await json('manifest.json');
@@ -12,6 +13,7 @@ test('manifest requests only fixture-blocking capability', async () => {
   assert.deepEqual(manifest.permissions, ['declarativeNetRequest', 'storage']);
   assert.equal(manifest.host_permissions, undefined);
   assert.equal(manifest.background.service_worker, 'src/service-worker.js');
+  assert.equal(manifest.background.type, 'module');
   assert.equal(manifest.action.default_popup, 'popup.html');
 });
 
@@ -25,9 +27,39 @@ test('enabled packaged rule blocks only the synthetic fixture host', async () =>
   assert.deepEqual(rules[0].condition.resourceTypes, ['main_frame']);
 });
 
-test('popup describes the narrow fixture coverage', async () => {
-  const html = await readFile(new URL('popup.html', root), 'utf8');
-  assert.match(html, /Fixture URL blocking active/);
-  assert.match(html, /not yet connected to the Sentinel agent/i);
-  assert.match(html, /No browsing history is collected/);
+test('service worker verifies ruleset state and toggles only the fixture ruleset', async () => {
+  const source = await read('src/service-worker.js');
+  assert.match(source, /getEnabledRulesets/);
+  assert.match(source, /updateEnabledRulesets/);
+  assert.match(source, /FIXTURE_RULESET_ID/);
+  assert.match(source, /sender\.id !== chrome\.runtime\.id/);
+  assert.match(source, /chrome\.storage\.local\.set/);
+});
+
+test('service worker recomputes on restart, validates toggles, and never reads stale snapshots', async () => {
+  const source = await read('src/service-worker.js');
+  assert.match(source, /^currentStatus\(\)\.catch\(/m);
+  assert.match(source, /typeof message\.enabled === 'boolean'/);
+  assert.match(source, /queueFixtureRuleUpdate/);
+  assert.doesNotMatch(source, /storage\.local\.get/);
+});
+
+test('popup renders truthful states and a fixture-only toggle', async () => {
+  const html = await read('popup.html');
+  assert.match(html, /id="harness-status"/);
+  assert.match(html, /id="fixture-toggle"/);
+  assert.match(html, /blocked\.sentinel\.invalid/);
+  assert.match(html, /not connected to the Sentinel agent/);
+  assert.match(html, /does not classify websites, scan downloads, or collect browsing history/);
+
+  const script = await read('src/popup.js');
+  assert.match(script, /statusLines/);
+  assert.match(script, /harness_toggle_fixture/);
+});
+
+test('pure status module exports the runtime state machine', async () => {
+  const source = await read('src/status.js');
+  assert.match(source, /export function computeStatus/);
+  assert.match(source, /export function statusLines/);
+  assert.doesNotMatch(source, /chrome\./);
 });

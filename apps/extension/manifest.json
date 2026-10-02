@@ -5,7 +5,8 @@
   "description": "A narrow local fixture for testing the Sentinel Chrome extension boundary.",
   "permissions": ["declarativeNetRequest", "storage"],
   "background": {
-    "service_worker": "src/service-worker.js"
+    "service_worker": "src/service-worker.js",
+    "type": "module"
   },
   "action": {
     "default_popup": "popup.html",

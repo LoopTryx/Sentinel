@@ -1,6 +1,8 @@
 # Sentinel — Master Product Requirements and Implementation Plan
 
-Version 3.0 consolidated planning baseline · 29 September 2026 · Owner: Loop
+Owner update, 2 October 2026: this document is the shared specification for both engineers. Section 19 resolves the latest owner request against earlier wording: GLM owns presentation, Codex owns logic, and Y2K Cyber Console begins during the functional preview. Existing privacy, trust-boundary and hardware evidence gates remain mandatory. Assignment prompts are in docs/agent-prompts/; the concrete issue queue and consolidation evidence are in docs/coordination/2026-10-02-integration.md. Local preparation is not proof of remote adoption.
+
+Version 4.0 owner-aligned consolidation · 2 October 2026 · Owner: Loop
 
 **Goal:** Build a local-first Windows security companion that helps its owner inspect files, recognize suspicious networks and devices, protect credentials, and understand security decisions while Microsoft Defender remains active.
 
@@ -32,7 +34,7 @@ Use three release checkpoints inside the original functionality phase:
 2. **R1 — Protected personal alpha:** file scanning and inspection, Wi-Fi observations, USB Quarantine Gate for removable storage, BadUSB HID approval gate for new keyboard-like devices, basic Web Shield, hygiene checks, and eight lessons.
 3. **R2 — Expanded personal release:** vault, autofill, mail/chat analysis, monitoring, all 25 lessons, signed updates, and broader hardening.
 
-Then perform **R3 — Aurora Glass presentation and localization**. Accessibility, legible warnings, and safe interactions begin in R0/R1; only decorative work waits for R3.
+Then perform **R3 — Y2K Cyber Console presentation and localization**. Accessibility, legible warnings, and safe interactions begin in R0/R1; the owner-requested visual identity starts alongside the functional preview; final polish and reviewed localization close at R3.
 
 Alternative approaches considered:
 
@@ -364,7 +366,7 @@ Settings cover capabilities, modes, exclusions, provider consent, retention, bac
 
 ## 7. Repository and interface plan
 
-The workspace was empty apart from Git metadata when inspected. Paths below are planned new files, not existing implementations.
+The initial workspace inventory was empty; the current repository now contains partial implementations. STATUS.md and the dated integration record distinguish existing code from the planned paths below.
 
 ```text
 crates/
@@ -644,7 +646,7 @@ Each task is an independently reviewable deliverable. The test cases below are r
 
 **Gate:** no universal “BadUSB prevented” claim; zero-lockout recovery suite passes before any personal-machine trial.
 
-### T17 — Aurora Glass and localization / R3 release
+### T17 — Y2K Cyber Console and localization / R3 release
 
 **Files:** `apps/ui/src/{styles,components,features}/`, `apps/extension/entrypoints/`, `apps/ui/src/i18n/`, `design/tokens/`, `tests/visual/`, `docs/demos/R3.md`.
 
@@ -790,7 +792,7 @@ Personal-use defaults avoid a backend bill. Optional paid APIs are disabled. Uns
 | F11 Intel | T03 | Provider permissions/provenance/freshness |
 | F12 Settings, privacy, updates | T02, T14, T15 | Lifecycle and recovery designed early |
 | Phase 1 UI | T01 onward | Functional and accessible from the start |
-| Phase 2 UI and languages | T17 | Aurora Glass retained without fake stages |
+| Phase 2 UI and languages | T17 | Y2K Cyber Console retained without fake stages |
 | Firefox | Post-R2 compatibility project | Chrome/Edge first; Brave tested before claiming parity |
 | Minifilter, cloud sync, mobile, passkeys, enterprise | Backlog | Separate future requirements and reviews |
 
@@ -800,33 +802,33 @@ Original milestone dependency defects are resolved: scanner precedes USB file sc
 
 Confirmed: personal/educational use; retain the full product vision and improve the plan.
 
-Proposed defaults: Rust engine; supported Windows 11 first; Chrome/Edge first; Phase 1 USB Gate as a core deliverable; optional separate ClamAV; rules before ML; no cloud or telemetry; unsigned local builds; Aurora Glass in R3; all 25 lessons retained.
+Proposed defaults: Rust engine; supported Windows 11 first; Chrome/Edge first; Phase 1 USB Gate as a core deliverable; optional separate ClamAV; rules before ML; no cloud or telemetry; unsigned local builds; Y2K Cyber Console from the functional preview with R3 closure; all 25 lessons retained.
 
 Not assumed: availability of a Pro VM/spare hardware, feasibility of raw USB acquisition, successful enforcement on every Home/Pro machine, valid feed credentials, or access to independent review. T00 explicitly records these before dependent work starts.
 
-**First execution deliverable:** complete T00 and produce a USB-focused capability matrix with real evidence: which Windows controls can hold storage, which can hold HID/composite devices, what input or mount exposure window exists, and what recovery path works. Then establish T01 contracts and T02 recovery before writing the T07 USB Gate. Do not start with visual polish, an all-powerful SYSTEM engine, or a deny-all USB policy on a daily-use machine.
+**First execution deliverable:** complete T00 and produce a USB-focused capability matrix with real evidence: which Windows controls can hold storage, which can hold HID/composite devices, what input or mount exposure window exists, and what recovery path works. Then establish T01 contracts and T02 recovery before writing the T07 USB Gate. GLM may build the visual shell in parallel with Codex foundations. Do not make an all-powerful SYSTEM engine or apply a deny-all USB policy on a daily-use machine.
 
 This plan is complete as a product and delivery proposal. No implementation, platform test, performance result, security audit, or release readiness is claimed by the existence of this document.
 
 ## 15. Complete presentation and interaction requirements
 
-These requirements consolidate the original Aurora Glass design into T17. Functional, accessible versions of these screens ship with their owning R1/R2 tasks. Decorative effects wait for R3. Screens must use effective capabilities and real assessment data from the contracts in section 7.
+These requirements consolidate the original Y2K Cyber Console design into T17. Functional, accessible versions of these screens ship with their owning R1/R2 tasks. The visual identity begins during the functional preview; R3 closes polish, localization and regression checks. Screens must use effective capabilities and real assessment data from the contracts in section 7.
 
 ### 15.1 Visual system
 
-Use a calm, status-first layout with a left sidebar, a clear protection summary, concise explanations, and visible next actions. Create dark, light, and high-contrast themes. Glass belongs on navigation and containers; dense text and warnings use opaque or sufficiently opaque inner surfaces. Test contrast against the worst backdrop. Never rely on color alone.
+Use a maximalist Y2K Cyber Console shell around a precise, readable console: deep navy, azure #2f89e3, chrome headings, translucent navigation, restrained CRT touches, and a left sidebar. The whole console breathes the actual threat state through shared border, glow, badge and restrained ambient treatments. Unknown or missing coverage remains neutral and visibly uncertain. Keep a clear capability summary, concise explanations, and visible next actions. Create dark, light, and high-contrast themes. Glass belongs on navigation and containers; dense text and warnings use opaque or sufficiently opaque inner surfaces. Test contrast against the worst backdrop. Never rely on color alone.
 
 Initial dark-theme token candidates, subject to measured accessibility checks:
 
 ```css
 :root {
-  --bg-0: #07080f;
+  --bg-0: #07101f;
   --bg-1: #0e1020;
   --glass-fill: rgba(255,255,255,.06);
   --glass-fill-strong: rgba(18,20,38,.96);
   --glass-border: rgba(255,255,255,.14);
   --glass-blur: 24px;
-  --accent-a: #7c5cff;
+  --accent-a: #2f89e3;
   --accent-b: #22d3ee;
   --text-1: #f5f6ff;
   --text-2: #c4c8e4;
@@ -945,3 +947,40 @@ Future work requires its own requirements, threat model, and acceptance gates: s
 Retained design inspiration: Proton VPN/Pass for clear status and credential flows; Mobbin, Refero, Page Flows, and Component Gallery for interaction references; Dribbble and Behance for visual direction. Use owner-provided references or permitted browsing; do not copy protected assets or branding. shadcn/ui/Radix, Tailwind, Motion, Lucide, and optional Rive are candidates to verify in T01/T17, not a requirement to add every library. License, accessibility, maintenance, and measured performance determine adoption.
 
 **Master-plan completion check:** all F1–F12 feature areas, all 25 lessons, T00–T17 tasks, R0–R3 gates, architecture/contracts, recovery/privacy requirements, presentation/localization, effort/resources, and original milestone mappings are consolidated here. Implementation has not started merely because the plan is consolidated.
+
+## 19. Owner-aligned execution baseline — 2 October 2026
+
+This section is authoritative for the owner's latest role split and design request. It supersedes earlier conflicting assignment, theme and presentation timing. It does not weaken the technical requirements, privacy rules, R1/R2 gates, or USB matrix above. Detailed prompts: [Codex logic](agent-prompts/Codex-Logic.md), [GLM UI](agent-prompts/GLM-UI.md). Integration decisions and issue acceptance: [coordination record](coordination/2026-10-02-integration.md).
+
+### 19.1 Product promise and evidence
+
+Sentinel is the owner's awareness-heavy Windows anti-threat utility with a translucent desktop console and connected browser extension. The antivirus area combines file inspection and bounded monitoring with Defender kept enabled. Wi-Fi Guard explains observed privacy/security risks. USB inspection aims to hold unapproved storage and input interfaces before ordinary use on configurations proven to support it. Desktop and extension use one local encrypted vault. Web features assess suspicious links, staged downloads, and opt-in supported mail/WhatsApp Web content. Every warning leads to evidence, limitations, safe actions and optional private AI questions. All remain tracked requirements even when not implemented.
+
+The design is Y2K Cyber Console: a maximalist shell around a precise readable console, deep navy (#07101f base), azure #2f89e3, chrome heading accents, glass/translucency and restrained CRT touches. The whole console breathes the actual threat state. Unknown/stale/unavailable coverage cannot look protected; text and icons accompany color. Readable inner report surfaces, reduced motion/transparency, high contrast and keyboard access are baseline requirements. GLM starts this design alongside the Phase 1-70 functional preview; R3 closes polish, localization and regression work.
+
+### 19.2 Roles, authoritative branch and contracts
+
+Codex owns engine/runtime logic, Rust contracts, authenticated IPC, restricted workers, scanning, remediation, observation and verified enforcement, native host, browser decision/adapter logic, vault authority, privacy and AI boundaries. GLM owns desktop/extension presentation, design system, accessible interactions, localization and awareness/academy presentation. The coordinator owns requirement arbitration, issue queue, integration review, shared-file serialization and branch retirement. Mixed extension files require a recorded handoff. Contract sources belong to Codex; GLM consumes generated bindings and requests contract amendments. Both review the peer's work for their discipline.
+
+main remains the single integration/master source and existing default. Use short-lived issue branches and reviewed PRs rather than two divergent long-running masters. Do not rewrite history or edit a peer's active branch. Retire obsolete branches only when their useful head is reachable from main, recoverable archive tags are verified remotely, active PR/work dependencies are resolved, and the peer is notified. Git/REST access was restored and issues #5–#15 were published; consolidation is PR #16. The GitHub plugin remains unable to access Sentinel. Branch retirement follows verified integration and archive tags, with outcomes recorded in the coordination record.
+
+Retain the existing GLM extension harness's verified status/toggle/error behavior and Codex's asynchronous native scan preview. Retain main's complete chat history and Rust foundations. The WPF preview is transitional; the permanent application follows Rust + Tauri 2 + React. The React fixture shell is not yet a connected desktop app. No cached GLM glass desktop implementation was found; review newly fetched heads before making further selection decisions.
+
+### 19.3 Required interaction clarifications
+
+- Quick/full/custom/removable scan profiles expose exact scope, exclusions, engine version/freshness, progress and inspected/skipped/error totals. Full refers to scope, not guaranteed detection of every threat. Cancellation, timeout, limits and stale engines remain visible; incomplete jobs never become clean.
+- Wi-Fi/file/link/download warnings open the subject-bound assessment with observed evidence, check time, explanation, limitations and safe action. Notifications are deduplicated/rate-limited, reversible choices are clear, and keyboard focus returns correctly. Network observations do not prove an evil twin or provide a VPN automatically.
+- USB is an access-control and restricted-inspection pipeline, not automatic placement of arbitrary hardware in a VM. Firmware/HID safety cannot be established from storage-file scans. No fabricated simulation stages. Storage/HID approvals remain separate and hardware evidence is required for pre-mount/pre-input claims; optional sandbox execution is separately gated T16 research. If the hold is unsupported, say so. No daily-machine blocking tests or E: policy changes.
+- Before-download checks assess the source URL/metadata where supported. Inspection of file bytes requires acquiring them into a controlled staging area. Pause/cancel/block/release behavior must be validated per supported browser/download path, and residual transfer/access windows displayed. The extension cannot universally inspect bytes before any transfer starts. Downloads that cannot be intercepted are visibly unsupported; no silent clean verdict.
+- One local vault serves both clients, encrypted at rest and unlocked by the user's master password with expiring sessions/auto-lock. Import requires explicit selection of a supported user-exported file. Do not assume an extension can directly import browser credentials through permission alone or claim that all built-in browser vaults are insecure. Review valuable-credential storage/fill before enabling it. Local audit covers weakness, common/breached patterns and reuse; external breach requests require provider consent and no raw passwords. Strength estimates use labeled attacker models/ranges. Help users generate a replacement and navigate to the official account settings; changing an account password remains an explicit user action.
+- The awareness assistant receives an allowlist of redacted reason codes, capability state and non-secret educational context. Masking a displayed password does not authorize sending it to AI. Passwords, seeds, vault records, raw file contents and message bodies never enter assistant prompts or logs. Default is local/offline assistance; no cloud fallback that changes the privacy promise. Missing model/runtime means assistant unavailable, with static explanations still usable. AI cannot approve USB release, execute system commands, autofill unrequested records or override measured assessments. Model/license/resource review and prompt-injection tests precede enabling it.
+- Email/WhatsApp Web adapters are opt-in, local, read-only and scoped to supported pages. Browser-host sender/tab/frame/action validation precedes content integration. No message auto-send or page-driven arbitrary filesystem/policy calls. Live-site support requires real browser evidence beyond fixtures.
+- Desktop activity combines bounded redacted scan/network/device/browser findings and audit summaries. Secret values, raw mail/chat, full browsing queries and raw diagnostic paths are excluded by default. Retention and deletion controls are visible; learning progress never contributes to protection state.
+
+### 19.4 Dependency order and autonomy
+
+After consolidation, Codex first completes live authenticated jobs and worker containment; the native-host contract is specified and reviewed in the same foundation stage. GLM concurrently delivers tokens, threat-state shell, dashboard and awareness dialogs against labeled fixture adapters and generated contracts. Then integrate scan reports, bridge, passive Wi-Fi/USB/hygiene, browser inspection, vault/autofill, messages/monitoring/lessons, and lifecycle/release closure. The coordination record gives individual issue acceptance and file ownership. All 25 lessons remain required by R2; all original T00-T17 tasks stay traceable.
+
+Continue through ready authorized issues without repeated owner approval for routine implementation. Communicate in issues/PRs and append-only chat.md on freshly fetched main with fast-forward pushes. When dependent work is blocked, complete independent ready work. Ask the owner only for a real unavailable prerequisite, lab/account access, consequential work outside scope, or unresolved product decision. No instruction to “never stop” overrides correctness, unavailable credentials, physical hardware, privacy or finite session execution. Do not imply work continues after the session ends without an explicitly configured automation.
+
+A checkpoint is complete only with actual tests and evidence. Phase 1-70 shows a runnable functional preview; Phase 1-30 closes release gates. Fixtures do not satisfy live connectivity, worker containment, vault review, browser behavior or hardware enforcement. Missing recoverable lab equipment blocks protected R1 labeling while independent software/UI progress continues.
