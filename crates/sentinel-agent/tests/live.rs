@@ -1,8 +1,6 @@
 #![cfg(windows)]
 use sentinel_agent::jobs::JobStore;
-use sentinel_proto::rpc::encode_frame;
-use sentinel_svc::{live_pipe::connect_user, windows::OsIdentity};
-use std::io::{Read, Write};
+use sentinel_svc::{live_pipe::AuthenticatedClient, windows::OsIdentity};
 use std::os::windows::process::CommandExt;
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -63,7 +61,7 @@ impl Agent {
     fn request(&self, value: serde_json::Value) -> serde_json::Value {
         let deadline = Instant::now() + Duration::from_secs(3);
         let mut client = loop {
-            match connect_user(&self.pipe) {
+            match AuthenticatedClient::connect(&self.pipe) {
                 Ok(client) => break client,
                 Err(_) if Instant::now() < deadline => {
                     std::thread::sleep(Duration::from_millis(10))
@@ -71,24 +69,13 @@ impl Agent {
                 Err(error) => panic!("live endpoint did not connect: {error}"),
             }
         };
-        let (send, receive) = std::sync::mpsc::channel();
-        std::thread::spawn(move || {
-            let result = (|| -> std::io::Result<serde_json::Value> {
-                client.write_all(&encode_frame(&serde_json::to_vec(&value).unwrap()).unwrap())?;
-                let mut header = [0; 4];
-                client.read_exact(&mut header)?;
-                let length = u32::from_be_bytes(header) as usize;
-                assert!(length <= 1048576);
-                let mut body = vec![0; length];
-                client.read_exact(&mut body)?;
-                Ok(serde_json::from_slice(&body).unwrap())
-            })();
-            let _ = send.send(result);
-        });
-        receive
-            .recv_timeout(Duration::from_secs(3))
-            .expect("live reply deadline")
-            .unwrap()
+        let body = client
+            .exchange(
+                &serde_json::to_vec(&value).unwrap(),
+                deadline.saturating_duration_since(Instant::now()),
+            )
+            .expect("live reply deadline");
+        serde_json::from_slice(&body).unwrap()
     }
 }
 impl Drop for Agent {

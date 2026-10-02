@@ -165,27 +165,8 @@ impl AuthenticatedPipe {
         })
     }
 
-    fn read_exact(&self, mut bytes: &mut [u8], deadline: Instant) -> io::Result<()> {
-        while !bytes.is_empty() {
-            let handle = self.file.as_raw_handle();
-            let count = operation(handle, remaining(deadline)?, false, |overlapped, count| {
-                // SAFETY: buffer remains alive/exclusively borrowed until completion/cancellation.
-                unsafe {
-                    ReadFile(
-                        handle,
-                        bytes.as_mut_ptr(),
-                        bytes.len() as u32,
-                        count,
-                        overlapped,
-                    )
-                }
-            })? as usize;
-            if count == 0 {
-                return Err(io::ErrorKind::UnexpectedEof.into());
-            }
-            bytes = &mut bytes[count..];
-        }
-        Ok(())
+    fn read_exact(&self, bytes: &mut [u8], deadline: Instant) -> io::Result<()> {
+        client_read_exact(self.file.as_raw_handle(), bytes, deadline)
     }
 
     pub fn reply(&mut self, payload: &[u8], timeout: Duration) -> io::Result<()> {
@@ -196,27 +177,7 @@ impl AuthenticatedPipe {
         let deadline = deadline(timeout)?;
         let frame = encode_frame(payload)
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "oversized response"))?;
-        let mut bytes = frame.as_slice();
-        while !bytes.is_empty() {
-            let handle = self.file.as_raw_handle();
-            let count = operation(handle, remaining(deadline)?, false, |overlapped, count| {
-                // SAFETY: frame storage remains alive through completion/cancellation.
-                unsafe {
-                    WriteFile(
-                        handle,
-                        bytes.as_ptr(),
-                        bytes.len() as u32,
-                        count,
-                        overlapped,
-                    )
-                }
-            })? as usize;
-            if count == 0 {
-                return Err(io::ErrorKind::WriteZero.into());
-            }
-            bytes = &bytes[count..];
-        }
-        Ok(())
+        client_write_all(self.file.as_raw_handle(), &frame, deadline)
     }
 }
 
@@ -288,7 +249,89 @@ fn operation(
     Ok(count)
 }
 
+/// Token-verified local client with bounded sequential exchanges.
+pub struct AuthenticatedClient {
+    file: Option<File>,
+}
+
+impl AuthenticatedClient {
+    pub fn connect(name: &str) -> io::Result<Self> {
+        Ok(Self {
+            file: Some(connect_user_with_flags(name, FILE_FLAG_OVERLAPPED)?),
+        })
+    }
+    /// Sequential request/response exchange. Any error closes the channel;
+    /// partial protocol state must never be reused by the next request.
+    pub fn exchange(&mut self, payload: &[u8], timeout: Duration) -> io::Result<Vec<u8>> {
+        let file = self.file.take().ok_or(io::ErrorKind::NotConnected)?;
+        let deadline = deadline(timeout)?;
+        let frame = encode_frame(payload).map_err(|_| io::ErrorKind::InvalidData)?;
+        let handle = file.as_raw_handle();
+        client_write_all(handle, &frame, deadline)?;
+        let mut header = [0; 4];
+        client_read_exact(handle, &mut header, deadline)?;
+        let length = u32::from_be_bytes(header) as usize;
+        if length > MAX_MESSAGE_BYTES {
+            return Err(io::ErrorKind::InvalidData.into());
+        }
+        let mut body = vec![0; length];
+        client_read_exact(handle, &mut body, deadline)?;
+        self.file = Some(file);
+        Ok(body)
+    }
+}
+
+fn client_read_exact(handle: HANDLE, mut bytes: &mut [u8], deadline: Instant) -> io::Result<()> {
+    while !bytes.is_empty() {
+        let count = operation(handle, remaining(deadline)?, false, |overlapped, count| {
+            // SAFETY: exclusively borrowed output stays live until operation completes/cancels.
+            unsafe {
+                ReadFile(
+                    handle,
+                    bytes.as_mut_ptr(),
+                    bytes.len() as u32,
+                    count,
+                    overlapped,
+                )
+            }
+        })? as usize;
+        if count == 0 {
+            return Err(io::ErrorKind::UnexpectedEof.into());
+        }
+        bytes = &mut bytes[count..];
+    }
+    Ok(())
+}
+
+fn client_write_all(handle: HANDLE, mut bytes: &[u8], deadline: Instant) -> io::Result<()> {
+    while !bytes.is_empty() {
+        let count = operation(handle, remaining(deadline)?, false, |overlapped, count| {
+            // SAFETY: borrowed frame stays live until operation completes/cancels.
+            unsafe {
+                WriteFile(
+                    handle,
+                    bytes.as_ptr(),
+                    bytes.len() as u32,
+                    count,
+                    overlapped,
+                )
+            }
+        })? as usize;
+        if count == 0 {
+            return Err(io::ErrorKind::WriteZero.into());
+        }
+        bytes = &bytes[count..];
+    }
+    Ok(())
+}
+
+/// Synchronous handle for development transport probes. Runtime adapters use
+/// `AuthenticatedClient` to bound request writes and response reads.
 pub fn connect_user(name: &str) -> io::Result<File> {
+    connect_user_with_flags(name, 0)
+}
+
+fn connect_user_with_flags(name: &str, flags: u32) -> io::Result<File> {
     validate_name(name)?;
     let wide: Vec<u16> = name.encode_utf16().chain([0]).collect();
     // SAFETY: valid name; requested rights cannot create a server instance.
@@ -299,7 +342,7 @@ pub fn connect_user(name: &str) -> io::Result<File> {
             0,
             null(),
             OPEN_EXISTING,
-            SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION,
+            flags | SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION,
             null_mut(),
         )
     };
@@ -360,6 +403,112 @@ fn validate_name(name: &str) -> io::Result<()> {
 mod server_identity_tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn client_rejects_oversized_and_partial_response_frames() {
+        for (bytes, expected) in [
+            (
+                (MAX_MESSAGE_BYTES as u32 + 1).to_be_bytes().to_vec(),
+                io::ErrorKind::InvalidData,
+            ),
+            (vec![0, 0], io::ErrorKind::TimedOut),
+            (vec![0, 0, 0, 5, b'x'], io::ErrorKind::TimedOut),
+        ] {
+            let name = format!(
+                r"\\.\pipe\Sentinel-v1-user-{}-{}",
+                std::process::id(),
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            );
+            let mut pipe = AuthenticatedPipe::bind(&name).unwrap();
+            let mut client = AuthenticatedClient::connect(&name).unwrap();
+            let server = std::thread::spawn(move || {
+                pipe.receive(Duration::from_secs(2)).unwrap();
+                client_write_all(
+                    pipe.file.as_raw_handle(),
+                    &bytes,
+                    deadline(Duration::from_secs(1)).unwrap(),
+                )
+                .unwrap();
+                std::thread::sleep(Duration::from_millis(300));
+            });
+            let result = client.exchange(b"request", Duration::from_millis(100));
+            server.join().unwrap();
+            assert_eq!(result.unwrap_err().kind(), expected);
+            assert_eq!(
+                client
+                    .exchange(b"retry", Duration::from_secs(1))
+                    .unwrap_err()
+                    .kind(),
+                io::ErrorKind::NotConnected
+            );
+        }
+    }
+
+    #[test]
+    fn header_and_body_share_one_client_deadline() {
+        let name = format!(
+            r"\\.\pipe\Sentinel-v1-user-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        let mut pipe = AuthenticatedPipe::bind(&name).unwrap();
+        let mut client = AuthenticatedClient::connect(&name).unwrap();
+        let server = std::thread::spawn(move || {
+            pipe.receive(Duration::from_secs(2)).unwrap();
+            std::thread::sleep(Duration::from_millis(60));
+            let _ = client_write_all(
+                pipe.file.as_raw_handle(),
+                &1u32.to_be_bytes(),
+                deadline(Duration::from_secs(1)).unwrap(),
+            );
+            std::thread::sleep(Duration::from_millis(60));
+            let _ = client_write_all(
+                pipe.file.as_raw_handle(),
+                b"x",
+                deadline(Duration::from_secs(1)).unwrap(),
+            );
+        });
+        let result = client.exchange(b"request", Duration::from_millis(100));
+        server.join().unwrap();
+        assert_eq!(result.unwrap_err().kind(), io::ErrorKind::TimedOut);
+    }
+
+    #[test]
+    fn stalled_agent_response_times_out_and_discards_connection() {
+        let name = format!(
+            r"\\.\pipe\Sentinel-v1-user-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        let mut pipe = AuthenticatedPipe::bind(&name).unwrap();
+        let mut client = AuthenticatedClient::connect(&name).unwrap();
+        let server = std::thread::spawn(move || {
+            pipe.receive(Duration::from_secs(2)).unwrap();
+            std::thread::sleep(Duration::from_millis(500));
+            let _ = pipe.reply(b"late-response", Duration::from_secs(1));
+        });
+        let started = Instant::now();
+        let result = client.exchange(b"request", Duration::from_millis(100));
+        server.join().unwrap();
+        assert_eq!(result.unwrap_err().kind(), io::ErrorKind::TimedOut);
+        assert!(started.elapsed() < Duration::from_secs(2));
+        assert_eq!(
+            client
+                .exchange(b"retry", Duration::from_secs(1))
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::NotConnected
+        );
+    }
 
     #[test]
     fn client_grants_identity_inspection_only() {

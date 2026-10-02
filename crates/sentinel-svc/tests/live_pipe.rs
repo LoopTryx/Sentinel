@@ -1,6 +1,6 @@
 #![cfg(windows)]
 use sentinel_proto::rpc::encode_frame;
-use sentinel_svc::live_pipe::{AuthenticatedPipe, connect_user};
+use sentinel_svc::live_pipe::{AuthenticatedClient, AuthenticatedPipe, connect_user};
 use sentinel_svc::windows::OsIdentity;
 use std::io::{Read, Write};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -14,6 +14,108 @@ fn name() -> String {
             .unwrap()
             .as_nanos()
     )
+}
+
+#[test]
+fn bounded_client_supports_sequential_large_responses() {
+    let name = name();
+    let mut pipe = AuthenticatedPipe::bind(&name).unwrap();
+    let server = std::thread::spawn(move || {
+        for _ in 0..2 {
+            let request = pipe.receive(Duration::from_secs(2)).unwrap();
+            assert_eq!(request.payload(), b"request");
+            pipe.reply(&vec![b'x'; 128 * 1024], Duration::from_secs(2))
+                .unwrap();
+        }
+    });
+    let mut client = AuthenticatedClient::connect(&name).unwrap();
+    for _ in 0..2 {
+        assert_eq!(
+            client.exchange(b"request", Duration::from_secs(2)).unwrap(),
+            vec![b'x'; 128 * 1024]
+        );
+    }
+    server.join().unwrap();
+}
+
+#[test]
+fn bounded_client_disposes_disconnected_agent_channel() {
+    let name = name();
+    let mut pipe = AuthenticatedPipe::bind(&name).unwrap();
+    let server = std::thread::spawn(move || {
+        pipe.receive(Duration::from_secs(2)).unwrap();
+    });
+    let mut client = AuthenticatedClient::connect(&name).unwrap();
+    let error = client
+        .exchange(b"request", Duration::from_secs(2))
+        .unwrap_err();
+    assert!(matches!(
+        error.kind(),
+        std::io::ErrorKind::BrokenPipe | std::io::ErrorKind::UnexpectedEof
+    ));
+    assert_eq!(
+        client
+            .exchange(b"retry", Duration::from_secs(1))
+            .unwrap_err()
+            .kind(),
+        std::io::ErrorKind::NotConnected
+    );
+    server.join().unwrap();
+}
+
+#[test]
+fn bounded_client_write_times_out_when_agent_does_not_read() {
+    let name = name();
+    let _pipe = AuthenticatedPipe::bind(&name).unwrap();
+    let mut client = AuthenticatedClient::connect(&name).unwrap();
+    let started = std::time::Instant::now();
+    assert_eq!(
+        client
+            .exchange(&vec![0; 1024 * 1024], Duration::from_millis(100))
+            .unwrap_err()
+            .kind(),
+        std::io::ErrorKind::TimedOut
+    );
+    assert!(started.elapsed() < Duration::from_secs(2));
+    assert_eq!(
+        client
+            .exchange(b"retry", Duration::from_secs(1))
+            .unwrap_err()
+            .kind(),
+        std::io::ErrorKind::NotConnected
+    );
+}
+
+#[test]
+fn bounded_client_rejects_invalid_timeout_and_oversized_request() {
+    for (payload, timeout, expected) in [
+        (vec![0], Duration::ZERO, std::io::ErrorKind::InvalidInput),
+        (
+            vec![0],
+            Duration::from_secs(31),
+            std::io::ErrorKind::InvalidInput,
+        ),
+        (
+            vec![0; 1024 * 1024 + 1],
+            Duration::from_secs(1),
+            std::io::ErrorKind::InvalidData,
+        ),
+    ] {
+        let name = name();
+        let _pipe = AuthenticatedPipe::bind(&name).unwrap();
+        let mut client = AuthenticatedClient::connect(&name).unwrap();
+        assert_eq!(
+            client.exchange(&payload, timeout).unwrap_err().kind(),
+            expected
+        );
+        assert_eq!(
+            client
+                .exchange(b"retry", Duration::from_secs(1))
+                .unwrap_err()
+                .kind(),
+            std::io::ErrorKind::NotConnected
+        );
+    }
 }
 
 #[test]
