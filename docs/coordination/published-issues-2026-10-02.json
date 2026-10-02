@@ -1,0 +1,68 @@
+[
+  {
+    "key": "VC-01",
+    "number": 5,
+    "url": "https://github.com/LoopTryx/Sentinel/issues/5",
+    "title": "[VC-01] P1: Align plan, assignments, and integration baseline"
+  },
+  {
+    "key": "LOGIC-01",
+    "number": 6,
+    "url": "https://github.com/LoopTryx/Sentinel/issues/6",
+    "title": "[LOGIC-01] P1: Authenticated live agent and durable owned scan jobs"
+  },
+  {
+    "key": "LOGIC-02",
+    "number": 7,
+    "url": "https://github.com/LoopTryx/Sentinel/issues/7",
+    "title": "[LOGIC-02] P1: Restricted workers and bounded concurrent output handling"
+  },
+  {
+    "key": "LOGIC-03",
+    "number": 8,
+    "url": "https://github.com/LoopTryx/Sentinel/issues/8",
+    "title": "[LOGIC-03] P1: Complete and approve native-host contract, then bridge"
+  },
+  {
+    "key": "LOGIC-04",
+    "number": 9,
+    "url": "https://github.com/LoopTryx/Sentinel/issues/9",
+    "title": "[LOGIC-04] P1: Quick/full scans, evidence, inspector, and quarantine"
+  },
+  {
+    "key": "UI-01",
+    "number": 10,
+    "url": "https://github.com/LoopTryx/Sentinel/issues/10",
+    "title": "[UI-01] P1: Y2K tokens, threat-state shell, dashboard, awareness dialog"
+  },
+  {
+    "key": "UI-02",
+    "number": 11,
+    "url": "https://github.com/LoopTryx/Sentinel/issues/11",
+    "title": "[UI-02] P1: Scan/report and extension presentation using shared contracts"
+  },
+  {
+    "key": "LOGIC-05",
+    "number": 12,
+    "url": "https://github.com/LoopTryx/Sentinel/issues/12",
+    "title": "[LOGIC-05] P2: Passive Wi-Fi/USB/hygiene reports and bounded monitoring"
+  },
+  {
+    "key": "LOGIC-06",
+    "number": 13,
+    "url": "https://github.com/LoopTryx/Sentinel/issues/13",
+    "title": "[LOGIC-06] P2: One reviewed encrypted vault, imports, autofill, audit"
+  },
+  {
+    "key": "LOGIC-07",
+    "number": 14,
+    "url": "https://github.com/LoopTryx/Sentinel/issues/14",
+    "title": "[LOGIC-07] P2: Browser links/downloads/messages and private awareness assistant"
+  },
+  {
+    "key": "RELEASE-01",
+    "number": 15,
+    "url": "https://github.com/LoopTryx/Sentinel/issues/15",
+    "title": "[RELEASE-01] P1 release gate: Recoverable USB controls, lifecycle, security closure"
+  }
+]
