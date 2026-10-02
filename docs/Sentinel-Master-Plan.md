@@ -1,8 +1,10 @@
 # Sentinel — Master Product Requirements and Implementation Plan
 
+**Current delivery priority — owner update, 3 October 2026:** Sentinel is being built for a school event. The immediate goal is a polished, dependable, memorable showcase, not completion of the entire protected-product roadmap. [Section 20](#20-school-showcase--current-delivery-plan-3-october-2026) defines the current scope, acceptance, daily goals and fallback order; it supersedes earlier sequencing that makes R1/R2 release closure a prerequisite for the event. Full-product requirements below remain the later roadmap. Safety, privacy and truthful capability claims still apply to whatever the showcase actually does.
+
 Owner update, 2 October 2026: this document is the shared specification for both engineers. Section 19 resolves the latest owner request against earlier wording: GLM owns presentation, Codex owns logic, and Y2K Cyber Console begins during the functional preview. Existing privacy, trust-boundary and hardware evidence gates remain mandatory. Assignment prompts are in docs/agent-prompts/; the concrete issue queue and consolidation evidence are in docs/coordination/2026-10-02-integration.md. Local preparation is not proof of remote adoption.
 
-Version 4.0 owner-aligned consolidation · 2 October 2026 · Owner: Loop
+Version 4.1 school-showcase priority · 3 October 2026 · Owner: Loop
 
 **Goal:** Build a local-first Windows security companion that helps its owner inspect files, recognize suspicious networks and devices, protect credentials, and understand security decisions while Microsoft Defender remains active.
 
@@ -984,3 +986,83 @@ After consolidation, Codex first completes live authenticated jobs and worker co
 Continue through ready authorized issues without repeated owner approval for routine implementation. Communicate in issues/PRs and append-only chat.md on freshly fetched main with fast-forward pushes. When dependent work is blocked, complete independent ready work. Ask the owner only for a real unavailable prerequisite, lab/account access, consequential work outside scope, or unresolved product decision. No instruction to “never stop” overrides correctness, unavailable credentials, physical hardware, privacy or finite session execution. Do not imply work continues after the session ends without an explicitly configured automation.
 
 A checkpoint is complete only with actual tests and evidence. Phase 1-70 shows a runnable functional preview; Phase 1-30 closes release gates. Fixtures do not satisfy live connectivity, worker containment, vault review, browser behavior or hardware enforcement. Missing recoverable lab equipment blocks protected R1 labeling while independent software/UI progress continues.
+
+## 20. School showcase — current delivery plan, 3 October 2026
+
+### 20.1 Goal and precedence
+
+The owner clarified that this is a school event: build something reliable and impressive without commercial-level release readiness. The immediate milestone is **S1 — School Showcase**: a polished, repeatable, interactive demonstration on the event laptop. S1 can pass while protected R1/R2 remain incomplete. “Works perfectly” means the selected supported demo journeys are rehearsed and dependable, not universal detection or a zero-defect guarantee.
+
+This section supersedes earlier full-product-before-preview sequencing, the breadth of the old Phase 1-70 checklist, and conflicting October targets. All F1–F12, T00–T17, R0–R3 and 25 lessons remain the later roadmap. Public signing, a release installer/update channel, every-device coverage, all languages, all connected lesson triggers and valuable-credential vault approval are not school-event prerequisites. Their original gates still apply when those capabilities are actually enabled or distributed. Privacy, safe operations and truthful results remain required now.
+
+### 20.2 Focused scope and wow factor
+
+| Priority | Journey | Behavior and boundaries |
+|---|---|---|
+| Must | One launchable Y2K console | GLM's readable glass dashboard, navigation, subject-bound reports and practical actions. Separate actual risk, coverage and learning. Use one known-working launch path; no last-minute platform rewrite. A reviewed transitional path can serve the event; Rust/Tauri/React remains the permanent architecture. |
+| Must | File scan → evidence → explanation | Live bounded scanning of a small owner-selected benign sample set, actual scope/progress/cancel/timeout/inspected/skipped/error counts and current hash/test-string capability. No destructive quarantine or malware execution. Use explicitly selected labeled suspicious-report scenarios if a live finding cannot be safely demonstrated. |
+| Must | Link/scam detective | Local bounded URL checks and curated synthetic scam messages explain domains, OTP/payment/urgency clues and uncertainty. Never fetch/open suspect destinations or act on messages. Show actual browser blocking only on a tested fixture-domain path. Native host and live-site adapters are optional until ready. |
+| Must | Four polished Academy interactions | Password Autopsy with invented input, Phishing Dojo, URL X-Ray and USB Autopsy. Each has visitor interaction, understandable feedback, practical action and private local progress. Reviewed static educational help is sufficient; no model is required. |
+| Should | Wi-Fi/hygiene snapshot | Stable read-only supported observations, timestamps and missing-data states. Synthetic comparisons are labeled. No required network probes, settings mutations, evil-twin or VPN claim. |
+| Should | USB inspection story | Read-only inventory or an explicitly selected harmless sample-storage scan where available. A labeled interactive illustration explains storage versus HID risks. No daily-laptop input payloads, pre-access hold or policy blocking. CRYPTIC (E:) is outside the demo. |
+| Stretch | Additional lessons and samples | Expand toward eight lessons, locally evaluated synthetic mail/chat examples or secure password generation only after the core route works. Drop stretch first. |
+| Later | Full protected-product features | Shared vault/autofill, live-site adapters, remediation, monitoring, USB enforcement, generative local AI, updates and broad compatibility retain their dependencies. Deepfake, face/social analysis, autonomous remediation and enterprise Shadow-AI require separate scope/evaluation. |
+
+The wow comes from a coherent evidence-to-learning experience: identify a subject, reveal evidence, let a visitor choose, explain the consequence. Animate only actual scan stages; educational scenarios can animate when clearly labeled. GLM owns presentation/interactions; Codex owns logic/contracts; coordinator integrates. Paid feeds, cloud services and a heavyweight model are not prerequisites. Missing optional services must not break the core route.
+
+### 20.3 Proportionate engineering and acceptance
+
+Test what is included: bounded inputs/output/deadlines, cancellation, report identity, safe failure, privacy, readable warnings and keyboard use. Keep Defender enabled. No untrusted-file execution or destructive demo actions. Do not call a process boundary a complete sandbox; broader containment review is required before hostile-file parsers. S1 can remain limited to benign selected samples and the implemented bounded static checks.
+
+Use invented passwords/messages and non-secret sample files. Never put passwords/raw messages/files into AI or diagnostic logs. A real vault, privileged mutation or USB protection gate cannot borrow the educational-demo exemption: enabling it invokes its original safety acceptance. Clearly distinguish actual local observations, selected scenarios, unavailable capabilities and recorded fallback in the UI and talk track.
+
+S1 is ready when:
+
+1. One pinned event build/commit and concise launcher reach the core console without an engineering terminal tour. An explicit development launcher is acceptable.
+2. The full five-minute route passes ten consecutive rehearsals on the intended laptop, including at least three fresh launches and two offline runs. Record outcome/time/defects. No core crash, dead end or invented result; this is repeatability evidence, not security certification.
+3. Applicable cancel, missing engine/native host, stale/offline intel, invalid URL, unreadable sample and repeated-click cases pass. Partial never becomes clean. Optional panels show explanations or unavailable states gracefully.
+4. Prepared steps aim to finish within ten seconds on the event machine. If measured time exceeds that, reduce the sample set or adjust the talk track. This is a showcase usability budget, not a product performance claim.
+5. The core route passes keyboard/focus, contrast, reduced-motion and event-display readability checks. Full multilingual/NVDA/400% regression remains later scope; accessibility basics still apply now.
+6. A local offline sample pack and recording of the same build are available. A failed live step switches visibly to a recording or labeled scenario, never fabricated live success.
+
+No comprehensive penetration certification, public signing, release installer or every-device matrix is needed for S1. Focused review and relevant tests remain necessary. Use checked foundations where useful; integration of every open PR is not a prerequisite if the demo safely uses an already working route.
+
+### 20.4 Five-minute demonstration
+
+0:00–0:30 launch and explain a companion that teaches why; 0:30–1:45 scan a benign sample and inspect real evidence (optionally one labeled suspicious scenario); 1:45–2:45 inspect a sample URL and scam clues; 2:45–4:00 visitor tries Password Autopsy or Phishing Dojo; 4:00–4:40 USB illustration or passive snapshot; 4:40–5:00 explain what was live, what was a scenario and the next feature. Keep a longer optional route for interested judges.
+
+### 20.5 Revised October 2026 targets
+
+Dates are targets, not completed work. Preserve the original rightmost Trello schedule/history and attach corrected guidance. Roll unfinished must-have work forward; cut stretch first.
+
+| Day | Overall goal | Completion check |
+|---|---|---|
+| Oct 2 | Retrospective: visual baseline and available capabilities | Existing evidence; no retroactive completion claim |
+| Oct 3 | Lock S1 route, scope and roles | Must/should/stretch/later list, runnable baseline, blockers |
+| Oct 4 | Connect console to existing scan path | Benign selected sample produces actual report |
+| Oct 5 | Dependable scanning | Cancel/timeout/partial/repeated-click checks and useful errors |
+| Oct 6 | URL X-Ray and local assessment | Bounded normalization/domain explanation, offline/unknown |
+| Oct 7 | Synthetic scam detective / Phishing Dojo | Local clues, benign counterexamples and feedback |
+| Oct 8 | First integrated mini-demo | Launch → scan → link → explanation without dead ends |
+| Oct 9 | Password Autopsy interaction | Invented input, labeled estimates, safe guidance |
+| Oct 10 | Polish scam/URL lessons and progress | Keyboard completion; learning separate from protection |
+| Oct 11 | USB Autopsy and optional passive snapshot | Four polished interactions; no live policy changes |
+| Oct 12 | Rest / optional catch-up | Preserve free day; no mandatory new scope |
+| Oct 13 | Midpoint rehearsal and scope cut | Working five-minute route; prioritized defects |
+| Oct 14 | Dashboard, evidence dialogs and transitions | Coherent readable GLM visuals and truthful states |
+| Oct 15 | Static help and offline fallback | Explanations work without model/network |
+| Oct 16 | Optional snapshot or more lessons | Include only stable read-only/labeled scenario paths |
+| Oct 17 | Fix reliability/privacy defects | Relevant failure checks; synthetic data pack checked |
+| Oct 18 | Offline/missing-component rehearsal | No core dead end; explicit unavailable/fallback |
+| Oct 19 | Freeze scope and prepare sample pack/script | One candidate build; all core journeys present |
+| Oct 20 | Ten-run acceptance + core accessibility | Recorded outcomes; fixes rechecked |
+| Oct 21 | Final freeze, backup and recording | Pinned passing build, launcher, offline assets |
+| Oct 22 | Travel to MCT / lightweight readiness | Preserve travel day; no risky experiments |
+| Oct 23 | School event: honest interactive showcase | Stable route, labeled scenarios/fallback, feedback |
+| Oct 24 | Repeat and retrospective | Stable build; feedback becomes later priorities |
+
+### 20.6 Board and contributor alignment
+
+Use the existing Trello board. START HERE leads with S1; NEXT holds core demo priorities; feature cards identify S1 core, optional or later alongside actual implementation state. REVIEW retains PR evidence and DONE records verified increments. DAILY GOALS and the preserved rightmost to-do list follow section 20.5. Retain old research descriptions as historical, unverified notes rather than current behavior.
+
+Codex selects the smallest safe logic increment enabling an S1 journey. GLM prioritizes the core console, evidence flow and four lessons. Coordinator handles shared-file integration. The full roadmap remains available, but no longer competes with a dependable school showcase for the immediate deadline.

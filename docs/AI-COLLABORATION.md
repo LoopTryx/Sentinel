@@ -1,5 +1,7 @@
 # Shared Sentinel collaboration rules
 
+**Current owner priority, 3 October 2026:** deliver S1 School Showcase in [master plan section 20](Sentinel-Master-Plan.md#20-school-showcase--current-delivery-plan-3-october-2026). It supersedes earlier full-roadmap-before-preview sequencing. Focus Codex logic and GLM presentation on the console, benign selected scans, local link/scam explanations and four polished Academy interactions. Vault, enforcement, remediation, generative AI and distribution are later scope. Their original safety gates apply when enabled; S1 can pass without R1/R2 completion.
+
 Owner-aligned baseline: 2 October 2026. The owner's latest instruction supersedes the old Codex-desktop/GLM-extension split. **GLM 5.3 owns presentation; Codex owns logic.** The version-control coordinator manages the common master plan, issue queue, integration review and branch retirement.
 
 ## Read before selecting work
