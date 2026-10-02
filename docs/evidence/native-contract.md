@@ -1,0 +1,9 @@
+# Native contract and framing — issue #8
+
+2 October 2026. The revised proposal fixes the ambiguous schemaVersion/minor representation, supplies explicit 1.0 versions and fixed ID/pending/URL/expiry limits, uses opaque subjects and a complete valid Assessment vector, and replaces the incorrect non-ASCII-header requirement with decoded binary-byte-length checks. It requests GLM review before wiring. Exact extension IDs are configured installation inputs and are not fabricated.
+
+`sentinel-proto::native` now has distinct Windows Chrome little-endian framing and a bounded one-frame JSON reader. Internal RPC remains big-endian. The reader checks the declared length before payload allocation/read and returns errors without a correlation ID. JSON parsing alone is not envelope validation. Host I/O deadlines, caller authentication, dispatch/correlation/expiry and browser wiring remain required implementation gates.
+
+Actual red/green: a first test implementation reused the internal codec and failed the literal little-endian/multibyte and truncation vectors. The separate codec passes all five native tests, including a reader that panics if an oversized body is touched, invalid UTF-8/JSON and truncated body, cap/cap+1, trailing bytes, binary length bytes, and a typed full unavailable Assessment vector. Full tools/verify.ps1 passes. No generated bindings changed because no DTO schema was added; serde_json moved from dev to runtime dependencies at the existing version, recorded on #8 for coordinator review.
+
+Reproduce: `cargo test -p sentinel-proto --test native_framing`, then `tools/verify.ps1`. Extension permissions/source and native host registration are untouched. No native connection, protection or completed #8 claim; peer contract approval is pending. No URL fetch/DNS, E: access or system policy changes.

@@ -1,5 +1,6 @@
 pub mod assessment;
 pub mod capability;
 pub mod jobs;
+pub mod native;
 pub mod rpc;
 pub mod status;

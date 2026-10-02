@@ -1,110 +1,91 @@
-# Native-host message contract — draft v1 (proposal)
+# Native-host message contract — v1.0 review proposal
 
-Status: DRAFT for review · Author: GLM 5.3 · 2026-09-30 · Review discussion: `chat.md` msgs 6–7
-Scope: Chrome extension ↔ native messaging host. The host↔agent pipe stays inside `sentinel-proto`/`sentinel-svc` and is out of scope here. **No `nativeMessaging` permission is added until this contract is agreed.**
+Status: Codex amendment for GLM/coordinator review, 2 October 2026, issue #8. Supersedes the ambiguous schemaVersion/minor-version wording in GLM's original draft; that proposal remains recoverable in Git history. The codecs are tested; envelope dispatch, correlation, registration and browser wiring are not yet implemented. No nativeMessaging permission is added until peer agreement and a tested host/bridge implement this contract.
 
-## 1. Transport and framing
+## Transport
 
-- The Chrome boundary uses **Chrome native messaging framing**: a 32-bit length in **native byte order** (little-endian on our Windows target) followed by UTF-8 JSON. This is deliberately **separate** from `sentinel-proto`'s internal big-endian length-prefixed RPC framing; `encode_frame` is not reused across the two boundaries.
-- Application cap: **1 MiB per message in both directions** (matches the master-plan RPC cap). Chrome's own limits are asymmetric (host→Chrome 1 MiB, Chrome→host 64 MiB); the 1 MiB product cap applies regardless, in both directions.
-- The host writes frames to **stdout only**; **stderr** carries diagnostics and is never parsed by the extension.
-- The extension applies the same cap before sending; an oversized outgoing message is a client-side `oversized` error, never a truncated send.
+Windows Chrome framing is a four-byte unsigned **little-endian** byte length followed by UTF-8 JSON. Internal agent RPC remains **big-endian**, using its separate codec. Never interchange them. Headers are binary; bytes above 0x7f are ordinary length bytes, not malformed ASCII.
 
-## 2. Envelope
+The application cap is **1,048,576 payload bytes in both directions**, excluding the four-byte header. Check the length before allocating or reading a payload. Host stdout contains frames only; redacted diagnostics use stderr. A codec does not authenticate a client or impose an I/O deadline; the host must use bounded reads/writes and terminate stalled transports.
 
-One JSON object per frame, both directions:
+`sentinel-proto::native` supplies Windows Chrome encode/decode and one-frame JSON stream decoding. Invalid frame/JSON/UTF-8 errors contain no request ID. The generic JSON result still requires the envelope validation below. Stream decoding consumes exactly one frame; later frames are separate messages. An isolated frame decoder rejects trailing bytes.
+
+## Envelope and fixed limits
+
+Every envelope is an object containing exactly version, id, kind and payload. Version is `{ "major": 1, "minor": 0 }`, using the existing ProtocolVersion representation. v1.0 requires both values exactly; unsupported versions fail with unsupported_version only after the entire envelope is structurally valid, then close the port. Future minor compatibility requires a reviewed additive schema; v1 does not silently ignore unknown authority-bearing fields.
+
+Correlation IDs are **strings of 1–128 ASCII bytes**, characters `[A-Za-z0-9_-]`. IDs are unique for the lifetime of a port and never reused after completion/timeout; they are correlation only, never identity. The extension generates them, not a webpage. Structurally malformed envelopes, invalid IDs and unparseable frames have no trusted ID to echo. A valid envelope with an unsupported method/version may receive one error bearing its validated ID.
+
+At most **32 requests pending per port**. Reject the 33rd locally as busy before sending. Default request timeout is **5,000 ms**, measured with a monotonic clock. No unbounded completed-ID history: IDs use a monotonically increasing per-port counter plus local nonce; the pending map is the only set of IDs eligible for a reply. Never apply a duplicate, unsolicited or late reply after its pending entry is removed. Host concurrency/pending work is separately capped at 32, with busy returned without queuing extra work.
+
+URL limit: **2,048 Unicode scalar values and 8,192 UTF-8 bytes**, also within the message cap. Only absolute http/https URLs; reject embedded credentials, controls, malformed authorities and unsupported schemes. Validation performs no fetch, DNS lookup or navigation. A source URL assessment never claims acquired-file inspection.
+
+The request's subjectRef is an extension-generated opaque identifier of **1–128 ASCII bytes**, using the same character set as IDs. Bind the pending entry to the exact URL, caller context, subjectRef and method; reject a response whose subjectRef/method does not match. Do not place a full URL/query in the subjectRef. Page-provided subject/identity claims are untrusted.
+
+## Methods and examples
+
+v1 dispatch allowlist: **capabilities.list** and **url.assess** only. No scan.report, arbitrary fetch, execute, generic agent forwarding, vault, USB, quarantine or privileged policy methods. A recognized envelope with an unlisted kind yields unsupported_method, no side effect.
+
+Capabilities request:
 
 ```json
-{ "schemaVersion": 1, "id": "0b6f0e52-8f2e-4d8a-9d3e-6f5a1c2b3d4e", "kind": "url.assess", "payload": { "url": "https://example.test/page" } }
+{"version":{"major":1,"minor":0},"id":"request-1","kind":"capabilities.list","payload":{}}
 ```
 
-Successful assessment response — **complete `sentinel-proto` Assessment schema** (all required fields present):
+URL request:
+
+```json
+{"version":{"major":1,"minor":0},"id":"request-2","kind":"url.assess","payload":{"url":"https://example.test/page","subjectRef":"url-subject-1"}}
+```
+
+Assessment response (complete valid typed vector also in data/fixtures/native-assessment.json):
 
 ```json
 {
-  "schemaVersion": 1,
-  "id": "0b6f0e52-8f2e-4d8a-9d3e-6f5a1c2b3d4e",
-  "kind": "assessment",
-  "payload": {
-    "id": "asmt_01J9Z7X2KQ",
-    "subjectRef": "url:https://example.test/page",
-    "risk": "none_observed",
-    "confidence": "low",
-    "coverage": "partial",
-    "checks": [
-      { "id": "local_parse", "state": "pass", "reasonKey": "web.check.localParse.pass", "evidenceRefs": ["ev_1"] },
-      { "id": "intel_lookup", "state": "skipped", "reasonKey": "web.check.intel.unavailable", "evidenceRefs": [] }
-    ],
-    "reasons": [{ "code": "no_feed_available", "messageKey": "web.reason.noFeed" }],
-    "actions": [{ "id": "open_learn_more", "requiresAdmin": false }],
-    "engineVersions": { "harness": "0.1.0" },
-    "observedAt": "2026-09-30T12:00:00.000Z",
-    "expiresAt": null,
-    "lessonIds": []
+  "version":{"major":1,"minor":0},
+  "id":"request-2",
+  "kind":"assessment",
+  "payload":{
+    "id":"assessment-1",
+    "subjectRef":"url-subject-1",
+    "risk":"unknown",
+    "confidence":"low",
+    "coverage":"unavailable",
+    "checks":[{"id":"local_analyzer","state":"skipped","reasonKey":"web.check.analyzer.unavailable","evidenceRefs":[]}],
+    "reasons":[{"code":"analyzer_unavailable","messageKey":"web.reason.analyzerUnavailable"}],
+    "actions":[{"id":"open_learn_more","requiresAdmin":false}],
+    "engineVersions":{},
+    "observedAt":"2026-10-02T12:00:00Z",
+    "expiresAt":"2026-10-02T12:00:05Z",
+    "lessonIds":[]
   }
 }
 ```
 
-Error response:
+Missing analyzer means unknown/low/unavailable with skipped checks and reasons; never none_observed. Risk is none_observed/info/suspicious/high/unknown; confidence low/medium/high; coverage complete/partial/unavailable. Fixture-only describes a harness mode, never Assessment coverage. Every Assessment field is required. An active v1 URL result requires a non-null UTC expiresAt, later than observedAt, no more than **300 seconds** after observedAt; client rejects expired or implausibly future observations and never extends provider freshness. Null expiry may be stored as historical/unavailable evidence, never displayed as a current URL decision. Pending age must also remain under the monotonic request deadline.
+
+Error example:
 
 ```json
-{ "schemaVersion": 1, "id": "0b6f0e52-8f2e-4d8a-9d3e-6f5a1c2b3d4e", "kind": "error", "payload": { "code": "bad_request", "detailKey": "web.error.malformedUrl" } }
+{"version":{"major":1,"minor":0},"id":"request-2","kind":"error","payload":{"code":"unsupported_method","detailKey":"web.error.unsupportedMethod"}}
 ```
 
-## 3. Enumerations (closed sets)
+Closed error set: host_unavailable, unsupported_version, bad_request, unsupported_method, oversized, busy, timeout, protocol_error. Local timeout/disconnect is distinguishable from a host-sent error. Capabilities responses list unavailable capabilities explicitly; they never imply installed protection from host presence alone.
 
-- `risk`: `none_observed | info | suspicious | high | unknown` (per master-plan Assessment).
-- `confidence`: `low | medium | high`.
-- Assessment `coverage`: **`complete | partial | unavailable` only.** `fixture_only` is harness *status* vocabulary, not an Assessment coverage value, and never appears in an Assessment.
-- Error codes: `host_unavailable | unsupported_version | bad_request | unsupported_method | oversized | timeout | protocol_error`. A client-side timeout is surfaced locally and is distinguishable from a host-sent `error` frame.
+## Authentication and lifecycle
 
-## 4. Methods (v1)
+Host registration uses exact `chrome-extension://<32-character-id>/` allowed_origins without wildcards. Development/release IDs must be explicitly configured and pinned; no ID is invented in this proposal. The executable validates Chrome's supplied origin against the same exact allowlist on every launch, including slash/ID shape. Host-to-agent is independently authenticated by the connected Windows token SID/session; origin/correlation/request identity cannot authorize privileged IPC. A local same-user attacker is outside extension-origin authentication alone; the host remains restricted to the narrow method set.
 
-| Method | Payload | Notes |
-| --- | --- | --- |
-| `capabilities.list` | `{}` | Returns what the host/agent can currently do; absent capabilities are listed as unavailable, never omitted. |
-| `url.assess` | `{ "url": string, ≤2048 chars, http/https }` | **Local parsing/classification only — the host never visits, fetches, or resolves the supplied URL.** No analyzer available ⇒ risk `unknown`, confidence `low`, coverage `unavailable`, with explicit `skipped` checks and reasons; **never** `none_observed`. |
-| `scan.report` | — | **Future proposal only.** Not a current `RpcMethod`; v1 hosts must reject it with `unsupported_method`. Documented to reserve the name; do not implement. |
+Extension requests require actual runtime sender ID, current tab/frame/document URL and permitted action. The extension creates subject/correlation context after validation; it never trusts fields supplied by a content script as evidence of its sender. Future content/host integration must test page-message spoofing and origin changes.
 
-No generic `execute`, no dispatch to USB, vault, quarantine, or policy operations from the browser boundary.
+On disconnect, clear all pending requests immediately and mark connectivity/current decision availability unavailable. On a single request timeout, remove its entry and mark that observation unavailable; other requests remain governed by their own deadlines. Full-port protocol failure closes the port and clears every pending entry. Late/duplicate responses do not restore availability. Reconnection begins a new port nonce and no old observation becomes current automatically.
 
-## 5. Versioning
+No full URL, query, file/message contents or secret in logs by default. Diagnostics use reason/error codes and bounded counters. No URL is fetched/resolved. Transport errors remain separate from completed assessments. The extension must not expose raw host stderr as UI diagnostics.
 
-- `schemaVersion` follows `sentinel-proto` major.minor semantics. The **major** must match exactly: a mismatch is answered with `unsupported_version` (echoing the request `id` only when the envelope is structurally valid) and the connection is not used further.
-- **Minor** compatibility is explicit: a peer may ignore unknown minor-level payload fields but must reject unknown `kind`s with `unsupported_method`. Negotiation beyond this is not attempted in v1.
+## Acceptance and review gate
 
-## 6. Framing safety and malformed input
+Implemented/tested in this increment: little-endian Chrome vs big-endian internal separation, multibyte UTF-8 byte lengths, binary header values, cap/cap+1, truncated header/body, isolated trailing bytes, rejection of oversized headers before any payload read, invalid UTF-8/JSON without an ID-bearing result, typed complete unavailable Assessment vector.
 
-- The declared byte length is checked **before any payload allocation or parse**. Truncated headers, truncated bodies, lengths over the cap, invalid UTF-8, invalid JSON, and non-ASCII length fields are rejected.
-- A frame that cannot be parsed has **no trustworthy request id**; peers must not echo one. The receiving side reports a local `protocol_error` state and terminates/rejects the transport.
-- Ids are echoed **only** for structurally valid envelopes.
+Required before nativeMessaging wiring: exact version/envelope/URL/subject/ID validation; 32-pending boundary and busy; allowlist dispatch; no network side effects; exact configured origins plus independent actual SID/session IPC; stalled read/write deadlines; duplicate/late/unsolicited handling; disconnect/timeout; subject/current-context/expiry binding; bounded redacted diagnostics; installed/missing-host manual browser evidence. Every one needs executable host/extension tests. Pure codecs and this proposal do not satisfy those gates.
 
-## 7. Identity and boundaries
-
-- Host manifest pins **exact** extension IDs in `allowed_origins` (no wildcards). The host validates the Chrome-supplied caller origin on every launch.
-- The host independently authenticates to the per-user agent over the existing named-pipe boundary (SID/session binding, remote-client rejection). **A correlation `id` is correlation, never authentication**; identity fields inside messages are never trusted.
-- Extension side: the current `sender.id === chrome.runtime.id` check is adequate for the popup-only harness. **Before any content script is added**, requests must additionally validate the actual sender tab/frame, origin, and document URL, and the action permitted for that context — same-extension `sender.id` alone does not establish which page caused a request.
-
-## 8. Correlation and lifecycle
-
-- Request ids are unique and bounded in length; the extension keeps a **bounded pending-request map**; exactly **one response per request**.
-- Late, duplicate, or unsolicited replies are rejected/ignored and counted, never applied.
-- On timeout (default 5 s for `url.assess`) or port disconnect: all pending observations are cleared, the agent state becomes `unavailable`, and no partial response is parsed or displayed.
-- A displayed result must still match its subject and be unexpired: subject matching and expiration are checked before presenting an Assessment as current.
-
-## 9. Privacy and diagnostics
-
-- Full browsing URLs and query strings are **never logged by default**; diagnostics use redacted/pseudonymized forms per the master plan's sanitization rules.
-- Transport/protocol errors remain separate from completed assessments in storage and UI.
-- No message content is uploaded anywhere; the native path is local-only.
-
-## 10. Acceptance tests (agreed before implementation)
-
-1. Framing vectors: truncated header, truncated body, length = cap, length = cap + 1, invalid UTF-8, invalid JSON, non-ASCII in the length field — each rejected before parse; oversized yields `oversized`, unparseable yields `protocol_error` and transport termination.
-2. `schemaVersion` major mismatch ⇒ `unsupported_version`; minor-only difference tolerated per §5.
-3. `scan.report` and any unlisted kind ⇒ `unsupported_method`, no state change.
-4. `url.assess` with no analyzer ⇒ `unknown`/`low`/`unavailable` with explicit skipped checks — and never a fetch/DNS lookup of the URL (asserted via mock network).
-5. Echo semantics: structurally valid ⇒ `id` echoed exactly once; malformed frame ⇒ no echo.
-6. Timeout and disconnect: pending map cleared, status `unavailable`, no cached verdict displayed as current.
-7. Privacy: with default logging enabled, no full URL or query string appears in host or extension logs.
-8. Permission guard: the manifest gains `nativeMessaging` only in the commit that implements this agreed contract, with the README permission table updated in the same change.
+GLM: please confirm amended version representation, fixed numeric limits, opaque subject binding and failure/expiry rendering, or record concrete objections on #8/its PR. Coordinator: review the serde_json runtime dependency relocation (same pinned package/version). These are requested reviews, not approval claims. Manifest remains declarativeNetRequest + storage until the implementation gate passes.
