@@ -17,7 +17,8 @@ use windows_sys::Win32::Security::Authorization::{
 use windows_sys::Win32::Security::{PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES, TOKEN_QUERY};
 use windows_sys::Win32::Storage::FileSystem::{
     CreateFileW, FILE_FLAG_FIRST_PIPE_INSTANCE, FILE_FLAG_OVERLAPPED, FILE_READ_DATA,
-    FILE_WRITE_DATA, OPEN_EXISTING, PIPE_ACCESS_DUPLEX, ReadFile, SYNCHRONIZE, WriteFile,
+    FILE_WRITE_DATA, OPEN_EXISTING, PIPE_ACCESS_DUPLEX, ReadFile, SECURITY_IDENTIFICATION,
+    SECURITY_SQOS_PRESENT, SYNCHRONIZE, WriteFile,
 };
 use windows_sys::Win32::System::IO::{
     CancelIoEx, GetOverlappedResult, GetOverlappedResultEx, OVERLAPPED,
@@ -298,13 +299,15 @@ pub fn connect_user(name: &str) -> io::Result<File> {
             0,
             null(),
             OPEN_EXISTING,
-            0,
+            SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION,
             null_mut(),
         )
     };
     if handle == INVALID_HANDLE_VALUE {
         return Err(io::Error::last_os_error());
     }
+    // Identity inspection is sufficient for server authorization. Do not grant
+    // the server authority to execute operations as the connecting client.
     // SAFETY: newly owned client handle.
     let client = unsafe { File::from_raw_handle(handle) };
     verify_server(&client, &OsIdentity::current_process()?)?;
@@ -357,6 +360,74 @@ fn validate_name(name: &str) -> io::Result<()> {
 mod server_identity_tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn client_grants_identity_inspection_only() {
+        use std::io::Write;
+        use windows_sys::Win32::Security::{
+            GetTokenInformation, RevertToSelf, SECURITY_IMPERSONATION_LEVEL,
+            SecurityIdentification, TokenImpersonationLevel,
+        };
+        use windows_sys::Win32::System::Pipes::ImpersonateNamedPipeClient;
+        use windows_sys::Win32::System::Threading::{GetCurrentThread, OpenThreadToken};
+        struct Revert;
+        impl Drop for Revert {
+            fn drop(&mut self) {
+                // SAFETY: test thread must never retain the client identity.
+                if unsafe { RevertToSelf() } == 0 {
+                    std::process::abort();
+                }
+            }
+        }
+        let name = format!(
+            r"\\.\pipe\Sentinel-v1-user-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        let mut pipe = AuthenticatedPipe::bind(&name).unwrap();
+        let mut client = connect_user(&name).unwrap();
+        client
+            .write_all(&encode_frame(b"identity-only").unwrap())
+            .unwrap();
+        let request = pipe.receive(Duration::from_secs(2)).unwrap();
+        assert_eq!(
+            request.owner_ref(),
+            format!("{}:{}", pipe.identity.sid, pipe.identity.session_id)
+        );
+        // SAFETY: live server pipe with a fully received client request.
+        assert_ne!(
+            unsafe { ImpersonateNamedPipeClient(pipe.file.as_raw_handle()) },
+            0
+        );
+        let _revert = Revert;
+        let mut raw_token = null_mut();
+        // SAFETY: query-only thread token access, evaluated as the server.
+        assert_ne!(
+            unsafe { OpenThreadToken(GetCurrentThread(), TOKEN_QUERY, 1, &mut raw_token) },
+            0
+        );
+        let token = Event(raw_token);
+        let mut level: SECURITY_IMPERSONATION_LEVEL = 0;
+        let mut written = 0;
+        // SAFETY: output storage and size match the documented token information class.
+        assert_ne!(
+            unsafe {
+                GetTokenInformation(
+                    token.0,
+                    TokenImpersonationLevel,
+                    (&mut level as *mut SECURITY_IMPERSONATION_LEVEL).cast(),
+                    size_of::<SECURITY_IMPERSONATION_LEVEL>() as u32,
+                    &mut written,
+                )
+            },
+            0
+        );
+        assert_eq!(written as usize, size_of::<SECURITY_IMPERSONATION_LEVEL>());
+        assert_eq!(level, SecurityIdentification);
+    }
 
     #[test]
     fn actual_server_token_must_match_expected_sid_and_session() {

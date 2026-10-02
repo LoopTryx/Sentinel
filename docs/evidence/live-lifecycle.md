@@ -21,3 +21,11 @@ Reproduce: `cargo test -p sentinel-svc --test live_pipe`, `cargo test -p sentine
 No actual scan-start/progress/report dispatch, isolated owned worker, durable report payload, installed agent lifecycle, storage-directory ACL/ancestor hardening, compaction or UI adapter yet. Actual remote/cross-user/session Windows account tests require the corresponding controlled accounts/sessions; policy unit tests are not represented as live account tests. Pending UI and native-host integration cannot claim live scanning from this lifecycle endpoint. No E: access, malware files, USB/HID blocking or Defender changes.
 
 Follow-up: connect_user now queries the actual named-pipe server PID and its Windows token before sending application bytes, requiring the caller's current SID/session. A real connected server-token test was observed failing against an accept-all stub, then passed for matching identity and rejection of mismatched expected SID/session. This is per-user/session identity, not binary signing or protection against a compromised same-user process. All live agent exchanges continue to pass with server verification enabled.
+
+## Client identity inspection only (3 October 2026)
+
+`connect_user` now requests `SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION`. The server can inspect the connecting user's SID/session without receiving permission to execute operations as that client. This complements server-token verification; neither replaces the other.
+
+A real connected-pipe test reads the thread token's `TokenImpersonationLevel` after a received/authenticated request. Before the fix it returned SecurityImpersonation (2), failing the expected SecurityIdentification (1). After the fix it returns 1. The test reverts the thread identity on every exit path. All 13 service unit tests, four real pipe integration tests and the live agent process test pass. Full tools/verify.ps1 also passes. No dependency or presentation change; no privileged service method enabled.
+
+Reference: [Microsoft impersonation levels](https://learn.microsoft.com/en-us/windows/win32/secauthz/impersonation-levels) and [named-pipe client SQOS](https://learn.microsoft.com/en-us/windows/win32/ipc/impersonating-a-named-pipe-client).
