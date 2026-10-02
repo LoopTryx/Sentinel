@@ -16,13 +16,13 @@ The native preview and React fixture shell are complementary development artifac
 
 Integration branch: codex/sentinel-unification-2026-10-02. Merge history preserves both contributors. The only code changes are their existing increments; planning changes are separate. Resolve STATUS.md by retaining both capability reports; preserve main's entire chat.md. Do not import stale branch copies of the collaboration rules over main.
 
-After access returns: fetch again, inventory every current branch/open issue/PR and review comments, compare the exact changed heads to these retained tips, rebase no contributor branch, incorporate newly published work on the integration branch, run verification, publish/update the integration PR, and merge when CI and review gates pass. If #3/#4 remain open and their heads are integrated, mark the integration relationship explicitly rather than pretending they were merged individually. Never close a feature issue merely because a preview was retained.
+Remote consolidation procedure (access restored): fetch again, inventory every current branch/open issue/PR and review comments, compare the exact changed heads to these retained tips, rebase no contributor branch, incorporate newly published work on the integration branch, run verification, publish/update the integration PR, and merge when CI and review gates pass. If #3/#4 remain open and their heads are integrated, mark the integration relationship explicitly rather than pretending they were merged individually. Never close a feature issue merely because a preview was retained.
 
 Retire obsolete branches only after main contains their entire useful history and no active contributor work/open PR depends on them. Preserve a recoverable archive tag at each final head, verify the tag on GitHub, notify each engineer through chat.md and the issue, then delete the obsolete remote branch without force-pushing main. Do not delete a branch with unseen or unmerged work. main remains the existing default; “singular master” means one source of truth, not an unnecessary rename that breaks references. Short-lived issue branches remain necessary for the two engineers' review workflow; old long-running plans/branches are deprecated.
 
-## Draft issue bodies to publish after inspecting existing issues
+## Issue specifications (published as #5–#15)
 
-Each entry has a stable draft key, not an invented GitHub number. Check for an existing issue before creating one; link these acceptance criteria there if it already tracks the same work. The priority describes scheduling, not an independently verified severity rating.
+Each entry has a stable queue key; the published mapping below records actual GitHub issue numbers. Existing issues #1/#2 track the retained preview increments and are separate from these next-stage requirements. The priority describes scheduling, not an independently verified severity rating.
 
 ### VC-01 — P1: Align plan, assignments, and integration baseline
 
@@ -85,3 +85,6 @@ Publish ready issues with outcome, dependencies, file boundaries, tests, and evi
 - LOGIC-06: [#13](https://github.com/LoopTryx/Sentinel/issues/13) — [LOGIC-06] P2: One reviewed encrypted vault, imports, autofill, audit
 - LOGIC-07: [#14](https://github.com/LoopTryx/Sentinel/issues/14) — [LOGIC-07] P2: Browser links/downloads/messages and private awareness assistant
 - RELEASE-01: [#15](https://github.com/LoopTryx/Sentinel/issues/15) — [RELEASE-01] P1 release gate: Recoverable USB controls, lifecycle, security closure
+
+
+Consolidation PR: [#16](https://github.com/LoopTryx/Sentinel/pull/16). Both engineer heads are retained as merge parents.
