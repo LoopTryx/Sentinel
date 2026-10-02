@@ -11,6 +11,94 @@ fn fixture_path(name: &str) -> std::path::PathBuf {
 }
 
 #[test]
+#[cfg(windows)]
+fn worker_cannot_spawn_children_or_exceed_memory_limit() {
+    for marker in *b"JM" {
+        let path = fixture_path(&format!("resource-{marker}"));
+        fs::write(&path, [marker]).unwrap();
+        // Establish that the probe succeeds without the launcher's limits.
+        use std::os::windows::process::CommandExt;
+        let unrestricted = std::process::Command::new(env!("CARGO_BIN_EXE_fixture-worker"))
+            .stdin(fs::File::open(&path).unwrap())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .creation_flags(0x08000000)
+            .status()
+            .unwrap();
+        assert_eq!(unrestricted.code(), Some(7));
+        let report = scan_file_via_worker(
+            &path,
+            env!("CARGO_BIN_EXE_fixture-worker"),
+            Duration::from_secs(5),
+        )
+        .unwrap();
+        assert_eq!(report.state, ScanState::NoKnownFinding);
+        fs::remove_file(path).unwrap();
+    }
+}
+
+#[test]
+fn missing_executable_fails_without_fallback() {
+    let path = fixture_path("missing-worker-source");
+    fs::write(&path, b"benign").unwrap();
+    let missing = fixture_path("missing-worker.exe");
+    assert_eq!(
+        scan_file_via_worker(&path, missing, Duration::from_secs(1)).unwrap_err(),
+        WorkerScanError::LaunchFailed
+    );
+    fs::remove_file(path).unwrap();
+}
+
+#[test]
+#[cfg(windows)]
+fn unrelated_inheritable_handle_is_excluded() {
+    use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
+    use std::os::windows::process::CommandExt;
+    use windows_sys::Win32::Foundation::{WAIT_OBJECT_0, WAIT_TIMEOUT};
+    use windows_sys::Win32::Security::SECURITY_ATTRIBUTES;
+    use windows_sys::Win32::System::Threading::{CreateEventW, ResetEvent, WaitForSingleObject};
+    let security = SECURITY_ATTRIBUTES {
+        nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
+        lpSecurityDescriptor: std::ptr::null_mut(),
+        bInheritHandle: 1,
+    };
+    // SAFETY: valid security attributes; private manual-reset test event.
+    let raw = unsafe { CreateEventW(&security, 1, 0, std::ptr::null()) };
+    assert!(!raw.is_null());
+    // SAFETY: unique ownership of the successfully created event.
+    let event = unsafe { OwnedHandle::from_raw_handle(raw) };
+    let path = fixture_path("handle-allowlist");
+    let mut bytes = vec![b'A'];
+    bytes.extend_from_slice(&(event.as_raw_handle() as usize as u64).to_le_bytes());
+    fs::write(&path, bytes).unwrap();
+    let status = std::process::Command::new(env!("CARGO_BIN_EXE_fixture-worker"))
+        .stdin(fs::File::open(&path).unwrap())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .creation_flags(0x08000000)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    // SAFETY: event remains owned and valid throughout these checks.
+    unsafe {
+        assert_eq!(WaitForSingleObject(raw, 0), WAIT_OBJECT_0);
+        assert_ne!(ResetEvent(raw), 0);
+    }
+    assert_eq!(
+        scan_file_via_worker(
+            &path,
+            env!("CARGO_BIN_EXE_fixture-worker"),
+            Duration::from_secs(5)
+        )
+        .unwrap_err(),
+        WorkerScanError::InvalidResponse
+    );
+    // SAFETY: observing the same owned event proves it was not inherited.
+    assert_eq!(unsafe { WaitForSingleObject(raw, 0) }, WAIT_TIMEOUT);
+    fs::remove_file(path).unwrap();
+}
+
+#[test]
 fn approved_file_handle_reaches_worker_without_path_argument() {
     let path = fixture_path("good");
     fs::write(&path, b"benign approved fixture").unwrap();

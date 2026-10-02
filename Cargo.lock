@@ -320,6 +320,7 @@ dependencies = [
  "sentinel-scan",
  "serde",
  "serde_json",
+ "windows-sys",
 ]
 
 [[package]]

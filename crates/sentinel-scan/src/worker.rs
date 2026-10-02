@@ -1,9 +1,12 @@
 use crate::pipeline::{ScanResult, ScanState};
+#[cfg(windows)]
+use crate::worker_windows::WorkerChild as Child;
 use sentinel_proto::rpc::{ProtocolVersion, decode_frame};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Read;
 use std::path::Path;
+#[cfg(not(windows))]
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
@@ -26,6 +29,7 @@ pub enum WorkerScanError {
     TimedOut,
     WorkerFailed,
     InvalidResponse,
+    CleanupFailed,
 }
 
 /// Gives the worker a duplicated, read-only file handle as stdin. The worker
@@ -54,6 +58,10 @@ pub fn scan_file_via_worker(
     let child_stdin = file
         .try_clone()
         .map_err(|_| WorkerScanError::SourceUnavailable)?;
+    #[cfg(windows)]
+    let mut child = Child::spawn(worker_executable.as_ref(), &child_stdin)
+        .map_err(|_| WorkerScanError::LaunchFailed)?;
+    #[cfg(not(windows))]
     let mut child = Command::new(worker_executable.as_ref())
         .arg("--scan-stdin")
         .stdin(Stdio::from(child_stdin))
@@ -65,6 +73,11 @@ pub fn scan_file_via_worker(
         Ok(output) => output,
         Err(error) => {
             let _ = child.kill();
+            #[cfg(windows)]
+            if child.wait().is_err() {
+                return Err(WorkerScanError::CleanupFailed);
+            }
+            #[cfg(not(windows))]
             let _ = child.wait();
             return Err(error);
         }

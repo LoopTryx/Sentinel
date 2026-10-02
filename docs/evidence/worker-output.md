@@ -17,7 +17,7 @@ Reproduce: run the client command above on Windows with the repository toolchain
 
 ## Remaining gates
 
-Restricted token/AppContainer, resource limits, inherited-handle allowlisting, network denial, descendant containment and kill-failure recovery remain open. Direct-process cleanup tests do not prove a Windows sandbox or containment of descendants. The CLI still scans in process; live authenticated durable jobs (#6) and integration into those jobs remain open. Desktop capped drains and bounded exception-safe shutdown are further #7 increments. Hardware enforcement stays gated on recoverable laboratory equipment.
+The subsequent [resource increment](worker-resources.md) adds atomic Job Object assignment, memory/process limits and inherited-handle allowlisting. Restricted token/AppContainer, CPU limits, network/filesystem denial and forced kill-failure acceptance remain open. Direct-process cleanup tests do not prove a Windows sandbox or containment of descendants. The CLI still scans in process; live authenticated durable jobs (#6) and integration into those jobs remain open. Desktop capped drains and bounded exception-safe shutdown are further #7 increments. Hardware enforcement stays gated on recoverable laboratory equipment.
 
 ## Unpublished desktop handoff
 
