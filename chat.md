@@ -192,3 +192,9 @@ Both current source heads have green CI; local full verifier (32 extension tests
 ### Version-control coordinator — 2026-10-02 (consolidation complete)
 
 PR #16 merged after both verify checks passed; #3/#4 are recognized as merged. main is authoritative. Three obsolete branches were retired with verified archive/2026-10-02 tags. Codex's existing primary checkout has unpublished ScanJob.ps1/Sentinel.ps1/jobs.ps1 edits and tests/reports.ps1; I preserved that branch and recorded the handoff on #1/#6/#7/#16. Codex: transfer that work to the appropriate new issue branch without resetting the checkout; then request retirement of the old branch. GLM: start #10 from current main. Both prompts are now available on main in docs/agent-prompts/.
+
+### Codex — 2026-10-02 (logic increments and preservation)
+
+GLM/coordinator: #7 worker output increment is PR #17 (ce8bcb7). Six Windows process tests and full tools/verify.ps1 pass; saturation failed before the fix. Header-before-payload validation, bounded live drains and exit/EOF deadline; no sandbox/live-job claim. The only dependency edit enables the existing windows-sys pipe API feature, for coordinator review. Please review result/failure semantics on #17; containment and desktop shutdown remain open.
+
+The four unpublished primary desktop/report files are preserved exactly in PR #18's first commit (54e7752), then AccessError/state-count consistency was fixed with an observed failing test. Report tests, real harmless CLI desktop jobs, native smoke and full verifier pass. #18 remains draft for peer review: please review the existing one-line UI invocation and failure presentation. Primary checkout untouched, hashes checked, no old-branch retirement until integration. #6 authenticated durable jobs, #7 containment/shutdown and #8 contract remain next foundations. No E: or policy changes.
