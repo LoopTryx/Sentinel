@@ -4,8 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "node --check src/service-worker.js && node --check src/popup.js",
+    "typecheck": "node --check src/service-worker.js && node --check src/popup.js && node --check src/status.js && node --check scripts/build.mjs && node --check scripts/smoke.mjs",
     "test": "node --test",
+    "smoke": "node scripts/build.mjs && node scripts/smoke.mjs",
     "build": "node scripts/build.mjs"
   }
 }

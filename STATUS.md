@@ -8,7 +8,7 @@ The product, source packages, UI, extension, and private GitHub repository are n
 
 The requested checkpoints and their evidence gates are recorded in [docs/phase-1-70-30.md](docs/phase-1-70-30.md). Phase 1-70 is a basic-UI functional preview across the feature areas; Phase 1-30 closes privileged USB/HID enforcement, recovery, installer, security review, and release acceptance. These labels do not replace the master PRD's R1/R2 gates. The 70% demo has not been reached.
 
-The first Chrome extension harness stage has a loadable Manifest V3 package, a synthetic-domain DNR block rule, and a popup that reports fixture-only coverage and no agent connection. Static tests pass. It has not yet been loaded in Chrome or connected to a native host, so it is not a working Web Shield.
+The first Chrome extension harness stage has a loadable Manifest V3 package, a synthetic-domain DNR block rule, and a popup that reports fixture-only coverage and no agent connection. The issue #2 stage (2026-09-30, `glm/issue-2-extension-harness`) makes that reporting runtime-verified: the popup reads the actual enabled-ruleset state via `declarativeNetRequest`, adds a block/allow toggle for the single reserved test domain, and shows fixture rule / native agent / scanning / coverage as distinct states with unavailable shown as unavailable. Status logic is unit-tested (32 tests) and a dist-parity smoke script plus a documented Chrome load checklist exist. See [extension harness evidence](docs/evidence/extension-harness.md). It has not yet been smoke-tested in Chrome by the owner and is not connected to a native host, so it is not a working Web Shield.
 
 | Task | State | Evidence |
 | --- | --- | --- |
