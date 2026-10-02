@@ -1,14 +1,16 @@
 # Implementation status
 
-Updated: 2026-09-30
+Updated: 2026-10-01
 
 The product, source packages, UI, extension, and private GitHub repository are named **Sentinel** at the owner's request. The original pasted PRD remains a historical source under its original filename. The renamed preview runs locally, but this naming change does not upgrade any protection capability.
 
 ## Owner's Phase 1-70 / Phase 1-30 split
 
-The requested checkpoints and their evidence gates are recorded in [docs/phase-1-70-30.md](docs/phase-1-70-30.md). Phase 1-70 is a basic-UI functional preview across the feature areas; Phase 1-30 closes privileged USB/HID enforcement, recovery, installer, security review, and release acceptance. These labels do not replace the master PRD's R1/R2 gates. The 70% demo has not been reached.
+The requested checkpoints and their evidence gates are recorded in [docs/phase-1-70-30.md](docs/phase-1-70-30.md). Phase 1-70 is a functional preview with the Y2K Cyber Console visual identity across the feature areas; Phase 1-30 closes privileged USB/HID enforcement, recovery, installer, security review, and release acceptance. These labels do not replace the master PRD's R1/R2 gates. The 70% demo has not been reached.
 
 The first Chrome extension harness stage has a loadable Manifest V3 package, a synthetic-domain DNR block rule, and a popup that reports fixture-only coverage and no agent connection. The issue #2 stage (2026-09-30, `glm/issue-2-extension-harness`) makes that reporting runtime-verified: the popup reads the actual enabled-ruleset state via `declarativeNetRequest`, adds a block/allow toggle for the single reserved test domain, and shows fixture rule / native agent / scanning / coverage as distinct states with unavailable shown as unavailable. Status logic is unit-tested (32 tests) and a dist-parity smoke script plus a documented Chrome load checklist exist. See [extension harness evidence](docs/evidence/extension-harness.md). It has not yet been smoke-tested in Chrome by the owner and is not connected to a native host, so it is not a working Web Shield.
+
+The first native Windows desktop preview is on issue #1. A WPF window has Overview, Files, Devices, Wi-Fi, Web, Vault, Messages, Learning, and Settings pages. Selected file and folder read-only CLI scans now run asynchronously with elapsed activity, cancel, timeout and incomplete-error states; other pages show unavailable or untested states. These local process jobs are not durable authenticated agent jobs. See [desktop scan evidence](docs/evidence/desktop-scan-jobs.md). The window does not imply an installed protection service. A native-handle smoke test passes. This is a first UI increment, not the Phase 1-70 checkpoint.
 
 | Task | State | Evidence |
 | --- | --- | --- |
@@ -48,3 +50,9 @@ Rust 1.98.1 GNU toolchain and MinGW 16.2.0 were installed because the MSVC linke
 The `sentinel-core` default disables provider requests and USB policy changes. `sentinel-agent` now enforces job ownership and terminal-state transitions in memory; no privileged pipe or persisted job exists yet.
 The agent's `--fixture-stdio` mode accepts only a versioned `status_fixture` request and returns the same typed status fixture used by the CLI and UI. Process-level tests cover its exact output, protocol mismatch, malformed/truncated requests, and the 1 MiB limit. It is a development endpoint, not a protection service.
 The first Windows CI runs passed tests and build but the generated-binding check falsely flagged rewritten files because it used `git status`; a fresh CRLF checkout reproduced status changes with no content diff. The verifier now checks actual diffs and untracked outputs. Windows CI run 4 completed successfully on commit `b7010e9`.
+
+## 2026-10-02 consolidation checkpoint
+
+Local integration retains GLM b84c4af extension work and Codex 197516a asynchronous desktop preview, with both status reports and main's peer chat history preserved. Full tools/verify.ps1 passed for the extension merge; native window smoke and scan-job process checks passed for the combined tree. Final combined verification is recorded in docs/evidence/version-control-consolidation.md. No live protection capability is upgraded by these merges.
+
+The owner-aligned master plan now assigns GLM to Y2K Cyber Console presentation and Codex to logic. Specialized prompts and an eleven-item issue draft queue are under docs/agent-prompts/ and docs/coordination/. Authenticated Git/REST access was restored by the owner; the GitHub plugin remains unable to see Sentinel. Eleven work issues #5–#15 are published. Live PR #3/#4 CI and peer reviews were inspected, including GLM msg 10. Integration publication, main merge and recoverable branch retirement are recorded in the consolidation PR and dated coordination record. Phase 1-70 and R1/R2 remain incomplete.
