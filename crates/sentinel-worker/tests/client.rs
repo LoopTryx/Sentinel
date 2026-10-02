@@ -58,3 +58,55 @@ fn worker_deadline_terminates_hanging_process() {
     assert!(started.elapsed() < Duration::from_secs(5));
     fs::remove_file(path).unwrap();
 }
+
+#[test]
+#[cfg(windows)]
+fn saturated_and_endless_output_are_rejected_before_deadline() {
+    for marker in *b"OELBT" {
+        let path = fixture_path(&format!("output-{marker}"));
+        fs::write(&path, [marker]).unwrap();
+        let started = std::time::Instant::now();
+        let result = scan_file_via_worker(
+            &path,
+            env!("CARGO_BIN_EXE_fixture-worker"),
+            Duration::from_secs(5),
+        );
+        assert_eq!(result.unwrap_err(), WorkerScanError::InvalidResponse);
+        assert!(started.elapsed() < Duration::from_secs(3));
+        // The worker's inherited source handle must be released before return.
+        fs::remove_file(path).unwrap();
+    }
+}
+
+#[test]
+#[cfg(windows)]
+fn valid_response_larger_than_pipe_capacity_is_drained_while_running() {
+    let path = fixture_path("large-valid");
+    fs::write(&path, b"V").unwrap();
+    let report = scan_file_via_worker(
+        &path,
+        env!("CARGO_BIN_EXE_fixture-worker"),
+        Duration::from_secs(5),
+    )
+    .unwrap();
+    assert_eq!(report.state, ScanState::NoKnownFinding);
+    assert_eq!(report.files_checked, 1);
+    assert_eq!(report.bytes_read, 1);
+    fs::remove_file(path).unwrap();
+}
+
+#[test]
+#[cfg(windows)]
+fn valid_frame_without_process_exit_still_times_out() {
+    let path = fixture_path("frame-no-exit");
+    fs::write(&path, b"P").unwrap();
+    let started = std::time::Instant::now();
+    let result = scan_file_via_worker(
+        &path,
+        env!("CARGO_BIN_EXE_fixture-worker"),
+        Duration::from_millis(500),
+    );
+    assert_eq!(result.unwrap_err(), WorkerScanError::TimedOut);
+    assert!(started.elapsed() < Duration::from_secs(3));
+    fs::remove_file(path).unwrap();
+}

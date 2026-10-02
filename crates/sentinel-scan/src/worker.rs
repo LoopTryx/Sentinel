@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Read;
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
 pub const WORKER_PROTOCOL: ProtocolVersion = ProtocolVersion::new(1, 0);
@@ -61,6 +61,114 @@ pub fn scan_file_via_worker(
         .stderr(Stdio::null())
         .spawn()
         .map_err(|_| WorkerScanError::LaunchFailed)?;
+    let output = match collect_output(&mut child, timeout) {
+        Ok(output) => output,
+        Err(error) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(error);
+        }
+    };
+    let payload = decode_frame(&output).map_err(|_| WorkerScanError::InvalidResponse)?;
+    let response: WorkerResponse =
+        serde_json::from_slice(payload).map_err(|_| WorkerScanError::InvalidResponse)?;
+    if response.version != WORKER_PROTOCOL || !valid_worker_report(&response.report) {
+        return Err(WorkerScanError::InvalidResponse);
+    }
+    let final_metadata = file
+        .metadata()
+        .map_err(|_| WorkerScanError::SourceUnavailable)?;
+    if !crate::pipeline::same_basic_identity(&opened, &final_metadata)
+        || (response.report.files_checked == 1 && response.report.bytes_read != opened.len())
+    {
+        return Err(WorkerScanError::SourceChanged);
+    }
+    Ok(response.report)
+}
+
+// Peek makes reads nonblocking without a reader thread that can be stranded
+// by a descendant retaining stdout. The deadline covers exit AND pipe EOF.
+#[cfg(windows)]
+fn collect_output(child: &mut Child, timeout: Duration) -> Result<Vec<u8>, WorkerScanError> {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Foundation::ERROR_BROKEN_PIPE;
+    use windows_sys::Win32::System::Pipes::PeekNamedPipe;
+
+    let mut stdout = child
+        .stdout
+        .take()
+        .ok_or(WorkerScanError::InvalidResponse)?;
+    let start = Instant::now();
+    let mut output = Vec::new();
+    let mut chunk = [0u8; 8192];
+    let mut expected = None;
+    let mut status = None;
+    loop {
+        if start.elapsed() >= timeout {
+            return Err(WorkerScanError::TimedOut);
+        }
+        if status.is_none() {
+            status = child
+                .try_wait()
+                .map_err(|_| WorkerScanError::WorkerFailed)?;
+        }
+        if status.is_some_and(|status| !status.success()) {
+            return Err(WorkerScanError::WorkerFailed);
+        }
+        let mut available = 0;
+        // SAFETY: stdout owns a live pipe handle; only `available` is written.
+        let peek = unsafe {
+            PeekNamedPipe(
+                stdout.as_raw_handle(),
+                std::ptr::null_mut(),
+                0,
+                std::ptr::null_mut(),
+                &mut available,
+                std::ptr::null_mut(),
+            )
+        };
+        if peek == 0 {
+            if std::io::Error::last_os_error().raw_os_error() != Some(ERROR_BROKEN_PIPE as i32) {
+                return Err(WorkerScanError::InvalidResponse);
+            }
+            if status.is_some() {
+                return Ok(output);
+            }
+        } else if available > 0 {
+            // Read the header alone before allocating for any declared payload.
+            let wanted = if output.len() < 4 {
+                4 - output.len()
+            } else {
+                chunk.len()
+            };
+            let wanted = wanted.min(available as usize);
+            let count = stdout
+                .read(&mut chunk[..wanted])
+                .map_err(|_| WorkerScanError::InvalidResponse)?;
+            if count == 0 || output.len() + count > MAX_WORKER_OUTPUT_BYTES as usize {
+                return Err(WorkerScanError::InvalidResponse);
+            }
+            output.extend_from_slice(&chunk[..count]);
+            if output.len() == 4 && expected.is_none() {
+                let length = u32::from_be_bytes(output[..4].try_into().unwrap()) as usize;
+                if length > sentinel_proto::rpc::MAX_MESSAGE_BYTES {
+                    return Err(WorkerScanError::InvalidResponse);
+                }
+                expected = Some(4 + length);
+            }
+            if expected.is_some_and(|length| output.len() > length) {
+                return Err(WorkerScanError::InvalidResponse);
+            }
+            continue;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
+// Non-Windows development fallback retains the original exit-first behavior.
+// The supported production platform and saturation acceptance are Windows.
+#[cfg(not(windows))]
+fn collect_output(child: &mut Child, timeout: Duration) -> Result<Vec<u8>, WorkerScanError> {
     let start = Instant::now();
     let status = loop {
         match child.try_wait() {
@@ -92,21 +200,7 @@ pub fn scan_file_via_worker(
     if output.len() as u64 > MAX_WORKER_OUTPUT_BYTES {
         return Err(WorkerScanError::InvalidResponse);
     }
-    let payload = decode_frame(&output).map_err(|_| WorkerScanError::InvalidResponse)?;
-    let response: WorkerResponse =
-        serde_json::from_slice(payload).map_err(|_| WorkerScanError::InvalidResponse)?;
-    if response.version != WORKER_PROTOCOL || !valid_worker_report(&response.report) {
-        return Err(WorkerScanError::InvalidResponse);
-    }
-    let final_metadata = file
-        .metadata()
-        .map_err(|_| WorkerScanError::SourceUnavailable)?;
-    if !crate::pipeline::same_basic_identity(&opened, &final_metadata)
-        || (response.report.files_checked == 1 && response.report.bytes_read != opened.len())
-    {
-        return Err(WorkerScanError::SourceChanged);
-    }
-    Ok(response.report)
+    Ok(output)
 }
 
 fn valid_worker_report(report: &ScanResult) -> bool {
