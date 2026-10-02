@@ -6,7 +6,7 @@ One mutex serializes memory and journal changes. Each transition is checked on a
 
 Bounds: 4 MiB journal, 2 KiB record, 4096 jobs and 256 UTF-8 bytes per owner reference. The Windows final component is opened without following reparse points and rejected if its attributes indicate one. Parent-directory ACLs/reparse protection, journal authentication, compaction/retention and secure default storage selection remain separate gates. This is not tamper-proof storage; an attacker with write authority can replace a structurally valid history.
 
-On open, running jobs become failed and queued jobs become cancelled, with explicit terminal records persisted. No worker is resumed or completed from stale metadata. Capacity exhaustion returns a limit error; a store without enough capacity for recovery does not open as healthy. Operational compaction and reserved cancellation capacity are required before live long-running jobs depend on this journal.
+On open, running jobs become failed and queued jobs become cancelled, with explicit terminal records persisted. No worker is resumed or completed from stale metadata. Capacity exhaustion returns a limit error; a store without enough capacity for recovery does not open as healthy. Admission now reserves two maximum-size future records per queued job (start plus terminal) and one per running job. Every mutation preserves remaining reservations, so new work cannot consume the space needed for cancellation/failure/recovery. Compaction remains required for ongoing operation after terminal history fills the journal.
 
 ## Actual validation
 
@@ -15,6 +15,8 @@ The initial restart tests compiled against a minimal open stub and failed with N
 `tools/verify.ps1` passes Rust formatting/lint/workspace tests, generated bindings, TypeScript tests/typecheck, UI build and 32 extension tests plus build/parity smoke. Native sources are unchanged. No E: access, policy changes or malware files.
 
 Reproduce: `cargo test -p sentinel-agent --test durable_jobs`, then `tools/verify.ps1` on the repository Windows toolchain.
+
+Follow-up: the saturated-journal regression first failed with LimitReached on cancellation. With reservations, all seven durable tests pass; the regression saturates admission using benign escaped owner metadata, cancels a running job and recovers all queued jobs after restart within the 4 MiB cap. Full tools/verify.ps1 passes on the combined mutual-identity/reservation tree.
 
 ## Remaining #6 acceptance
 

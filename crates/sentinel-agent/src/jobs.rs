@@ -147,7 +147,7 @@ impl StoreState {
     }
     fn persist(&mut self, job: &Job) -> Result<(), JobError> {
         if let Some(journal) = &mut self.journal {
-            journal.append(job)?;
+            journal.append(job, &self.jobs)?;
         }
         Ok(())
     }

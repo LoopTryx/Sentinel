@@ -125,7 +125,7 @@ impl JobJournal {
         self.poisoned
     }
 
-    pub fn append(&mut self, job: &Job) -> Result<(), JobError> {
+    pub fn append(&mut self, job: &Job, jobs: &HashMap<String, Job>) -> Result<(), JobError> {
         if self.poisoned {
             return Err(JobError::Unavailable);
         }
@@ -137,7 +137,18 @@ impl JobJournal {
         };
         let mut line = serde_json::to_vec(&record).map_err(|_| JobError::Unavailable)?;
         line.push(b'\n');
-        if line.len() > MAX_RECORD_BYTES || self.bytes + line.len() as u64 > MAX_JOURNAL_BYTES {
+        // Queued jobs may start then terminate; running jobs still need one
+        // terminal record. Admit no mutation that consumes those reservations.
+        let reserved_records: usize = jobs
+            .values()
+            .filter(|prior| prior.id != job.id)
+            .map(|prior| reserve_for(&prior.state))
+            .sum::<usize>()
+            + reserve_for(&job.state);
+        let reserved_bytes = reserved_records as u64 * MAX_RECORD_BYTES as u64;
+        if line.len() > MAX_RECORD_BYTES
+            || self.bytes + line.len() as u64 + reserved_bytes > MAX_JOURNAL_BYTES
+        {
             return Err(JobError::LimitReached);
         }
         self.poisoned = true;
@@ -148,5 +159,13 @@ impl JobJournal {
         self.bytes += line.len() as u64;
         self.poisoned = false;
         Ok(())
+    }
+}
+
+fn reserve_for(state: &JobState) -> usize {
+    match state {
+        JobState::Queued => 2,
+        JobState::Running => 1,
+        _ => 0,
     }
 }

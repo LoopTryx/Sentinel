@@ -177,3 +177,37 @@ fn completion_and_cancellation_have_one_durable_winner() {
     drop(reopened);
     fs::remove_file(path).unwrap();
 }
+
+#[test]
+fn admission_limits_reserve_space_for_cancellation_and_restart_recovery() {
+    let path = path("reserved-terminal");
+    // Escaped bytes exercise the worst serialized owner size without secrets.
+    let owner = "\0".repeat(256);
+    let running;
+    {
+        let store = JobStore::open(&path).unwrap();
+        running = store.create(&owner).unwrap();
+        store.start(&running.id, &owner).unwrap();
+        loop {
+            match store.create(&owner) {
+                Ok(_) => {}
+                Err(JobError::LimitReached) => break,
+                Err(error) => panic!("unexpected admission failure: {error:?}"),
+            }
+        }
+        assert_eq!(
+            store.cancel(&running.id, &owner).unwrap().state,
+            JobState::Cancelled
+        );
+    }
+    let recovered = JobStore::open(&path).unwrap();
+    assert_eq!(recovered.count_by_state(JobState::Queued).unwrap(), 0);
+    assert_eq!(recovered.count_by_state(JobState::Running).unwrap(), 0);
+    assert_eq!(
+        recovered.get(&running.id, &owner).unwrap().state,
+        JobState::Cancelled
+    );
+    drop(recovered);
+    assert!(fs::metadata(&path).unwrap().len() <= 4 * 1024 * 1024);
+    fs::remove_file(path).unwrap();
+}

@@ -14,7 +14,7 @@ use windows_sys::Win32::Foundation::{
 use windows_sys::Win32::Security::Authorization::{
     ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1,
 };
-use windows_sys::Win32::Security::{PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES};
+use windows_sys::Win32::Security::{PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES, TOKEN_QUERY};
 use windows_sys::Win32::Storage::FileSystem::{
     CreateFileW, FILE_FLAG_FIRST_PIPE_INSTANCE, FILE_FLAG_OVERLAPPED, FILE_READ_DATA,
     FILE_WRITE_DATA, OPEN_EXISTING, PIPE_ACCESS_DUPLEX, ReadFile, SYNCHRONIZE, WriteFile,
@@ -23,10 +23,13 @@ use windows_sys::Win32::System::IO::{
     CancelIoEx, GetOverlappedResult, GetOverlappedResultEx, OVERLAPPED,
 };
 use windows_sys::Win32::System::Pipes::{
-    ConnectNamedPipe, CreateNamedPipeW, PIPE_READMODE_BYTE, PIPE_REJECT_REMOTE_CLIENTS,
-    PIPE_TYPE_BYTE, PIPE_WAIT,
+    ConnectNamedPipe, CreateNamedPipeW, GetNamedPipeServerProcessId, PIPE_READMODE_BYTE,
+    PIPE_REJECT_REMOTE_CLIENTS, PIPE_TYPE_BYTE, PIPE_WAIT,
 };
-use windows_sys::Win32::System::Threading::{CreateEventW, WaitForSingleObject};
+use windows_sys::Win32::System::Threading::{
+    CreateEventW, OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION,
+    WaitForSingleObject,
+};
 
 pub struct AuthenticatedPipe {
     file: File,
@@ -303,7 +306,36 @@ pub fn connect_user(name: &str) -> io::Result<File> {
         return Err(io::Error::last_os_error());
     }
     // SAFETY: newly owned client handle.
-    Ok(unsafe { File::from_raw_handle(handle) })
+    let client = unsafe { File::from_raw_handle(handle) };
+    verify_server(&client, &OsIdentity::current_process()?)?;
+    Ok(client)
+}
+
+fn verify_server(client: &File, expected: &OsIdentity) -> io::Result<()> {
+    let mut process_id = 0;
+    // SAFETY: client owns a connected local pipe and the output pointer is valid.
+    if unsafe { GetNamedPipeServerProcessId(client.as_raw_handle(), &mut process_id) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    // SAFETY: query-only, non-inheritable process handle; Event owns/ closes HANDLEs.
+    let process = Event(unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, process_id) });
+    if process.0.is_null() {
+        return Err(io::Error::last_os_error());
+    }
+    let mut raw_token = null_mut();
+    // SAFETY: live process handle and valid token output pointer.
+    if unsafe { OpenProcessToken(process.0, TOKEN_QUERY, &mut raw_token) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let token = Event(raw_token);
+    let actual = OsIdentity::from_token(token.0)?;
+    if expected.session_id == 0
+        || actual.sid != expected.sid
+        || actual.session_id != expected.session_id
+    {
+        return Err(io::ErrorKind::PermissionDenied.into());
+    }
+    Ok(())
 }
 
 fn validate_name(name: &str) -> io::Result<()> {
@@ -319,4 +351,38 @@ fn validate_name(name: &str) -> io::Result<()> {
         return Err(io::ErrorKind::InvalidInput.into());
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod server_identity_tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn actual_server_token_must_match_expected_sid_and_session() {
+        let name = format!(
+            r"\\.\pipe\Sentinel-v1-user-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        let _server = AuthenticatedPipe::bind(&name).unwrap();
+        let client = connect_user(&name).unwrap();
+        let identity = OsIdentity::current_process().unwrap();
+        verify_server(&client, &identity).unwrap();
+        let mut wrong = identity.clone();
+        wrong.sid = "S-1-0-0".to_owned();
+        assert_eq!(
+            verify_server(&client, &wrong).unwrap_err().kind(),
+            io::ErrorKind::PermissionDenied
+        );
+        wrong = identity;
+        wrong.session_id += 1;
+        assert_eq!(
+            verify_server(&client, &wrong).unwrap_err().kind(),
+            io::ErrorKind::PermissionDenied
+        );
+    }
 }
