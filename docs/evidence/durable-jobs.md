@@ -18,4 +18,4 @@ Reproduce: `cargo test -p sentinel-agent --test durable_jobs`, then `tools/verif
 
 ## Remaining #6 acceptance
 
-This is a library foundation, not authenticated live agent connectivity. Owner references must be supplied only by the actual Windows pipe-client SID/session in the live dispatcher. Transport bounds/allowlists, durable reports/progress, cancellation of actual owned workers, disconnect/shutdown/restart and storage-directory protection remain open. The agent binary still exposes its original fixture endpoint only. No capability claim is upgraded by these lifecycle tests.
+The library foundation alone is not authenticated live connectivity. A follow-up on this branch supplies a real lifecycle-only Windows endpoint with actual pipe-client SID/session, bounded overlapped transport and narrow method dispatch; see [live lifecycle evidence](live-lifecycle.md). Durable reports/progress, actual scan workers and cancellation, installed lifecycle and storage-directory protection remain open. Live scanning is explicitly unavailable.

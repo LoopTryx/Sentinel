@@ -242,6 +242,7 @@ name = "sentinel-agent"
 version = "0.1.0"
 dependencies = [
  "sentinel-proto",
+ "sentinel-svc",
  "serde",
  "serde_json",
 ]
