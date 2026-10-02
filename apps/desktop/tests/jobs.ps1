@@ -70,7 +70,7 @@ try {
             $job = Start-SentinelProcessJob -Executable $cli -Arguments @('scan', $kind, $selected)
             $jobs += $job
             Assert ((Finish $job) -eq 'Completed') "CLI $kind scan failed"
-            $report = $job.Output | ConvertFrom-Json
+            $report = ConvertFrom-SentinelScanReport $job.Output $kind
             Assert ($report.mode -eq 'local_read_only_preview') 'Scan preview mode missing'
             Assert ($report.coverage -eq 'partial') 'Scan coverage was falsely complete'
             Assert ($report.result.filesChecked -eq 1) "CLI $kind did not check the selected sample"

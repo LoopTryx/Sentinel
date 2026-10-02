@@ -133,7 +133,7 @@ $timer.Add_Tick({
       return
     }
     if ($state -eq 'Completed') {
-      $report = $script:scanJob.Output | ConvertFrom-Json
+      $report = ConvertFrom-SentinelScanReport $script:scanJob.Output $script:scanKind
       if ($report.mode -ne 'local_read_only_preview' -or $report.coverage -ne 'partial' -or $null -eq $report.result) {
         throw 'Unexpected scanner report'
       }

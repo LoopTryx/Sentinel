@@ -71,3 +71,42 @@ function Close-SentinelProcessJob($Job) {
     if ($Job.State -eq 'Running') { Stop-SentinelProcessJob $Job }
     $Job.Process.Dispose()
 }
+
+function ConvertFrom-SentinelScanReport {
+    param([string]$Json, [ValidateSet('file', 'directory')][string]$Kind)
+    if ([Text.Encoding]::UTF8.GetByteCount($Json) -gt 1048576) { throw 'Report exceeds display limit' }
+    $report = $Json | ConvertFrom-Json -ErrorAction Stop
+    $profile = if ($Kind -eq 'file') { 'single_file' } else { 'custom_directory' }
+    if ($report.mode -ne 'local_read_only_preview' -or $report.coverage -ne 'partial' -or $report.profile -ne $profile) {
+        throw 'Unexpected preview envelope'
+    }
+    $result = $report.result
+    if ($null -eq $result -or $result -is [array]) { throw 'Missing scan result' }
+    foreach ($field in @('bytesRead', 'filesVisited', 'filesChecked', 'filesSkipped', 'accessErrors', 'engineFailures')) {
+        $value = $result.$field
+        if (($value -isnot [int] -and $value -isnot [long]) -or $value -lt 0) { throw 'Invalid scan count' }
+    }
+    if ($result.filesChecked -gt $result.filesVisited -or $result.fullSignatureEngineActive -isnot [bool]) {
+        throw 'Contradictory scan result'
+    }
+    $states = @('no_known_finding', 'test_signature_found', 'skipped_limit', 'skipped_unsupported', 'access_error', 'changed_during_scan', 'cancelled')
+    if ($Kind -eq 'file') {
+        if ($result.state -notin $states -or 'sha256' -notin $result.PSObject.Properties.Name) { throw 'Invalid file result' }
+        if ($null -ne $result.sha256 -and ($result.sha256 -isnot [string] -or $result.sha256 -cnotmatch '^[a-f0-9]{64}$')) {
+            throw 'Invalid digest'
+        }
+        if ($result.filesVisited -ne 1 -or $result.filesChecked + $result.filesSkipped -ne 1) { throw 'Invalid single-file counts' }
+    } else {
+        foreach ($field in @('complete', 'cancelled', 'limitReached')) {
+            if ($result.$field -isnot [bool]) { throw 'Missing traversal state' }
+        }
+        if ($result.entriesVisited -isnot [int] -and $result.entriesVisited -isnot [long]) { throw 'Invalid entry count' }
+        if ($result.entriesVisited -lt 0 -or $result.findings -isnot [array] -or $result.findings.Count -gt 1000) { throw 'Invalid findings' }
+        foreach ($finding in $result.findings) {
+            if ($finding.state -notin $states -or $finding.relativePath -isnot [string] -or $finding.relativePath.Length -gt 32768) {
+                throw 'Invalid finding entry'
+            }
+        }
+    }
+    $report
+}
