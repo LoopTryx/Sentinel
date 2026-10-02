@@ -88,3 +88,15 @@ Publish ready issues with outcome, dependencies, file boundaries, tests, and evi
 
 
 Consolidation PR: [#16](https://github.com/LoopTryx/Sentinel/pull/16). Both engineer heads are retained as merge parents.
+
+## Final remote outcome — 2 October 2026
+
+PR #16 merged at abeb3d9f5ea5c7709b838e58216e4a5bdd22c2ad after both verify checks passed. GitHub also marks original PRs #3/#4 merged, with merge commits 78df8e6 and 343a733. Both engineer heads are ancestors of main. Issues #5–#15 are published; main contains the specialized engineer prompts and direct chat handoff.
+
+Verified recoverable archive tags before deleting their branches:
+
+- archive/2026-10-02/codex-t01-contracts -> edc96259fd7137dd22907f8fc34a7e3630081375
+- archive/2026-10-02/glm-issue-2-extension-harness -> b84c4af63eff0ec618f3cbb4f602b66bb6be07f4
+- archive/2026-10-02/sentinel-consolidation -> 596737e290be7a71d2a753632e7f071a3a03aac9
+
+Those three remote branches and their obsolete local branches were retired. main is the sole authoritative product/integration branch. codex/issue-1-desktop-ui remains as a deprecated handoff branch: its existing primary checkout has unpublished modifications to ScanJob.ps1, Sentinel.ps1, tests/jobs.ps1 and an untracked tests/reports.ps1. No coordinator action edited or committed those files. Preservation/handoff comments were published on #1/#6/#7/#16; retirement waits until Codex transfers that work into the current issue workflow. Do not reset the other checkout or call the remaining branch an alternate master.
