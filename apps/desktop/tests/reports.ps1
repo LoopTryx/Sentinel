@@ -37,3 +37,24 @@ foreach ($case in @('coverage','profile','missing','negative','string','fraction
 try { ConvertFrom-SentinelScanReport ('x' * (1048576 + 1)) 'file'; throw 'Oversized report accepted' }
 catch { if ($_.Exception.Message -eq 'Oversized report accepted') { throw } }
 Write-Host 'Desktop report validation tests passed.'
+
+$accessError = $valid | ConvertTo-Json -Depth 8 | ConvertFrom-Json
+$accessError.result.state = 'access_error'
+$accessError.result.filesChecked = 0
+$accessError.result.accessErrors = 1
+$accessError.result.sha256 = $null
+$acceptedError = ConvertFrom-SentinelScanReport ($accessError | ConvertTo-Json -Depth 8) 'file'
+if ($acceptedError.result.accessErrors -ne 1) { throw 'Access error lost during validation' }
+
+foreach ($case in @('missingDigest', 'errorAsChecked', 'skippedAsChecked', 'checkedAsSkipped', 'inactiveEngine')) {
+    $copy = $valid | ConvertTo-Json -Depth 8 | ConvertFrom-Json
+    switch ($case) {
+        'missingDigest' { $copy.result.sha256 = $null }
+        'errorAsChecked' { $copy.result.state = 'access_error'; $copy.result.accessErrors = 1 }
+        'skippedAsChecked' { $copy.result.state = 'skipped_limit' }
+        'checkedAsSkipped' { $copy.result.filesChecked = 0; $copy.result.filesSkipped = 1 }
+        'inactiveEngine' { $copy.result.fullSignatureEngineActive = $true }
+    }
+    Reject $copy
+}
+Write-Host 'Desktop report failure-state consistency tests passed.'

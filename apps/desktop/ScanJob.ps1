@@ -86,7 +86,7 @@ function ConvertFrom-SentinelScanReport {
         $value = $result.$field
         if (($value -isnot [int] -and $value -isnot [long]) -or $value -lt 0) { throw 'Invalid scan count' }
     }
-    if ($result.filesChecked -gt $result.filesVisited -or $result.fullSignatureEngineActive -isnot [bool]) {
+    if ($result.filesChecked -gt $result.filesVisited -or $result.fullSignatureEngineActive -isnot [bool] -or $result.fullSignatureEngineActive) {
         throw 'Contradictory scan result'
     }
     $states = @('no_known_finding', 'test_signature_found', 'skipped_limit', 'skipped_unsupported', 'access_error', 'changed_during_scan', 'cancelled')
@@ -95,7 +95,20 @@ function ConvertFrom-SentinelScanReport {
         if ($null -ne $result.sha256 -and ($result.sha256 -isnot [string] -or $result.sha256 -cnotmatch '^[a-f0-9]{64}$')) {
             throw 'Invalid digest'
         }
-        if ($result.filesVisited -ne 1 -or $result.filesChecked + $result.filesSkipped -ne 1) { throw 'Invalid single-file counts' }
+        if ($result.filesVisited -ne 1 -or $result.engineFailures -ne 0) { throw 'Invalid single-file counts' }
+        if ($result.state -in @('no_known_finding', 'test_signature_found')) {
+            if ($result.filesChecked -ne 1 -or $result.filesSkipped -ne 0 -or $result.accessErrors -ne 0 -or $null -eq $result.sha256) {
+                throw 'Contradictory checked file result'
+            }
+        } elseif ($result.state -eq 'access_error') {
+            if ($result.filesChecked -ne 0 -or $result.filesSkipped -ne 0 -or $result.accessErrors -ne 1 -or $null -ne $result.sha256) {
+                throw 'Contradictory access error result'
+            }
+        } else {
+            if ($result.filesChecked -ne 0 -or $result.filesSkipped -ne 1 -or $result.accessErrors -ne 0 -or $null -ne $result.sha256) {
+                throw 'Contradictory skipped file result'
+            }
+        }
     } else {
         foreach ($field in @('complete', 'cancelled', 'limitReached')) {
             if ($result.$field -isnot [bool]) { throw 'Missing traversal state' }
