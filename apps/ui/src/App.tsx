@@ -1,98 +1,220 @@
-import type { JobState } from '@sentinel/contracts/generated/JobState';
-import type { Risk } from '@sentinel/contracts/generated/Risk';
-import type { StatusSnapshot } from '@sentinel/contracts/generated/StatusSnapshot';
-import fixture from '../../../data/fixtures/status.json';
-import { t, type MessageKey } from './i18n/en';
+import { useEffect, useState } from "react";
+import { ThreatProvider, useThreat } from "./state";
+import Dashboard from "./views/Dashboard";
+import ScanView from "./views/ScanView";
+import PasswordView from "./views/PasswordView";
+import QuarantineView from "./views/QuarantineView";
+import ThreatLogView from "./views/ThreatLogView";
+import WatchtowerView from "./views/WatchtowerView";
+import Dither from "./components/ui/Dither";
+import Icon from "./components/Icon";
+import "./theme.css";
 
-const status = fixture as StatusSnapshot;
+type ViewId =
+  | "dashboard"
+  | "scan"
+  | "watchtower"
+  | "password"
+  | "quarantine"
+  | "log";
 
-function capabilityName(id: string): string {
-  const key = `capability.${id}` as MessageKey;
-  return key in tMap ? t(key) : id;
+const NAV: { id: ViewId; label: string; icon: string }[] = [
+  { id: "dashboard", label: "Console", icon: "shield" },
+  { id: "scan", label: "Scan & Detect", icon: "scan" },
+  { id: "watchtower", label: "Watchtower", icon: "wifi" },
+  { id: "password", label: "Password Lab", icon: "key" },
+  { id: "quarantine", label: "Vault", icon: "vault" },
+  { id: "log", label: "Threat Log", icon: "list" },
+];
+
+const VIEW_TITLES: Record<ViewId, string> = {
+  dashboard: "Console",
+  scan: "Scan & Detect",
+  watchtower: "Watchtower",
+  password: "Password Lab",
+  quarantine: "Vault",
+  log: "Threat Log",
+};
+
+/** Dither wave colors follow the global threat state: azure when calm,
+ *  soft coral when something is wrong. Azure = theme accent #2f89e3. */
+function ditherColors(level: string): {
+  wave: [number, number, number];
+  bg: [number, number, number];
+} {
+  if (level === "danger")
+    return { wave: [1.0, 0.54, 0.48], bg: [0.09, 0.03, 0.04] };
+  if (level === "warn")
+    return { wave: [1.0, 0.77, 0.42], bg: [0.09, 0.06, 0.02] };
+  return { wave: [0.184, 0.537, 0.89], bg: [0.02, 0.03, 0.1] };
 }
 
-const tMap: Record<string, true> = {
-  'capability.file_scan': true,
-  'capability.usb_storage_gate': true,
-  'capability.usb_hid_gate': true,
-};
+/** MagicBento-style border glow for EVERY panel and stat box: a cyan light
+ *  that slides along the nearest box edges as the cursor moves. Drives the
+ *  same --glow-x / --glow-y / --glow-intensity custom properties the bento
+ *  cards use, so all boxes share one coherent animation. */
+function useBoxGlow() {
+  useEffect(() => {
+    const RADIUS = 300;
+    const proximity = RADIUS * 0.5;
+    const fadeDistance = RADIUS * 0.75;
+    let raf = 0;
+    let x = 0;
+    let y = 0;
 
-function capabilityReason(reasonKey: string): string {
-  const key = reasonKey as MessageKey;
-  return key in reasonMap ? t(key) : t('capability.reason_unknown');
+    const apply = () => {
+      raf = 0;
+      document.querySelectorAll<HTMLElement>(".panel, .stat").forEach((box) => {
+        const rect = box.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const distance = Math.max(
+          0,
+          Math.hypot(x - centerX, y - centerY) - Math.max(rect.width, rect.height) / 2
+        );
+        let intensity = 0;
+        if (distance <= proximity) intensity = 1;
+        else if (distance <= fadeDistance)
+          intensity = (fadeDistance - distance) / (fadeDistance - proximity);
+
+        box.style.setProperty("--glow-x", `${((x - rect.left) / rect.width) * 100}%`);
+        box.style.setProperty("--glow-y", `${((y - rect.top) / rect.height) * 100}%`);
+        box.style.setProperty("--glow-intensity", intensity.toFixed(3));
+      });
+    };
+
+    const onMove = (e: MouseEvent) => {
+      x = e.clientX;
+      y = e.clientY;
+      if (!raf) raf = requestAnimationFrame(apply);
+    };
+    const onLeave = () => {
+      document
+        .querySelectorAll<HTMLElement>(".panel, .stat")
+        .forEach((box) => box.style.setProperty("--glow-intensity", "0"));
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseleave", onLeave);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseleave", onLeave);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
 }
 
-const reasonMap: Record<string, true> = {
-  'capability.not_implemented': true,
-  'capability.hardware_test_pending': true,
-  'capability.hid_fixture_missing': true,
-};
+function Shell() {
+  const [view, setView] = useState<ViewId>("dashboard");
+  const { level } = useThreat();
+  useBoxGlow();
 
-const riskLabels: Record<Risk, MessageKey> = {
-  none_observed: 'assessment.noneObserved',
-  info: 'assessment.info',
-  suspicious: 'assessment.suspicious',
-  high: 'assessment.high',
-  unknown: 'assessment.unknown',
-};
+  const statusLabel =
+    level === "danger"
+      ? "Preview · scenario alert"
+      : level === "warn"
+        ? "Preview · scenario attention"
+        : "Preview · agent unavailable";
 
-const jobLabels: Record<JobState, MessageKey> = {
-  queued: 'job.queued',
-  running: 'job.running',
-  completed: 'job.completed',
-  failed: 'job.failed',
-  cancelled: 'job.cancelled',
-};
+  const { wave, bg } = ditherColors(level);
 
-export function App() {
   return (
-    <main className="shell">
-      <header className="masthead">
-        <div className="mark" aria-hidden="true">S</div>
-        <div>
-          <p className="eyebrow">{t('app.fixture')}</p>
-          <h1>{t('app.title')}</h1>
+    <div className="shell">
+      {/* Living dither backdrop — spans the WHOLE app (sidebar included) and
+          recolors with the threat state. The sidebar's liquid glass blurs it. */}
+      <div
+        className="dither-bg"
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 0,
+          opacity: 0.45,
+        }}
+      >
+        <Dither
+          waveColor={wave}
+          backgroundColor={bg}
+          colorNum={4}
+          pixelSize={5}
+          enableMouseInteraction={false}
+        />
+      </div>
+
+      <aside className="sidebar">
+        <div className="brand">
+          <div className="brand-mark">
+            <Icon name="shield" size={18} />
+            <span className="brand-dot" />
+          </div>
+          <div className="brand-name">SENTINEL</div>
         </div>
-      </header>
 
-      <section className="notice" aria-labelledby="notice-heading">
-        <h2 id="notice-heading">{t('app.noProtection')}</h2>
-        <p>{t('app.intro')}</p>
-      </section>
+        {NAV.map((n) => (
+          <button
+            key={n.id}
+            aria-current={view === n.id ? "page" : undefined} className={`nav-btn${view === n.id ? " active" : ""}`}
+            onClick={() => setView(n.id)}
+          >
+            <Icon name={n.icon} size={16} />
+            {n.label}
+            {n.id === "watchtower" && level !== "preview" && (
+              <span
+                style={{
+                  marginLeft: "auto",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10.5,
+                  padding: "1.5px 7px",
+                  borderRadius: 99,
+                  background: "var(--state-dim)",
+                  color: "var(--state)",
+                  border: "1px solid var(--state)",
+                }}
+              >
+                !
+              </span>
+            )}
+          </button>
+        ))}
 
-      <section aria-labelledby="assessment-heading" className="panel">
-        <h2 id="assessment-heading">{t('assessment.heading')}</h2>
-        <p className="status-value">{t(riskLabels[status.assessment.risk])}</p>
-        <p>{t('assessment.unavailable')} · {t('assessment.reason.not_assessed')}</p>
-      </section>
+        <div className="sidebar-footer">
+          <div className="sidebar-footer-text" style={{ color: "rgba(232,241,255,0.55)" }}>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.18em" }}>
+              THINK · PROTECT · DEFEND
+            </div>
+            <div className="sidebar-footer-ver" style={{ marginTop: 4 }}>
+              v0.2 // Y2K CONSOLE BUILD
+            </div>
+          </div>
+        </div>
+      </aside>
 
-      <section aria-labelledby="capabilities-heading" className="panel">
-        <h2 id="capabilities-heading">{t('capabilities.heading')}</h2>
-        <ul className="capabilities">
-          {status.capabilities.map((item) => (
-            <li key={item.id} data-state={item.state}>
-              <div>
-                <h3>{capabilityName(item.id)}</h3>
-                <p>{capabilityReason(item.reasonKey)}</p>
-              </div>
-              <strong>{t(`capability.${item.state}` as MessageKey)}</strong>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <main className="main">
+        <header className="topbar" style={{ position: "relative", zIndex: 2 }}>
+          <h1>{VIEW_TITLES[view]}</h1>
+          <div className="protection-pill">
+            <span className="led" /> {statusLabel}
+          </div>
+        </header>
+        <div
+          className="content"
+          style={{ position: "relative", zIndex: 1, background: "transparent" }}
+        >
+          {view === "dashboard" && <Dashboard />}
+          {view === "scan" && <ScanView />}
+          {view === "watchtower" && <WatchtowerView />}
+          {view === "password" && <PasswordView />}
+          {view === "quarantine" && <QuarantineView />}
+          {view === "log" && <ThreatLogView />}
+        </div>
+      </main>
+    </div>
+  );
+}
 
-      {status.job && (
-        <section aria-labelledby="job-heading" className="panel">
-          <h2 id="job-heading">{t('job.heading')}</h2>
-          <p>{status.job.id}: {t(jobLabels[status.job.state])}</p>
-        </section>
-      )}
-
-      <details className="panel">
-        <summary>{t('details.heading')}</summary>
-        <p>{t('details.note')}</p>
-        <pre>{JSON.stringify(status, null, 2)}</pre>
-      </details>
-    </main>
+export default function App() {
+  return (
+    <ThreatProvider>
+      <Shell />
+    </ThreatProvider>
   );
 }

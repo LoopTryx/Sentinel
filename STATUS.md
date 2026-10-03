@@ -76,3 +76,6 @@ SelectedDirectoryReport conversion preserves actual final counters/flags and par
 ### S1 cooperative local control / current issue audit — 2026-10-04
 
 PR36 resumes the interrupted control leaf: cloneable sticky cancellation, bounded monotonic deadline, distinct actual-return marker and frozen finish state. Eight new checks pass with harmless actual reads and deterministic ordering. Generated LocalScanControlState and full API/failure handoff supplied. Cooperative expiry does not interrupt blocked OS reads or prove worker exit; no native dispatcher/selection authority/hard timeout enabled. Audit of every current open work issue is docs/coordination/2026-10-04-open-issue-audit.md; candidate PRs do not close issues. Core adapter, GLM integration and actual S1 acceptance remain open.
+## 2026-10-03 recovered GLM UI
+
+Issue #37 integrates sentinel-ui cbca6eb into apps/ui, preserving main runtime/extension and unrelated source history. Recovered navy/glass Y2K visuals, local synthetic theme demo and bounded educational tools run in the browser. No installed native adapter or protection claim. WebGL fallback and subject invalidation regressions pass; six UI tests, full verifier, independent review and six-route Edge smoke pass. See docs/evidence/sentinel-ui-integration.md. Broader live UI integration and S1 rehearsals remain pending.
