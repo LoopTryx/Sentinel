@@ -1,0 +1,7 @@
+# Selected-directory progress evidence
+
+2026-10-03, issue #9, codex/issue-9-scan-progress from main 1bea0c6. Five new behavior tests failed against the report-only stub (no snapshots; cancellation ignored for empty directory), then passed with actual observer implementation. An independent JSON assertion then failed with Number(6) rather than decimal string, and passed after authoritative serde/TS counter encoding correction.
+
+Five actual-folder progress tests and seven existing pipeline tests pass. New fixtures contain only harmless one/two/large text data; no EICAR file, USB or E: access. Existing test-string checks stay in memory. A new contract test covers u64::MAX exact round-trip plus rejection of numeric, signed, leading-zero, overflow and empty counter encodings. Proto generation/contract tests pass. Documentation records entry/file granularity, synchronous callback obligations and timeout/OS-read limitations.
+
+Full tools/verify.ps1 passed on implementation commit e8e8d3b: Rust format/lint/workspace tests, generated binding parity, TS typecheck/tests/build, and all 32 extension harness tests. This is library/contract evidence, not a GUI, IPC, timeout or event-rehearsal claim. No peer source/branch modified; original dirty desktop checkout preserved.
