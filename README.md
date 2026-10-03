@@ -21,3 +21,7 @@ cargo run -p sentinel-cli -- intel lookup-offline .local-intel-cache https://mal
 ```
 
 The feed uses benign `.test` URLs. Lookup never visits the URL. A `not_listed` result means only that the URL is absent from the loaded feed; it is not a safety verdict. The cache directory is local demo data and should be removed when no longer needed.
+
+## Recovered Y2K console
+
+GLM's recovered UI is integrated under apps/ui. Run pnpm install --frozen-lockfile, then pnpm --filter @sentinel/ui dev from repository root. See [console instructions](apps/ui/README.md) and [integration evidence](docs/evidence/sentinel-ui-integration.md). This frontend currently exposes local educational tools and labeled scenarios; native scan/quarantine/history adapters remain unavailable.

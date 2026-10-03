@@ -1,0 +1,31 @@
+// @vitest-environment jsdom
+import {act} from 'react';
+import {createRoot} from 'react-dom/client';
+import {afterEach, expect, it, vi} from 'vitest';
+import Dither from './components/ui/Dither';
+import Grainient from './components/ui/Grainient';
+import WatchtowerView from './views/WatchtowerView';
+(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+let root: ReturnType<typeof createRoot> | undefined;
+afterEach(async () => {if(root) await act(() => root!.unmount()); root=undefined; document.body.innerHTML=''; vi.restoreAllMocks();});
+for(const [name, Effect] of [['dither', Dither], ['grainient', Grainient]] as const) {
+ it(`keeps console content when ${name} cannot create WebGL`, async () => {
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+  window.matchMedia = vi.fn().mockReturnValue({matches: false});
+  const host=document.createElement('div'); document.body.append(host); root=createRoot(host);
+  await act(() => root!.render(<><Effect/><span>Console remains available</span></>));
+  expect(host.textContent).toContain('Console remains available');
+ });
+}
+it('invalidates message feedback when the subject changes', async () => {
+ const host=document.createElement('div'); document.body.append(host); root=createRoot(host);
+ await act(() => root!.render(<WatchtowerView/>));
+ const input=host.querySelector('textarea')!;
+ const set=Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
+ await act(() => {set.call(input, 'hello'); input.dispatchEvent(new Event('input', {bubbles:true}));});
+ const check=Array.from(host.querySelectorAll('button')).find(button=>button.textContent?.includes('Check message'))!;
+ await act(() => check.click());
+ expect(host.textContent).toContain('No pattern clues · unknown');
+ await act(() => {set.call(input, 'URGENT send money verify your account'); input.dispatchEvent(new Event('input', {bubbles:true}));});
+ expect(host.textContent).not.toContain('No pattern clues · unknown');
+});

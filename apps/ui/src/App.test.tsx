@@ -1,19 +1,30 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { App } from './App';
+import App from './App';
+import ScanView from './views/ScanView';
+import QuarantineView from './views/QuarantineView';
 
-describe('status fixture', () => {
-  it('labels unavailable and untested capabilities without a protection claim', () => {
+describe('integrated console capability boundaries', () => {
+  it('preserves the console while explicitly labeling preview and no protection', () => {
     const html = renderToStaticMarkup(<App />);
-    expect(html).toContain('Fixture preview');
-    expect(html).toContain('Sentinel');
-    expect(html).toContain('class="mark" aria-hidden="true">S</div>');
+    expect(html).toContain('SENTINEL');
+    expect(html).toContain('Preview');
     expect(html).toContain('No live protection is installed');
-    expect(html).toContain('File scanning');
-    expect(html).toContain('USB storage gate');
-    expect(html).toContain('Untested');
-    expect(html).toContain('fixture-job-1');
-    expect(html).toContain('Queued');
-    expect(html).not.toContain('All protected');
+    expect(html).not.toContain('LIVE PROTECTION ACTIVE');
+    expect(html).not.toContain('All systems secure');
+    expect(html).not.toContain('signature engine online');
+    expect(html).toContain('SYNTHETIC SCENARIO');
+  });
+  it('does not offer scans through missing native commands', () => {
+    const html = renderToStaticMarkup(<ScanView />);
+    expect(html).toContain('unavailable');
+    expect(html).toContain('disabled');
+    expect(html).not.toContain('neutralizes what it catches');
+  });
+  it('distinguishes missing quarantine from an empty functioning vault', () => {
+    const html = renderToStaticMarkup(<QuarantineView />);
+    expect(html).toContain('unavailable');
+    expect(html).not.toContain('AES-256 encrypted');
+    expect(html).not.toContain('Vault empty');
   });
 });
