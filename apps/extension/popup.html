@@ -1,31 +1,8 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Sentinel harness</title>
-    <style>
-      body { width: 320px; margin: 0; padding: 18px; font: 14px/1.45 system-ui, sans-serif; color: #152432; background: #f5f8fa; }
-      h1 { margin: 0 0 10px; font-size: 20px; }
-      p { margin: 9px 0; }
-      .status { padding: 10px; border: 1px solid #8fabc0; border-radius: 6px; background: white; margin: 0; padding-left: 26px; }
-      .status li { margin: 6px 0; }
-      .status li[data-tone="ok"]::marker { color: #1d7a46; }
-      .status li[data-tone="off"]::marker { color: #8a6d1a; }
-      .status li[data-tone="gap"]::marker { color: #a54949; }
-      .muted { color: #445869; }
-      button { margin-top: 8px; padding: 7px 10px; font: inherit; border: 1px solid #445869; border-radius: 6px; background: white; cursor: pointer; }
-      button:disabled { opacity: 0.55; cursor: default; }
-    </style>
-  </head>
-  <body>
-    <h1>Sentinel</h1>
-    <ul class="status" role="status" id="harness-status" aria-live="polite">
-      <li data-tone="gap">Checking extension harness…</li>
-    </ul>
-    <button id="fixture-toggle" type="button">Checking rule state…</button>
-    <p class="muted">The only rule this harness can change targets <code>blocked.sentinel.invalid</code>, a reserved test domain that cannot host a real website.</p>
-    <p class="muted">This harness is not connected to the Sentinel agent and does not classify websites, scan downloads, or collect browsing history.</p>
-    <script type="module" src="src/popup.js"></script>
-  </body>
-</html>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sentinel Browser Companion</title><link rel="stylesheet" href="src/popup.css"></head>
+<body><header><span class="logo">S</span><div><h1>SENTINEL</h1><p>Browser companion · local awareness</p></div><button id="open-dashboard" type="button">Open dashboard</button></header>
+<p class="notice">Local checks · partial coverage · no protection or safety guarantee</p>
+<main><section><h2>Link X-Ray</h2><p>Understand the actual destination before opening a link. Nothing is fetched or uploaded.</p><label for="url-input">URL to inspect</label><input id="url-input" type="url" maxlength="2048" placeholder="https://example.test"><div class="actions"><button id="check-url" type="button">Inspect URL</button><button id="check-tab" type="button">Inspect current tab</button></div><div id="url-result" role="status" aria-live="polite"></div></section>
+<section><h2>Scam clues</h2><p>Use invented examples. Pattern clues do not verify a sender or prove a message safe.</p><label for="message-input">Invented message</label><textarea id="message-input" rows="4" maxlength="4096" placeholder="URGENT: send money to claim a prize"></textarea><button id="check-message" type="button">Explain clues</button><div id="message-result" role="status" aria-live="polite"></div></section>
+<section><h2>Browser connection</h2><ul class="status" id="harness-status" role="status" aria-live="polite"><li>Checking browser capability…</li></ul><button id="fixture-toggle" type="button">Checking rule state…</button><p>The test rule targets only <code>blocked.sentinel.invalid</code>.</p></section>
+<section><h2>Desktop &amp; vault</h2><p>Not connected to the Sentinel agent. File-byte scanning, download interception, password vault and mail/WhatsApp monitoring are unavailable.</p><p>No browsing history, raw URLs, message text or passwords are stored or transmitted by the local tools. The rule harness does not classify websites, scan downloads, or collect browsing history.</p></section></main>
+<footer>THINK · VERIFY · UNDERSTAND <button id="clear-inputs" type="button">Clear local inputs</button></footer><script type="module" src="src/popup.js"></script></body></html>

@@ -25,7 +25,7 @@ Invoke-Check 'TypeScript typecheck' { & $pnpm -r typecheck }
 Invoke-Check 'TypeScript tests' { & $pnpm -r test }
 Invoke-Check 'UI build' { & $pnpm -r build }
 Invoke-Check 'Extension syntax' { & node --check apps/extension/src/service-worker.js; if ($LASTEXITCODE -eq 0) { & node --check apps/extension/src/popup.js }; if ($LASTEXITCODE -eq 0) { & node --check apps/extension/src/status.js } }
-Invoke-Check 'Extension harness tests' { & node --test apps/extension/test/harness.test.mjs apps/extension/test/status.test.mjs apps/extension/test/worker.test.mjs apps/extension/test/parity.test.mjs }
+Invoke-Check 'Extension harness tests' { & node --test apps/extension/test/harness.test.mjs apps/extension/test/status.test.mjs apps/extension/test/worker.test.mjs apps/extension/test/parity.test.mjs apps/extension/test/local-checks.test.mjs }
 Invoke-Check 'Extension harness build' { & node apps/extension/scripts/build.mjs }
 Invoke-Check 'Extension harness smoke' { & node apps/extension/scripts/smoke.mjs }
 
@@ -38,3 +38,4 @@ $untrackedBindings = git ls-files --others --exclude-standard -- $generatedPath
 if ($LASTEXITCODE -ne 0) { throw 'Could not check untracked generated bindings' }
 if ($untrackedBindings) { throw 'New generated TypeScript bindings are not committed' }
 Write-Host 'All available T01 checks passed.'
+

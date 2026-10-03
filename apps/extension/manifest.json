@@ -1,16 +1,20 @@
 {
   "manifest_version": 3,
-  "name": "Sentinel Web Shield Harness",
-  "version": "0.1.0",
-  "description": "A narrow local fixture for testing the Sentinel Chrome extension boundary.",
-  "permissions": ["declarativeNetRequest", "storage"],
+  "name": "Sentinel Browser Companion",
+  "version": "0.2.0",
+  "description": "Local on-demand URL and message clues, with transparent coverage and no uploads.",
+  "permissions": [
+    "declarativeNetRequest",
+    "storage",
+    "activeTab"
+  ],
   "background": {
     "service_worker": "src/service-worker.js",
     "type": "module"
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Sentinel harness"
+    "default_title": "Sentinel Browser Companion"
   },
   "declarative_net_request": {
     "rule_resources": [

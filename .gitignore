@@ -7,3 +7,4 @@ dist/
 !/.env.example
 
 .playwright-cli/
+/artifacts/

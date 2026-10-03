@@ -62,3 +62,8 @@ Final integration: PR #16 is merged into main; #3/#4 are marked merged. Three ob
 ## 2026-10-03 recovered GLM UI
 
 Issue #37 integrates sentinel-ui cbca6eb into apps/ui, preserving main runtime/extension and unrelated source history. Recovered navy/glass Y2K visuals, local synthetic theme demo and bounded educational tools run in the browser. No installed native adapter or protection claim. WebGL fallback and subject invalidation regressions pass; six UI tests, full verifier, independent review and six-route Edge smoke pass. See docs/evidence/sentinel-ui-integration.md. Broader live UI integration and S1 rehearsals remain pending.
+
+## Chrome browser companion (2026-10-03, issue #39)
+
+The installable extension now has local bounded URL explanations and invented-message clue checks, a toolbar popup and full-tab dashboard. Raw tool inputs are not persisted or uploaded. Actual Chrome 154.0.8037.95 passed installation, redacted result, input clearing/invalidation and synthetic DNR block/allow/restore checks in an isolated profile. All 35 extension tests and tools/verify.ps1 passed. Desktop/native scanning, vault, automatic mail/chat monitoring and download interception remain unavailable. See docs/evidence/chrome-extension-local-tools.md.
+

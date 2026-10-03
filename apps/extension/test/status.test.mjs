@@ -139,5 +139,5 @@ test('manifest stays minimal: no nativeMessaging, no host permissions', async ()
   const manifest = JSON.parse(await readFile(new URL('manifest.json', root), 'utf8'));
   assert.ok(!manifest.permissions.includes('nativeMessaging'));
   assert.equal(manifest.host_permissions, undefined);
-  assert.deepEqual(manifest.permissions, ['declarativeNetRequest', 'storage']);
+  assert.deepEqual(manifest.permissions, ['declarativeNetRequest', 'storage', 'activeTab']);
 });

@@ -16,6 +16,8 @@ const requiredFiles = [
   'src/service-worker.js',
   'src/popup.js',
   'src/status.js',
+  'src/local-checks.js',
+  'src/popup.css',
 ];
 
 // Every dist file is a copy of a source file, including the runtime scripts:
@@ -28,6 +30,8 @@ const mirroredFromSource = [
   'src/service-worker.js',
   'src/popup.js',
   'src/status.js',
+  'src/local-checks.js',
+  'src/popup.css',
 ];
 
 function fail(message) {
@@ -83,3 +87,4 @@ smoke: manual Chrome steps (developer load & smoke flow)
      the popup after restart still reports the live ruleset state
   9. Unload the extension when finished
 `);
+

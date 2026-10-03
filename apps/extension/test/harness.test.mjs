@@ -9,8 +9,8 @@ const read = (path) => readFile(new URL(path, root), 'utf8');
 test('manifest requests only fixture-blocking capability', async () => {
   const manifest = await json('manifest.json');
   assert.equal(manifest.manifest_version, 3);
-  assert.equal(manifest.name, 'Sentinel Web Shield Harness');
-  assert.deepEqual(manifest.permissions, ['declarativeNetRequest', 'storage']);
+  assert.equal(manifest.name, 'Sentinel Browser Companion');
+  assert.deepEqual(manifest.permissions, ['declarativeNetRequest', 'storage', 'activeTab']);
   assert.equal(manifest.host_permissions, undefined);
   assert.equal(manifest.background.service_worker, 'src/service-worker.js');
   assert.equal(manifest.background.type, 'module');
@@ -49,7 +49,7 @@ test('popup renders truthful states and a fixture-only toggle', async () => {
   assert.match(html, /id="harness-status"/);
   assert.match(html, /id="fixture-toggle"/);
   assert.match(html, /blocked\.sentinel\.invalid/);
-  assert.match(html, /not connected to the Sentinel agent/);
+  assert.match(html, /Not connected to the Sentinel agent/);
   assert.match(html, /does not classify websites, scan downloads, or collect browsing history/);
 
   const script = await read('src/popup.js');
@@ -63,3 +63,4 @@ test('pure status module exports the runtime state machine', async () => {
   assert.match(source, /export function statusLines/);
   assert.doesNotMatch(source, /chrome\./);
 });
+
