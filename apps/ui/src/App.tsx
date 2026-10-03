@@ -197,15 +197,12 @@ function Shell() {
       <main className="main">
         <header className="topbar" style={{ position: "relative", zIndex: 2 }}>
           <h1>{VIEW_TITLES[view]}</h1>
-          <div className="protection-pill">
-            <span className="led" /> {statusLabel}
-          </div>
         </header>
         <div
           className="content"
           style={{ position: "relative", zIndex: 1, background: "transparent" }}
         >
-          {view === "dashboard" && <Dashboard />}
+          {view === "dashboard" && <Dashboard onViewAll={() => setView("log")} />}
           {view === "scan" && <ScanView />}
           {view === "watchtower" && <WatchtowerView />}
           {view === "password" && <PasswordView />}

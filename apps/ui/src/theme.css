@@ -139,21 +139,51 @@ body::after {
 .sidebar {
   position: relative;
   z-index: 1;
-  border-right: 1px solid rgba(255, 255, 255, 0.22);
-  /* glassmorphism: smooth frost + a sheer white tint — the dither glows through */
-  backdrop-filter: blur(22px) saturate(150%);
-  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  border-right: none;
+  /* Apple liquid glass: heavy frost + saturation lift + full rim light.
+     Neutral white optics only — the panel keeps taking its hue from the
+     dither flowing behind it. */
+  backdrop-filter: blur(30px) saturate(190%) brightness(1.08);
+  -webkit-backdrop-filter: blur(30px) saturate(190%) brightness(1.08);
   background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.11) 0%,
-    rgba(255, 255, 255, 0.05) 50%,
-    rgba(255, 255, 255, 0.08) 100%
+    165deg,
+    rgba(255, 255, 255, 0.13) 0%,
+    rgba(255, 255, 255, 0.055) 38%,
+    rgba(255, 255, 255, 0.04) 62%,
+    rgba(255, 255, 255, 0.09) 100%
   );
-  box-shadow: 0 8px 32px rgba(5, 8, 26, 0.25);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 1px 0 0 rgba(255, 255, 255, 0.16),
+    inset -1px 0 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 30px 44px -30px rgba(255, 255, 255, 0.3),
+    0 12px 44px rgba(5, 8, 26, 0.38);
   display: flex;
   flex-direction: column;
   padding: 18px 12px;
   gap: 4px;
+}
+
+/* edge lens: thin light-wrap ring, brightest top-left, fading bottom-right */
+.sidebar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.6) 0%,
+    rgba(255, 255, 255, 0.12) 28%,
+    rgba(255, 255, 255, 0.03) 55%,
+    rgba(255, 255, 255, 0.18) 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
 }
 
 .brand {
@@ -382,10 +412,11 @@ body[data-threat="danger"] .led { animation-duration: 0.7s; }
   inset: 0;
   padding: 1.5px;
   background: radial-gradient(
-    280px circle at var(--glow-x, 50%) var(--glow-y, 50%),
-    rgba(var(--accent-rgb), calc(var(--glow-intensity, 0) * 0.9)) 0%,
-    rgba(var(--accent-rgb), calc(var(--glow-intensity, 0) * 0.4)) 35%,
-    transparent 65%
+    360px circle at var(--glow-x, 50%) var(--glow-y, 50%),
+    rgba(var(--accent-rgb), calc(var(--glow-intensity, 0) * 1)) 0%,
+    rgba(var(--accent-rgb), calc(var(--glow-intensity, 0) * 0.55)) 30%,
+    rgba(var(--accent-rgb), calc(var(--glow-intensity, 0) * 0.25)) 55%,
+    transparent 75%
   );
   border-radius: inherit;
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -630,3 +661,63 @@ body[data-threat="danger"] .led { animation-duration: 0.7s; }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
 
+
+/* ---- console layout pattern: hero flex, wide feed + right rail ---- */
+.hero-flex {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+.console-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .console-grid { grid-template-columns: 1fr; }
+}
+.side-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.section-link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--blue-bright);
+}
+.section-link:hover { color: var(--text); }
+.kv-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--grid-line);
+}
+.kv-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--text-dim);
+}
+.kv-val {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text);
+}

@@ -1,0 +1,118 @@
+/* SwipeRow — swipe-to-delete rows for the Quarantine Vault.
+   Styled with the app's own design tokens: no new colors. */
+
+.swipe-row {
+  position: relative;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.swipe-row__clip {
+  position: relative;
+  height: var(--sr-h);
+  border-radius: var(--sr-r);
+  overflow: hidden;
+}
+
+/* drawer rail behind the row surface */
+.swipe-row__rail {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: stretch;
+  background: var(--sr-drawer);
+  border-radius: var(--sr-r);
+}
+
+.swipe-row__action {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--sr-a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.swipe-row__action--commit {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+}
+
+.swipe-row__glyph {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.swipe-row__icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* the visible row surface that slides away */
+.swipe-row__surface {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 16px;
+  background: var(--sr-row);
+  color: var(--sr-text);
+  border: 1px solid var(--grid-line);
+  border-radius: var(--sr-r);
+  cursor: grab;
+}
+
+.swipe-row[data-dragging] .swipe-row__surface {
+  cursor: grabbing;
+}
+
+/* small "N actions" affordance on the trailing edge */
+.swipe-row__toggle {
+  margin-left: auto;
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--grid-line);
+  border-radius: 99px;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.swipe-row__toggle:hover {
+  color: var(--text-dim);
+  border-color: rgba(139, 151, 197, 0.35);
+}
+.swipe-row__toggle:focus-visible {
+  outline: 2px solid rgba(var(--accent-rgb), 0.6);
+  outline-offset: 2px;
+}
+
+/* screen-reader live region */
+.swipe-row__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swipe-row__surface,
+  .swipe-row__rail {
+    transition: none;
+  }
+}
