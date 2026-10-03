@@ -20,9 +20,12 @@ fn main() {
         [command, action, path] if command == "scan" && action == "directory" => {
             scan_local_directory(path)
         }
+        [command, action, url] if command == "url" && action == "explain-local" => {
+            explain_local_url(url)
+        }
         _ => {
             eprintln!(
-                "Usage: sentinel-cli status --fixture | intel import-local <feed-file> <cache-dir> | intel lookup-offline <cache-dir> <url> | scan file <path> | scan directory <path>"
+                "Usage: sentinel-cli status --fixture | intel import-local <feed-file> <cache-dir> | intel lookup-offline <cache-dir> <url> | scan file <path> | scan directory <path> | url explain-local <url>"
             );
             eprintln!("No live protection or provider download is installed");
             std::process::exit(2);
@@ -32,6 +35,17 @@ fn main() {
         eprintln!("{error}");
         std::process::exit(1);
     }
+}
+
+fn explain_local_url(input: &str) -> Result<(), &'static str> {
+    let explanation = sentinel_intel::url_explanation::explain_url(input).map_err(
+        |_| "URL cannot be explained: invalid, ambiguous, unsupported or oversized input",
+    )?;
+    println!(
+        "{}",
+        serde_json::to_string(&explanation).expect("URL explanation is serializable")
+    );
+    Ok(())
 }
 
 fn scan_local_directory(path: &str) -> Result<(), &'static str> {
