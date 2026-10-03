@@ -87,4 +87,3 @@ smoke: manual Chrome steps (developer load & smoke flow)
      the popup after restart still reports the live ruleset state
   9. Unload the extension when finished
 `);
-

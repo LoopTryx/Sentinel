@@ -38,4 +38,3 @@ $untrackedBindings = git ls-files --others --exclude-standard -- $generatedPath
 if ($LASTEXITCODE -ne 0) { throw 'Could not check untracked generated bindings' }
 if ($untrackedBindings) { throw 'New generated TypeScript bindings are not committed' }
 Write-Host 'All available T01 checks passed.'
-

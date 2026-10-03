@@ -63,4 +63,3 @@ test('pure status module exports the runtime state machine', async () => {
   assert.match(source, /export function statusLines/);
   assert.doesNotMatch(source, /chrome\./);
 });
-
