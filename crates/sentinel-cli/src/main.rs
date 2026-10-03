@@ -7,6 +7,21 @@ use std::time::{SystemTime, UNIX_EPOCH};
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let result = match args.as_slice() {
+        [command, lesson, action]
+            if command == "academy" && lesson == "phishing" && action == "list" =>
+        {
+            println!(
+                "{}",
+                serde_json::to_string(&sentinel_intel::phishing::phishing_scenarios())
+                    .expect("static scenarios serialize")
+            );
+            Ok(())
+        }
+        [command, lesson, action, id, choice]
+            if command == "academy" && lesson == "phishing" && action == "evaluate" =>
+        {
+            evaluate_phishing_lesson(id, choice)
+        }
         [command, flag] if command == "status" && flag == "--fixture" => status_fixture(),
         [command, action, feed_path, cache_dir]
             if command == "intel" && action == "import-local" =>
@@ -22,7 +37,7 @@ fn main() {
         }
         _ => {
             eprintln!(
-                "Usage: sentinel-cli status --fixture | intel import-local <feed-file> <cache-dir> | intel lookup-offline <cache-dir> <url> | scan file <path> | scan directory <path>"
+                "Usage: sentinel-cli academy phishing list | academy phishing evaluate <scenario-id> <choice> | status --fixture | intel import-local <feed-file> <cache-dir> | intel lookup-offline <cache-dir> <url> | scan file <path> | scan directory <path>"
             );
             eprintln!("No live protection or provider download is installed");
             std::process::exit(2);
@@ -115,4 +130,24 @@ fn now() -> Result<u64, &'static str> {
         .duration_since(UNIX_EPOCH)
         .map_err(|_| "System time is invalid")?
         .as_secs())
+}
+
+fn evaluate_phishing_lesson(id: &str, choice: &str) -> Result<(), &'static str> {
+    use sentinel_proto::phishing::{PhishingChoice, PhishingError};
+    let choice = match choice {
+        "follow_request" => PhishingChoice::FollowRequest,
+        "verify_separately" => PhishingChoice::VerifySeparately,
+        "ignore" => PhishingChoice::Ignore,
+        _ => return Err("invalid_choice"),
+    };
+    let feedback =
+        sentinel_intel::phishing::evaluate_phishing(id, choice).map_err(|error| match error {
+            PhishingError::InvalidScenarioId => "invalid_scenario_id",
+            PhishingError::UnknownScenario => "unknown_scenario",
+        })?;
+    println!(
+        "{}",
+        serde_json::to_string(&feedback).expect("static feedback serializes")
+    );
+    Ok(())
 }
