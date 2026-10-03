@@ -105,7 +105,13 @@ function useBoxGlow() {
 }
 
 function Shell() {
-  const [view, setView] = useState<ViewId>("dashboard");
+  // Deep-linkable views (e.g. ?view=scan) for reproducible screenshots and
+  // future adapter handoffs; guarded for non-DOM renders.
+  const [view, setView] = useState<ViewId>(() => {
+    if (typeof window === "undefined") return "dashboard";
+    const requested = new URLSearchParams(window.location.search).get("view");
+    return (VIEW_TITLES as Record<string, string>)[requested ?? ""] ? (requested as ViewId) : "dashboard";
+  });
   const { level } = useThreat();
   useBoxGlow();
 

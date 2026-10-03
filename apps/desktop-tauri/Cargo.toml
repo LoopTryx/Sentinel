@@ -1,0 +1,22 @@
+[package]
+name = "sentinel-console"
+version = "0.1.0"
+edition = "2021"
+description = "Sentinel Y2K Cyber Console — presentation shell over apps/ui"
+publish = false
+
+# Standalone crate: deliberately detached from the root workspace so the slow
+# Tauri/WebView2 dependency tree does not join `cargo test --workspace` in CI.
+# Presentation shell only — no backend authority lives here (Codex owns that).
+[workspace]
+
+[build-dependencies]
+tauri-build = { version = "2.7.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.12.0", features = [] }
+serde_json = "1"
+
+[profile.release]
+opt-level = 2
+lto = "thin"
