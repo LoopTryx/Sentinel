@@ -1,4 +1,0 @@
-This is not a real executable. It is a plain text file wearing a
-double-extension filename (invoice.pdf.exe) for the Cyber Shield demo
-corpus. The filename heuristic should flag it as suspicious because a
-document name hides an executable extension.

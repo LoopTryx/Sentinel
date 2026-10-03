@@ -1,6 +1,0 @@
-[autorun]
-open=update.exe
-icon=update.exe,0
-label=USB_BACKUP
-; Cyber Shield demo corpus: inert autorun config. SENTINEL flags
-; autorun.inf files that launch a program the moment a USB drive mounts.
