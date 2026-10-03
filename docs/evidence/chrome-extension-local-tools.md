@@ -16,5 +16,3 @@ Passed browser checks:
 Screenshot: chrome-extension-local-tools.png. All 35 extension unit tests passed. Independent code review found no blocking bugs. Full tools/verify.ps1 verification passed (Rust formatting/lint/tests, TS typecheck/tests/build, extension syntax/tests/build/parity).
 
 Limits: Toolbar activeTab gesture is implemented but was not separately automated through Chrome's toolbar. No live-site message automation, vault, download interception, native agent or threat feed exists in this increment. No real credentials, malicious payloads or USB devices were used. URL/message checks do not perform network lookups. The user must load the bundle separately to use it in their regular Chrome profile.
-
-
