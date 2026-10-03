@@ -7,6 +7,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let result = match args.as_slice() {
+        [command, lesson, scenario, choice]
+            if command == "academy" && lesson == "password-autopsy" =>
+        {
+            password_autopsy(scenario, choice)
+        }
         [command, flag] if command == "status" && flag == "--fixture" => status_fixture(),
         [command, action, feed_path, cache_dir]
             if command == "intel" && action == "import-local" =>
@@ -32,6 +37,23 @@ fn main() {
         eprintln!("{error}");
         std::process::exit(1);
     }
+}
+
+fn password_autopsy(scenario: &str, choice: &str) -> Result<(), &'static str> {
+    use sentinel_proto::password_autopsy::PasswordChoice;
+    let choice = match choice {
+        "replace_predictable" => PasswordChoice::ReplacePredictable,
+        "make_unique" => PasswordChoice::MakeUnique,
+        "keep_unique" => PasswordChoice::KeepUnique,
+        _ => return Err("Invalid synthetic lesson choice"),
+    };
+    let result = sentinel_intel::password_autopsy::evaluate_password_lesson(scenario, choice)
+        .map_err(|_| "Invalid synthetic lesson scenario")?;
+    println!(
+        "{}",
+        serde_json::to_string(&result).map_err(|_| "Lesson output unavailable")?
+    );
+    Ok(())
 }
 
 fn scan_local_directory(path: &str) -> Result<(), &'static str> {
