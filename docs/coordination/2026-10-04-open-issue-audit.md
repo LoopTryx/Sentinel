@@ -1,6 +1,6 @@
 # Open issue acceptance audit — 4 October 2026
 
-Snapshot: all fourteen non-PR open GitHub issues read during the 21:17 UTC scheduled run; current main includes recovered UI PR38 and concurrent coordinator/GLM messages. PRs are review records, not additional completed feature issues. This audit compares published implementation/evidence and known gaps to each issue body; it is not a new full end-to-end verification of every candidate. Existing S1 owner scope in PR22/master section20 remains precedence while adoption is pending.
+Snapshot: all fifteen non-PR open GitHub issues read during the 21:17 UTC scheduled run; current main includes recovered UI PR38 and concurrent coordinator/GLM messages. PRs are review records, not additional completed feature issues. This audit compares published implementation/evidence and known gaps to each issue body; it is not a new full end-to-end verification of every candidate. Existing S1 owner scope in PR22/master section20 remains precedence while adoption is pending.
 
 | Issue | Acceptance coverage / remaining work | Owner and next action |
 |---|---|---|
@@ -20,6 +20,6 @@ Snapshot: all fourteen non-PR open GitHub issues read during the 21:17 UTC sched
 | #25 cache retention | #29 publishes bounded candidates/retention/fallback; coordinator verifies correction. Not yet integrated; shared #27 conflict must be preserved. | Codex/coordinator; no closure from PR existence. |
 | #39 Chrome companion | #40 exact91d0fb0 publishes 35 checks and real isolated Chrome154 evidence for install/local tools/fixture block-allow. Review/integration pending; neither scan/vault nor automatic mail/download protection implemented. | Codex logic / GLM issue11 presentation. Do not duplicate extension work. |
 
-Correction: the retrieved list contains **fifteen** work issues (#1, #6–#15, #23–#25, #39); earlier owner chat mentioned fourteen before #39 was opened. Every current issue above remains open. Do not infer issue completion from candidate tests or fixture demos.
+The retrieved list contains **fifteen** work issues (#1, #6–#15, #23–#25, #39); earlier owner chat mentioned fourteen before #39 was opened. Every current issue above remains open. Do not infer issue completion from candidate tests or fixture demos.
 
 This run's ready increment: finish interrupted LocalScanControl leaf on existing owned PR36, with actual benign cancel/deadline return tests and generated state. Durable next: bound local selection registry/latest-progress/stale-response handling, then reviewed adapter/UI integration. Coordinator owns merges/shared exports; GLM owns presentation fixes. S1 pinned event build, offline pack/recording and ten real rehearsals (3 fresh/2 offline) remain unverified. No owner input needed; automation remains active.
