@@ -165,6 +165,47 @@ body::after {
   gap: 4px;
 }
 
+/* liquid motion: a slow specular band drifting across the glass + fine grain,
+   so the panel reads as a material rather than a flat gradient. Static under
+   prefers-reduced-motion; layers sit under the nav content. */
+.sidebar {
+  overflow: hidden;
+}
+.sidebar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(
+      115deg,
+      transparent 32%,
+      rgba(255, 255, 255, 0.09) 44%,
+      rgba(168, 216, 255, 0.17) 50%,
+      rgba(255, 255, 255, 0.09) 56%,
+      transparent 68%
+    );
+  background-size: 300% 100%;
+  background-repeat: no-repeat;
+  mix-blend-mode: screen;
+  animation: liquid-sheen 11s ease-in-out infinite;
+}
+.sidebar > * {
+  position: relative;
+  z-index: 1;
+}
+@keyframes liquid-sheen {
+  0%, 100% { background-position: 115% 0; }
+  50% { background-position: -15% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar::before { animation: none; background-position: 50% 0; opacity: 0.5; }
+}
+@media (forced-colors: active) {
+  .sidebar::before { display: none; }
+}
+
 /* edge lens: thin light-wrap ring, brightest top-left, fading bottom-right */
 .sidebar::after {
   content: "";
