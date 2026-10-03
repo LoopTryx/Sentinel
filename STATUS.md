@@ -72,3 +72,7 @@ Generated SelectedFileReport and actual scanner conversion preserve partial cove
 ### S1 directory typed output — 2026-10-03, issue #9 / PR #36
 
 SelectedDirectoryReport conversion preserves actual final counters/flags and partial engine coverage, with bounded path-free finding references and explicit omitted count. Two new tests cover real benign success/cancel/skips/entry limit/missing root plus synthetic conversion bounds. Native selection/job authority, deadline/stale-result adapter and GLM UI wiring remain pending. See scan-progress handoff/evidence. No event acceptance or installed protection claimed.
+
+### S1 cooperative local control / current issue audit — 2026-10-04
+
+PR36 resumes the interrupted control leaf: cloneable sticky cancellation, bounded monotonic deadline, distinct actual-return marker and frozen finish state. Eight new checks pass with harmless actual reads and deterministic ordering. Generated LocalScanControlState and full API/failure handoff supplied. Cooperative expiry does not interrupt blocked OS reads or prove worker exit; no native dispatcher/selection authority/hard timeout enabled. Audit of every current open work issue is docs/coordination/2026-10-04-open-issue-audit.md; candidate PRs do not close issues. Core adapter, GLM integration and actual S1 acceptance remain open.

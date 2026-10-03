@@ -76,3 +76,14 @@ pub struct SelectedDirectoryReport {
     #[ts(type = "string")]
     pub findings_omitted: u64,
 }
+
+/// Cooperative local control state; Returned does not mean successful scanning.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum LocalScanControlState {
+    Running,
+    Returned,
+    Cancelled,
+    TimedOut,
+}

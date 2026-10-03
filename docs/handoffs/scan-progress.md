@@ -97,3 +97,31 @@ Detailed output is capped at `MAX_REPORT_FINDINGS=256`. Each finding contains on
 `findingsOmitted` is the exact decimal count of source findings outside the output cap. This is report-detail truncation, distinct from the scanner's own finding cap/limitReached. Show omitted details explicitly, preserve aggregate progress and partial coverage; an empty list never cancels skips/errors or establishes safety. The converter visits only the first 256 finding states, does not copy source paths, and has output below 32 KiB in the maximum-list test. Bounded transport, selection registry, ownership, stale-result rejection and timeouts still require reviewed adapter implementation. No capability is enabled by this DTO.
 
 Acceptance: two new directory report tests compare actual output to the final callback for benign completion, cooperative cancellation after one check, size skips, traversal entry limit and missing root. A separate in-memory 263-finding stress report verifies 256 references, seven omitted, redaction, fixed binding failure and a <32 KiB JSON bound; that synthetic test proves conversion only and creates no test-signature file. The six report tests, six directory-progress tests, eight pipeline tests and generated parity/full verifier must pass. GLM consumes only after review/integration. Next: reviewed native picker selection/job adapter with cancellation/deadline/stale-response handling, then actual UI and rehearsal evidence.
+
+## Cooperative local scan control — resumed after interruption
+
+Source API `sentinel_scan::control::LocalScanControl`:
+
+- `new(timeout: Duration) -> Result<LocalScanControl, InvalidScanDeadline>` accepts 1 ms through 300 s, starting at construction (queue delay included). Invalid input returns fixed `invalid local scan deadline` without input echo.
+- `clone()` shares one operation's atomic control; `request_cancel()` records sticky manual cancellation unless an expired deadline or a prior stop/return already won.
+- `should_stop() -> bool` is the predicate passed to existing scan_file_with_cancel / scan_directory_with_progress.
+- `state() -> LocalScanControlState` observes the monotonic deadline and reports `running`, `cancelled`, `timed_out` or `returned`. Authoritative generated LocalScanControlState.ts comes from scan_report.rs.
+- `has_returned() -> bool` is false until the worker calls `finish()`. A stop request, including `timed_out`, does NOT mean the worker has exited.
+- `finish() -> LocalScanControlState` is called by the trusted worker only after the scanner returns; it observes any elapsed deadline, freezes return/stop classification and sets has_returned. Never expose finish as a UI command, invoke it before return, or reuse a token for another scan.
+
+Use on a background scanning thread with a clone held by the adapter for Cancel/disconnect. Retain a fresh token per operation, both opaque correlation refs and actual report separately. Dropping a control clone does not cancel the worker: the adapter must explicitly request cancellation on disconnect/abandonment and manage its lifetime. No UI dispatch, selection registry or process lifecycle is registered here.
+
+```rust
+let control = LocalScanControl::new(Duration::from_secs(10))?;
+// Keep a clone for the adapter's cancel action; selected_path was approved natively.
+let result = scan_file_with_cancel(selected_path, limits, &mut || control.should_stop());
+let control_state = control.finish();
+let report = selected_file_report(&result, "job-7", "selection_3")?;
+// Deliver state + has_returned=true + actual report only to the matching operation.
+```
+
+Returned means scanner return, including access_error/skips; inspect the report. A cooperative deadline maps the underlying scanner's stop to cancelled, while the separate control state is timed_out. Retain actual partial bytes/no hash/checked counters; do not replace the stop with a clean result or reinterpret completed checks as total coverage. Stop classification is first-observed and sticky; a deadline already elapsed when Cancel is requested wins as timed_out. A deadline that expires after finish cannot relabel a returned result. A cancel/deadline racing with scanner return can win before finish even if some checks completed; show the retained evidence with incomplete operation state.
+
+The budget is cooperative, not a hard wall-clock completion guarantee. A blocked metadata/open/read cannot be interrupted by this token. state() may become timed_out while has_returned=false and the worker is still blocked; do not label it reaped or allow another unbounded worker. The reviewed parent process deadline/kill/reap path remains required for a hard timeout. Durable ownership/authority, bounded latest progress, selection changes/repeated clicks/stale responses and transport limits remain explicit adapter prerequisites. No service scan capability, protected parser sandbox or S1 completion is enabled.
+
+Acceptance: `cargo test -p sentinel-scan --test control --test report --test progress --test pipeline --lib`, proto regeneration, full verifier. Eight new control checks cover clone cancellation before invalid-path I/O, actual elapsed deadline, access-error return, configuration limits, actual benign 8192-byte cancellation/20000-byte retry, 32 concurrent cancel/finish races, and deterministic clock-injected first-stop/frozen-return boundaries (no machine clock mutation). Tests use invented harmless bytes; no E:, test-signature file or policy changes.
