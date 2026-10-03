@@ -6,4 +6,6 @@ Six CLI behavior tests were added first. Against the original CLI, the four vali
 
 `cargo test -p sentinel-intel -p sentinel-proto -p sentinel-cli` passed, including existing tests and generated TypeScript exports. The implementation uses the existing URL parser and an internal proto dependency, with no new external packages.
 
-The function performs local parsing only. It outputs the full canonical host and reason codes, excludes credentials/path/query/fragment, and reports low-confidence partial coverage. No network request, reputation verdict, public-suffix inference, desktop command, browser enforcement, or UI integration is claimed. Full repository verification is recorded in the PR after running `tools/verify.ps1`.
+`tools/verify.ps1` passed on 2026-10-03: Rust formatting, workspace lint/tests, TypeScript typecheck/tests, UI build, extension syntax/tests/build/parity smoke, and committed generated-binding checks. Manual Chrome and desktop UI integration were not exercised by this logic-only increment.
+
+The function performs local parsing only. It outputs the full canonical host and reason codes, excludes credentials/path/query/fragment, and reports low-confidence partial coverage. No network request, reputation verdict, public-suffix inference, desktop command, browser enforcement, or UI integration is claimed.
