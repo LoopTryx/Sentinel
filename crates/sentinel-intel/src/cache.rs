@@ -1,18 +1,21 @@
 use crate::providers::{UrlhausFeed, canonical_url};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::collections::BTreeMap;
+use std::fs::{self, File, OpenOptions};
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const MAX_SNAPSHOT_BYTES: u64 = 16 * 1024 * 1024;
+const RETAINED_GENERATIONS: usize = 3;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CacheError {
     Io,
     InvalidFeed,
     StaleCandidate,
+    Busy,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -42,33 +45,24 @@ pub struct Cache {
 impl Cache {
     pub fn open(directory: impl AsRef<Path>) -> Result<Self, CacheError> {
         fs::create_dir_all(directory.as_ref()).map_err(|_| CacheError::Io)?;
-        let mut active: Option<(UrlhausFeed, PathBuf)> = None;
-        for entry in fs::read_dir(directory.as_ref()).map_err(|_| CacheError::Io)? {
-            let path = entry.map_err(|_| CacheError::Io)?.path();
-            if path
-                .extension()
-                .is_none_or(|extension| extension != "ready")
-            {
-                continue;
-            }
-            let Some(feed) = read_verified_snapshot(&path) else {
-                continue;
-            };
-            let newer = active.as_ref().is_none_or(|(current, current_path)| {
-                (feed.retrieved_at, &path) > (current.retrieved_at, current_path)
-            });
-            if newer {
-                active = Some((feed, path));
-            }
-        }
+        let _lock = lock_directory(directory.as_ref())?;
+        let active = verified_candidates(directory.as_ref())?
+            .into_iter()
+            .max_by_key(|(generation, feed)| (feed.retrieved_at, *generation));
         Ok(Self {
             directory: directory.as_ref().to_path_buf(),
-            active: active.map(|(feed, _)| feed),
+            active: active.map(|(_, feed)| feed),
         })
     }
 
     pub fn activate(&mut self, feed: &UrlhausFeed) -> Result<(), CacheError> {
         feed.validate().map_err(|_| CacheError::InvalidFeed)?;
+        let _lock = lock_directory(&self.directory)?;
+        let previous = verified_candidates(&self.directory)?;
+        self.active = previous
+            .iter()
+            .max_by_key(|(generation, feed)| (feed.retrieved_at, *generation))
+            .map(|(_, feed)| feed.clone());
         if self
             .active
             .as_ref()
@@ -80,10 +74,17 @@ impl Cache {
         if json.len() as u64 > MAX_SNAPSHOT_BYTES {
             return Err(CacheError::InvalidFeed);
         }
-        let generation = SystemTime::now()
+        let clock_generation = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_err(|_| CacheError::Io)?
             .as_nanos();
+        let mut generation = clock_generation;
+        for entry in fs::read_dir(&self.directory).map_err(|_| CacheError::Io)? {
+            let entry = entry.map_err(|_| CacheError::Io)?;
+            if let Some((existing, _)) = owned_snapshot(&entry.path()) {
+                generation = generation.max(existing.checked_add(1).ok_or(CacheError::Io)?);
+            }
+        }
         let name = format!("snapshot-{generation:039}");
         let data_path = self.directory.join(format!("{name}.json"));
         let marker_path = self.directory.join(format!("{name}.ready"));
@@ -105,6 +106,17 @@ impl Cache {
             .map_err(|_| CacheError::Io)?;
         marker.sync_all().map_err(|_| CacheError::Io)?;
         self.active = Some(feed.clone());
+        // Never prune until both replacement files have been synced and closed.
+        drop(data);
+        drop(marker);
+        let mut keep = vec![generation];
+        for (previous_generation, _) in previous.into_iter().rev() {
+            if keep.len() == RETAINED_GENERATIONS {
+                break;
+            }
+            keep.push(previous_generation);
+        }
+        prune_snapshots(&self.directory, &keep)?;
         Ok(())
     }
 
@@ -145,7 +157,12 @@ impl Cache {
 }
 
 fn read_verified_snapshot(marker_path: &Path) -> Option<UrlhausFeed> {
-    let marker = fs::read_to_string(marker_path).ok()?;
+    let mut marker = String::new();
+    File::open(marker_path)
+        .ok()?
+        .take(65)
+        .read_to_string(&mut marker)
+        .ok()?;
     if marker.len() != 64 || !marker.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return None;
     }
@@ -153,11 +170,85 @@ fn read_verified_snapshot(marker_path: &Path) -> Option<UrlhausFeed> {
     if fs::metadata(&data_path).ok()?.len() > MAX_SNAPSHOT_BYTES {
         return None;
     }
-    let json = fs::read(&data_path).ok()?;
+    let mut json = Vec::new();
+    File::open(&data_path)
+        .ok()?
+        .take(MAX_SNAPSHOT_BYTES + 1)
+        .read_to_end(&mut json)
+        .ok()?;
+    if json.len() as u64 > MAX_SNAPSHOT_BYTES {
+        return None;
+    }
     if format!("{:x}", Sha256::digest(&json)) != marker {
         return None;
     }
     let feed: UrlhausFeed = serde_json::from_slice(&json).ok()?;
     feed.validate().ok()?;
     Some(feed)
+}
+
+fn lock_directory(directory: &Path) -> Result<File, CacheError> {
+    let file = OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(directory.join(".snapshot.lock"))
+        .map_err(|_| CacheError::Io)?;
+    file.try_lock().map_err(|error| match error {
+        std::fs::TryLockError::WouldBlock => CacheError::Busy,
+        std::fs::TryLockError::Error(_) => CacheError::Io,
+    })?;
+    Ok(file)
+}
+
+fn owned_snapshot(path: &Path) -> Option<(u128, &str)> {
+    let extension = path.extension()?.to_str()?;
+    if extension != "json" && extension != "ready" {
+        return None;
+    }
+    let digits = path.file_stem()?.to_str()?.strip_prefix("snapshot-")?;
+    if digits.len() != 39 || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    Some((digits.parse().ok()?, extension))
+}
+
+fn verified_candidates(directory: &Path) -> Result<Vec<(u128, UrlhausFeed)>, CacheError> {
+    let mut newest = BTreeMap::new();
+    for entry in fs::read_dir(directory).map_err(|_| CacheError::Io)? {
+        let entry = entry.map_err(|_| CacheError::Io)?;
+        if !entry.file_type().map_err(|_| CacheError::Io)?.is_file() {
+            continue;
+        }
+        let path = entry.path();
+        if let Some((generation, "ready")) = owned_snapshot(&path) {
+            newest.insert(generation, path);
+            if newest.len() > RETAINED_GENERATIONS {
+                newest.pop_first();
+            }
+        }
+    }
+    Ok(newest
+        .into_iter()
+        .filter_map(|(generation, path)| {
+            read_verified_snapshot(&path).map(|feed| (generation, feed))
+        })
+        .collect())
+}
+
+fn prune_snapshots(directory: &Path, keep: &[u128]) -> Result<(), CacheError> {
+    for entry in fs::read_dir(directory).map_err(|_| CacheError::Io)? {
+        let entry = entry.map_err(|_| CacheError::Io)?;
+        if !entry.file_type().map_err(|_| CacheError::Io)?.is_file() {
+            continue;
+        }
+        let path = entry.path();
+        if let Some((generation, _)) = owned_snapshot(&path)
+            && !keep.contains(&generation)
+        {
+            fs::remove_file(path).map_err(|_| CacheError::Io)?;
+        }
+    }
+    Ok(())
 }
