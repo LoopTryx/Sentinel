@@ -1,0 +1,8 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+*.log
+.DS_Store
+# EICAR: un-indexable under Defender + GitHub blocks it; regenerate per README
+test-corpus/eicar.com

@@ -1,0 +1,239 @@
+import { useEffect, useState } from "react";
+import { ThreatProvider, useThreat } from "./state";
+import Dashboard from "./views/Dashboard";
+import ScanView from "./views/ScanView";
+import PasswordView from "./views/PasswordView";
+import QuarantineView from "./views/QuarantineView";
+import ThreatLogView from "./views/ThreatLogView";
+import WatchtowerView from "./views/WatchtowerView";
+import Dither from "./components/ui/Dither";
+import Icon from "./components/Icon";
+import "./theme.css";
+
+type ViewId =
+  | "dashboard"
+  | "scan"
+  | "watchtower"
+  | "password"
+  | "quarantine"
+  | "log";
+
+const NAV: { group: string; items: { id: ViewId; label: string; icon: string }[] }[] = [
+  {
+    group: "Protect",
+    items: [
+      { id: "dashboard", label: "Console", icon: "shield" },
+      { id: "scan", label: "Scan & Detect", icon: "scan" },
+      { id: "watchtower", label: "Watchtower", icon: "wifi" },
+    ],
+  },
+  {
+    group: "Tools",
+    items: [{ id: "password", label: "Password Lab", icon: "key" }],
+  },
+  {
+    group: "System",
+    items: [
+      { id: "quarantine", label: "Vault", icon: "vault" },
+      { id: "log", label: "Threat Log", icon: "list" },
+    ],
+  },
+];
+
+const VIEW_TITLES: Record<ViewId, string> = {
+  dashboard: "Console",
+  scan: "Scan & Detect",
+  watchtower: "Watchtower",
+  password: "Password Lab",
+  quarantine: "Vault",
+  log: "Threat Log",
+};
+
+/** Dither wave colors follow the global threat state: azure when calm,
+ *  soft coral when something is wrong. Azure = theme accent #2f89e3. */
+function ditherColors(level: string): {
+  wave: [number, number, number];
+  bg: [number, number, number];
+} {
+  if (level === "danger")
+    return { wave: [1.0, 0.54, 0.48], bg: [0.09, 0.03, 0.04] };
+  if (level === "warn")
+    return { wave: [1.0, 0.77, 0.42], bg: [0.09, 0.06, 0.02] };
+  return { wave: [0.184, 0.537, 0.89], bg: [0.02, 0.03, 0.1] };
+}
+
+/** MagicBento-style border glow for EVERY panel and stat box: a cyan light
+ *  that slides along the nearest box edges as the cursor moves. Drives the
+ *  same --glow-x / --glow-y / --glow-intensity custom properties the bento
+ *  cards use, so all boxes share one coherent animation. */
+function useBoxGlow() {
+  useEffect(() => {
+    const RADIUS = 300;
+    const proximity = RADIUS * 0.5;
+    const fadeDistance = RADIUS * 0.75;
+    let raf = 0;
+    let x = 0;
+    let y = 0;
+
+    const apply = () => {
+      raf = 0;
+      document.querySelectorAll<HTMLElement>(".panel, .stat").forEach((box) => {
+        const rect = box.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const distance = Math.max(
+          0,
+          Math.hypot(x - centerX, y - centerY) - Math.max(rect.width, rect.height) / 2
+        );
+        let intensity = 0;
+        if (distance <= proximity) intensity = 1;
+        else if (distance <= fadeDistance)
+          intensity = (fadeDistance - distance) / (fadeDistance - proximity);
+
+        box.style.setProperty("--glow-x", `${((x - rect.left) / rect.width) * 100}%`);
+        box.style.setProperty("--glow-y", `${((y - rect.top) / rect.height) * 100}%`);
+        box.style.setProperty("--glow-intensity", intensity.toFixed(3));
+      });
+    };
+
+    const onMove = (e: MouseEvent) => {
+      x = e.clientX;
+      y = e.clientY;
+      if (!raf) raf = requestAnimationFrame(apply);
+    };
+    const onLeave = () => {
+      document
+        .querySelectorAll<HTMLElement>(".panel, .stat")
+        .forEach((box) => box.style.setProperty("--glow-intensity", "0"));
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseleave", onLeave);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseleave", onLeave);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+}
+
+function Shell() {
+  const [view, setView] = useState<ViewId>("dashboard");
+  const { level, feed } = useThreat();
+  useBoxGlow();
+
+  const statusLabel =
+    level === "danger"
+      ? "Threat contained"
+      : level === "warn"
+        ? "Needs attention"
+        : "All systems secure";
+
+  const { wave, bg } = ditherColors(level);
+
+  return (
+    <div className="shell">
+      {/* Living dither backdrop — spans the WHOLE app (sidebar included) and
+          recolors with the threat state. The sidebar's liquid glass blurs it. */}
+      <div
+        className="dither-bg"
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 0,
+          opacity: 0.45,
+        }}
+      >
+        <Dither
+          waveColor={wave}
+          backgroundColor={bg}
+          colorNum={4}
+          pixelSize={5}
+          enableMouseInteraction={false}
+        />
+      </div>
+
+      <aside className="sidebar">
+        <div className="brand">
+          <div className="brand-mark">
+            <Icon name="shield" size={18} />
+            <span className="brand-dot" />
+          </div>
+          <div className="brand-name">SENTINEL</div>
+        </div>
+
+        {NAV.map((group) => (
+          <div key={group.group}>
+            <div className="nav-label">{group.group}</div>
+            {group.items.map((n) => (
+              <button
+                key={n.id}
+                className={`nav-btn${view === n.id ? " active" : ""}`}
+                onClick={() => setView(n.id)}
+              >
+                <Icon name={n.icon} size={16} />
+                {n.label}
+                {n.id === "watchtower" && level !== "safe" && (
+                  <span
+                    style={{
+                      marginLeft: "auto",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 10.5,
+                      padding: "1.5px 7px",
+                      borderRadius: 99,
+                      background: "var(--state-dim)",
+                      color: "var(--state)",
+                      border: "1px solid var(--state)",
+                    }}
+                  >
+                    !
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        ))}
+
+        <div className="sidebar-footer">
+          <span className="status-dot" />
+          <div className="sidebar-footer-text">
+            <b>{statusLabel}</b>
+            {feed[0] && (
+              <div className="sidebar-footer-ver">
+                {feed[0].ts} · {feed[0].kind}
+              </div>
+            )}
+          </div>
+        </div>
+      </aside>
+
+      <main className="main">
+        <header className="topbar" style={{ position: "relative", zIndex: 2 }}>
+          <h1>{VIEW_TITLES[view]}</h1>
+          <div className="protection-pill">
+            <span className="led" /> {statusLabel}
+          </div>
+        </header>
+        <div
+          className="content"
+          style={{ position: "relative", zIndex: 1, background: "transparent" }}
+        >
+          {view === "dashboard" && <Dashboard />}
+          {view === "scan" && <ScanView />}
+          {view === "watchtower" && <WatchtowerView />}
+          {view === "password" && <PasswordView />}
+          {view === "quarantine" && <QuarantineView />}
+          {view === "log" && <ThreatLogView />}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ThreatProvider>
+      <Shell />
+    </ThreatProvider>
+  );
+}

@@ -1,0 +1,43 @@
+[package]
+name = "cyber-shield"
+version = "0.1.0"
+description = "A Tauri App"
+authors = ["you"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# Desktop-only build: rlib is all the Tauri bin needs. cdylib/staticlib
+# (for mobile) blow past the Windows DLL export ordinal limit because
+# yara-x drags in wasmtime's symbol table.
+name = "cyber_shield_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.32", features = ["bundled"] }
+yara-x = "1"
+sha2 = "0.10"
+hex = "0.4"
+walkdir = "2"
+aes-gcm = "0.10"
+rand = "0.8"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+tauri-plugin-dialog = "2.8.0"
+
+
+# Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true
