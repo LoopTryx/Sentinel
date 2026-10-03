@@ -1,0 +1,158 @@
+/*
+ * Sentinel Y2K Cyber Console design tokens (master plan section 15.1).
+ * Tone colors are assigned from the ACTUAL backend risk state via [data-tone]
+ * on .app; coverage/freshness/mode stay separate axes and never recolor alone.
+ */
+:root {
+  color-scheme: dark;
+
+  /* Base — deep navy shared direction (#07101f) */
+  --bg-0: #07101f;
+  --bg-1: #0c1426;
+  --bg-2: #111a30;
+
+  /* Glass */
+  --glass-fill: rgba(255, 255, 255, 0.06);
+  --glass-fill-nav: rgba(255, 255, 255, 0.05);
+  --glass-fill-strong: rgba(14, 18, 34, 0.96);
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --glass-border-strong: rgba(255, 255, 255, 0.22);
+  --glass-blur: 24px;
+
+  /* Accent — azure principal, cyan secondary */
+  --accent-a: #2f89e3;
+  --accent-b: #22d3ee;
+  --accent-soft: rgba(47, 137, 227, 0.16);
+  --accent-rgb: 47, 137, 227;
+
+  /* Text */
+  --text-1: #f5f6ff;
+  --text-2: #c4c8e4;
+  --text-3: #9aa0c7;
+
+  /* Status (never carried by color alone — always paired with text/icons) */
+  --status-ok: #34d399;
+  --status-warning: #fbbf24;
+  --status-danger: #f87171;
+  --status-info: #60a5fa;
+  --status-unknown: #9aa0c7;
+
+  /* Tone — reassigned per [data-tone]; defaults are the neutral/unknown hue */
+  --tone-color: var(--status-unknown);
+  --tone-rgb: 154, 160, 199;
+  --tone-soft: rgba(154, 160, 199, 0.12);
+  --tone-border: rgba(154, 160, 199, 0.35);
+
+  /* Type — Inter/Segoe UI UI stack, Space Grotesk/Sora display stack,
+     JetBrains Mono/Consolas technical stack. Self-hosted OFL font files are a
+     reviewed follow-up; stacks fall back to system fonts offline. */
+  --font-ui: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Space Grotesk', 'Sora', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
+  --text-xs: 0.75rem; /* 12px — uppercase micro-labels only */
+  --text-sm: 0.875rem; /* 14px — minimum body per section 15.3 */
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+  --line-body: 1.55;
+
+  /* Shape and elevation (base, card, popover only) */
+  --radius-card: 20px;
+  --radius-inner: 14px;
+  --radius-pill: 999px;
+  --shadow-card: 0 8px 28px rgba(0, 0, 0, 0.35);
+  --shadow-popover: 0 18px 50px rgba(0, 0, 0, 0.55);
+
+  /* Motion */
+  --duration-fast: 150ms;
+  --duration-medium: 240ms;
+  --duration-slow: 400ms;
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  --sidebar-w: 264px;
+}
+
+/* Threat-state tone wiring — risk axis only; never a false green. */
+.app[data-tone='ok'] {
+  --tone-color: var(--status-ok);
+  --tone-rgb: 52, 211, 153;
+  --tone-soft: rgba(52, 211, 153, 0.12);
+  --tone-border: rgba(52, 211, 153, 0.4);
+}
+.app[data-tone='info'] {
+  --tone-color: var(--status-info);
+  --tone-rgb: 96, 165, 250;
+  --tone-soft: rgba(96, 165, 250, 0.12);
+  --tone-border: rgba(96, 165, 250, 0.4);
+}
+.app[data-tone='warn'] {
+  --tone-color: var(--status-warning);
+  --tone-rgb: 251, 191, 36;
+  --tone-soft: rgba(251, 191, 36, 0.12);
+  --tone-border: rgba(251, 191, 36, 0.4);
+}
+.app[data-tone='danger'] {
+  --tone-color: var(--status-danger);
+  --tone-rgb: 248, 113, 113;
+  --tone-soft: rgba(248, 113, 113, 0.12);
+  --tone-border: rgba(248, 113, 113, 0.4);
+}
+
+/* Light theme (section 15.1 requires dark/light/high-contrast themes) */
+[data-theme='light'] {
+  color-scheme: light;
+  --bg-0: #eef2fb;
+  --bg-1: #e2e9f7;
+  --bg-2: #d6dff2;
+  --glass-fill: rgba(255, 255, 255, 0.55);
+  --glass-fill-nav: rgba(255, 255, 255, 0.5);
+  --glass-fill-strong: rgba(255, 255, 255, 0.97);
+  --glass-border: rgba(20, 40, 80, 0.18);
+  --glass-border-strong: rgba(20, 40, 80, 0.3);
+  --text-1: #0c1426;
+  --text-2: #26304d;
+  --text-3: #4c5878;
+  --shadow-card: 0 8px 24px rgba(20, 40, 80, 0.14);
+  --shadow-popover: 0 18px 44px rgba(20, 40, 80, 0.25);
+}
+
+/* Reduced transparency — glass becomes opaque, no blur */
+.app[data-transparency='reduced'] {
+  --glass-fill: var(--bg-1);
+  --glass-fill-nav: var(--bg-1);
+  --glass-fill-strong: var(--bg-2);
+  --glass-blur: 0px;
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-fill: var(--bg-1);
+    --glass-fill-nav: var(--bg-1);
+    --glass-fill-strong: var(--bg-2);
+    --glass-blur: 0px;
+  }
+}
+
+/* High contrast (prefer-contrast: more) and forced colors */
+@media (prefers-contrast: more) {
+  :root {
+    --glass-border: rgba(255, 255, 255, 0.45);
+    --glass-border-strong: rgba(255, 255, 255, 0.7);
+    --text-3: #c9ceea;
+  }
+  [data-theme='light'] {
+    --glass-border: rgba(10, 20, 45, 0.55);
+    --glass-border-strong: rgba(10, 20, 45, 0.8);
+    --text-3: #333d5e;
+  }
+}
+@media (forced-colors: active) {
+  :root {
+    --glass-fill: Canvas;
+    --glass-fill-nav: Canvas;
+    --glass-fill-strong: Canvas;
+    --glass-border: CanvasText;
+    --glass-border-strong: CanvasText;
+    --glass-blur: 0px;
+  }
+}

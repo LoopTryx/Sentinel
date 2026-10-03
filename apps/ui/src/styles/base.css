@@ -1,0 +1,178 @@
+/* Base reset, typography, focus and accessibility primitives */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-block-size: 100%;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  line-height: var(--line-body);
+  color: var(--text-1);
+  background: var(--bg-0);
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+p,
+ul,
+ol,
+dl,
+dd {
+  margin-block-start: 0;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  line-height: 1.2;
+}
+
+/* Chrome treatment belongs on headings and framing, never on small warning text */
+h1 {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+h2 {
+  font-size: var(--text-xl);
+  margin-block-end: 12px;
+}
+h3 {
+  font-size: var(--text-base);
+  margin-block-end: 6px;
+}
+
+p {
+  margin-block-end: 12px;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* Visible focus everywhere; forced-colors safe */
+:focus-visible {
+  outline: 3px solid var(--accent-b);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 3px solid Highlight;
+  }
+}
+
+.skip-link {
+  position: absolute;
+  inset-inline-start: 12px;
+  inset-block-start: -60px;
+  padding: 10px 16px;
+  background: var(--accent-a);
+  color: #06121f;
+  font-weight: 700;
+  border-radius: var(--radius-inner);
+  z-index: 100;
+  transition: inset-block-start var(--duration-fast) var(--ease-out);
+}
+.skip-link:focus-visible {
+  inset-block-start: 12px;
+}
+
+.sr-only {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  word-break: break-all;
+}
+
+/* Restrained CRT touches: static grid + slow ambient sweep.
+   Paused when hidden, removed under reduced motion. */
+.app::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(var(--tone-rgb), 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--tone-rgb), 0.05) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+.app::after {
+  content: '';
+  position: fixed;
+  inset-inline: 0;
+  inset-block-start: 0;
+  block-size: 30vh;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent, rgba(var(--tone-rgb), 0.045), transparent);
+  animation: crt-sweep 9s linear infinite;
+}
+@keyframes crt-sweep {
+  from {
+    transform: translateY(-40vh);
+  }
+  to {
+    transform: translateY(140vh);
+  }
+}
+
+.app > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Ambient pauses when the window is hidden, under reduced motion,
+   or when the user has switched on Reduce motion in Settings. */
+:root[data-hidden] .app::after {
+  animation-play-state: paused;
+}
+.app[data-motion='reduced']::after {
+  animation: none;
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .app::after {
+    animation: none;
+    display: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+@media (forced-colors: active) {
+  .app::before,
+  .app::after {
+    display: none;
+  }
+}
