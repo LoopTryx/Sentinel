@@ -1,5 +1,9 @@
 # Implementation status
 
+## 2026-10-03: issue #14 local URL X-Ray increment
+
+Local URL explanation logic, a redacted Rust/generated TypeScript contract, and `sentinel-cli url explain-local` are implemented on `codex/issue-14-url-xray`. Twelve new behavior tests pass. Results distinguish the actual destination from misleading userinfo and explain HTTP/IP/internationalized-host/custom-port observations with partial, low-confidence coverage. No reputation lookup or UI/native wiring is claimed; issue #14 remains open. See [GLM handoff](docs/handoffs/url-xray.md) and [evidence](docs/evidence/url-xray.md). The owner's school-showcase scope is proposed in PR #22; integration and review remain coordinator-owned.
+
 Updated: 2026-10-01
 
 The product, source packages, UI, extension, and private GitHub repository are named **Sentinel** at the owner's request. The original pasted PRD remains a historical source under its original filename. The renamed preview runs locally, but this naming change does not upgrade any protection capability.
