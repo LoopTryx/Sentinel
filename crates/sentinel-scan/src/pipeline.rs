@@ -336,13 +336,18 @@ pub fn scan_file(path: impl AsRef<Path>, limits: ScanLimits) -> ScanResult {
     scan_file_with_cancel(path, limits, &mut || false)
 }
 
-fn scan_file_with_cancel(
+/// Cooperative selected-file scan; checks cancellation before opening and between read chunks.
+/// The caller must authorize the path and supply an independent deadline/worker boundary.
+pub fn scan_file_with_cancel(
     path: impl AsRef<Path>,
     limits: ScanLimits,
     cancelled: &mut impl FnMut() -> bool,
 ) -> ScanResult {
     let path = path.as_ref();
     let mut result = ScanResult::with_state(ScanState::NoKnownFinding);
+    if cancelled() {
+        return result.skip(ScanState::Cancelled);
+    }
     let initial = match fs::symlink_metadata(path) {
         Ok(metadata) => metadata,
         Err(_) => return result.error(),
@@ -502,5 +507,23 @@ mod matcher_tests {
         assert!(!matcher.found);
         matcher.observe(&bytes[READ_CHUNK_BYTES..]);
         assert!(matcher.found);
+    }
+}
+
+#[cfg(test)]
+mod file_cancellation_tests {
+    use super::*;
+    #[test]
+    fn initial_cancellation_precedes_invalid_path_access() {
+        let cancelled = scan_file_with_cancel("", ScanLimits::default(), &mut || true);
+        assert_eq!(cancelled.state, ScanState::Cancelled);
+        assert_eq!(cancelled.access_errors, 0);
+        assert_eq!(cancelled.files_checked, 0);
+        assert_eq!(cancelled.files_skipped, 1);
+        assert_eq!(cancelled.bytes_read, 0);
+        assert!(cancelled.sha256.is_none());
+        let missing = scan_file_with_cancel("", ScanLimits::default(), &mut || false);
+        assert_eq!(missing.state, ScanState::AccessError);
+        assert_eq!(missing.access_errors, 1);
     }
 }
