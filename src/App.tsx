@@ -18,26 +18,13 @@ type ViewId =
   | "quarantine"
   | "log";
 
-const NAV: { group: string; items: { id: ViewId; label: string; icon: string }[] }[] = [
-  {
-    group: "Protect",
-    items: [
-      { id: "dashboard", label: "Console", icon: "shield" },
-      { id: "scan", label: "Scan & Detect", icon: "scan" },
-      { id: "watchtower", label: "Watchtower", icon: "wifi" },
-    ],
-  },
-  {
-    group: "Tools",
-    items: [{ id: "password", label: "Password Lab", icon: "key" }],
-  },
-  {
-    group: "System",
-    items: [
-      { id: "quarantine", label: "Vault", icon: "vault" },
-      { id: "log", label: "Threat Log", icon: "list" },
-    ],
-  },
+const NAV: { id: ViewId; label: string; icon: string }[] = [
+  { id: "dashboard", label: "Console", icon: "shield" },
+  { id: "scan", label: "Scan & Detect", icon: "scan" },
+  { id: "watchtower", label: "Watchtower", icon: "wifi" },
+  { id: "password", label: "Password Lab", icon: "key" },
+  { id: "quarantine", label: "Vault", icon: "vault" },
+  { id: "log", label: "Threat Log", icon: "list" },
 ];
 
 const VIEW_TITLES: Record<ViewId, string> = {
@@ -119,7 +106,7 @@ function useBoxGlow() {
 
 function Shell() {
   const [view, setView] = useState<ViewId>("dashboard");
-  const { level, feed } = useThreat();
+  const { level } = useThreat();
   useBoxGlow();
 
   const statusLabel =
@@ -162,47 +149,41 @@ function Shell() {
           <div className="brand-name">SENTINEL</div>
         </div>
 
-        {NAV.map((group) => (
-          <div key={group.group}>
-            <div className="nav-label">{group.group}</div>
-            {group.items.map((n) => (
-              <button
-                key={n.id}
-                className={`nav-btn${view === n.id ? " active" : ""}`}
-                onClick={() => setView(n.id)}
+        {NAV.map((n) => (
+          <button
+            key={n.id}
+            className={`nav-btn${view === n.id ? " active" : ""}`}
+            onClick={() => setView(n.id)}
+          >
+            <Icon name={n.icon} size={16} />
+            {n.label}
+            {n.id === "watchtower" && level !== "safe" && (
+              <span
+                style={{
+                  marginLeft: "auto",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10.5,
+                  padding: "1.5px 7px",
+                  borderRadius: 99,
+                  background: "var(--state-dim)",
+                  color: "var(--state)",
+                  border: "1px solid var(--state)",
+                }}
               >
-                <Icon name={n.icon} size={16} />
-                {n.label}
-                {n.id === "watchtower" && level !== "safe" && (
-                  <span
-                    style={{
-                      marginLeft: "auto",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 10.5,
-                      padding: "1.5px 7px",
-                      borderRadius: 99,
-                      background: "var(--state-dim)",
-                      color: "var(--state)",
-                      border: "1px solid var(--state)",
-                    }}
-                  >
-                    !
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+                !
+              </span>
+            )}
+          </button>
         ))}
 
         <div className="sidebar-footer">
-          <span className="status-dot" />
-          <div className="sidebar-footer-text">
-            <b>{statusLabel}</b>
-            {feed[0] && (
-              <div className="sidebar-footer-ver">
-                {feed[0].ts} · {feed[0].kind}
-              </div>
-            )}
+          <div className="sidebar-footer-text" style={{ color: "rgba(232,241,255,0.55)" }}>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.18em" }}>
+              THINK · PROTECT · DEFEND
+            </div>
+            <div className="sidebar-footer-ver" style={{ marginTop: 4 }}>
+              v0.2 // Y2K CONSOLE BUILD
+            </div>
           </div>
         </div>
       </aside>

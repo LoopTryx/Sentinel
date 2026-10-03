@@ -139,17 +139,10 @@ body::after {
 .sidebar {
   position: relative;
   z-index: 1;
-  border-right: 1px solid rgba(255, 255, 255, 0.22);
-  /* glassmorphism: smooth frost + a sheer white tint — the dither glows through */
-  backdrop-filter: blur(22px) saturate(150%);
-  -webkit-backdrop-filter: blur(22px) saturate(150%);
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.11) 0%,
-    rgba(255, 255, 255, 0.05) 50%,
-    rgba(255, 255, 255, 0.08) 100%
-  );
-  box-shadow: 0 8px 32px rgba(5, 8, 26, 0.25);
+  border-right: 1px solid rgba(255, 255, 255, 0.25);
+  /* v0.2 console: solid deep-navy panel, no glass — the dither stays behind it */
+  background: linear-gradient(180deg, #182149 0%, #101736 55%, #0c1129 100%);
+  box-shadow: 8px 0 32px rgba(5, 8, 26, 0.45);
   display: flex;
   flex-direction: column;
   padding: 18px 12px;
@@ -207,11 +200,12 @@ body::after {
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: rgba(240, 246, 255, 0.8);
+  color: rgba(240, 246, 255, 0.85);
   font-family: var(--font-body);
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: 0.2px;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
   cursor: pointer;
   transition: all 0.15s ease;
   text-align: left;
