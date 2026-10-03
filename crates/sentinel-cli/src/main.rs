@@ -27,7 +27,7 @@ fn main() {
         }
         _ => {
             eprintln!(
-                "Usage: sentinel-cli status --fixture | intel import-local <feed-file> <cache-dir> | intel lookup-offline <cache-dir> <url> | scan file <path> | scan directory <path>"
+                "Usage: sentinel-cli status --fixture | intel import-local <feed-file> <cache-dir> | intel lookup-offline <cache-dir> <url> | scan file <path> | scan directory <path> | academy password-autopsy <synthetic-id> <choice>"
             );
             eprintln!("No live protection or provider download is installed");
             std::process::exit(2);

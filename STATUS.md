@@ -1,5 +1,9 @@
 # Implementation status
 
+## 2026-10-03: Password Autopsy educational logic
+
+Issue #14 has a bounded synthetic Password Autopsy leaf on codex/issue-14-password-autopsy: three curated scenario IDs, closed answer choices, generated types and offline CLI. Five new tests and full repository verification pass. This is not a real password audit, vault or installed protection. GLM owns lesson presentation; native/UI integration and rehearsal remain pending. See [handoff](docs/handoffs/password-autopsy.md) and [evidence](docs/evidence/password-autopsy.md).
+
 Updated: 2026-10-01
 
 The product, source packages, UI, extension, and private GitHub repository are named **Sentinel** at the owner's request. The original pasted PRD remains a historical source under its original filename. The renamed preview runs locally, but this naming change does not upgrade any protection capability.
