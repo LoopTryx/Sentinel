@@ -4,9 +4,9 @@ function Invoke-Lesson([string]$id,[string]$choice){
  $si=[Diagnostics.ProcessStartInfo]::new($exe)
  $si.UseShellExecute=$false; $si.RedirectStandardOutput=$true; $si.RedirectStandardError=$true
  foreach($arg in @('academy','password-autopsy',$id,$choice)){$si.ArgumentList.Add($arg)}
- $p=[Diagnostics.Process]::Start($si); $stdout=$p.StandardOutput.ReadToEnd(); $stderr=$p.StandardError.ReadToEnd()
+ $p=[Diagnostics.Process]::Start($si); $stdoutTask=$p.StandardOutput.ReadToEndAsync(); $stderrTask=$p.StandardError.ReadToEndAsync()
  if(-not $p.WaitForExit(5000)){$p.Kill();throw 'Lesson exceeded test deadline'}
- $code=$p.ExitCode; $p.Dispose()
+ $stdout=$stdoutTask.GetAwaiter().GetResult(); $stderr=$stderrTask.GetAwaiter().GetResult(); $code=$p.ExitCode; $p.Dispose()
  return @{code=$code;stdout=$stdout;stderr=$stderr}
 }
 $ids=@('predictable','reused','unique_generated'); $choices=@('replace_predictable','make_unique','keep_unique')
