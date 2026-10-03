@@ -7,6 +7,21 @@ use std::time::{SystemTime, UNIX_EPOCH};
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let result = match args.as_slice() {
+        [command, lesson, action]
+            if command == "academy" && lesson == "usb" && action == "list" =>
+        {
+            println!(
+                "{}",
+                serde_json::to_string(&sentinel_intel::usb_lesson::usb_lesson_scenarios())
+                    .expect("static scenarios serialize")
+            );
+            Ok(())
+        }
+        [command, lesson, action, id, scope]
+            if command == "academy" && lesson == "usb" && action == "evaluate" =>
+        {
+            evaluate_usb_lesson(id, scope)
+        }
         [command, flag] if command == "status" && flag == "--fixture" => status_fixture(),
         [command, action, feed_path, cache_dir]
             if command == "intel" && action == "import-local" =>
@@ -22,7 +37,7 @@ fn main() {
         }
         _ => {
             eprintln!(
-                "Usage: sentinel-cli status --fixture | intel import-local <feed-file> <cache-dir> | intel lookup-offline <cache-dir> <url> | scan file <path> | scan directory <path>"
+                "Usage: sentinel-cli academy usb list | academy usb evaluate <scenario-id> <scope> | status --fixture | intel import-local <feed-file> <cache-dir> | intel lookup-offline <cache-dir> <url> | scan file <path> | scan directory <path>"
             );
             eprintln!("No live protection or provider download is installed");
             std::process::exit(2);
@@ -115,4 +130,27 @@ fn now() -> Result<u64, &'static str> {
         .duration_since(UNIX_EPOCH)
         .map_err(|_| "System time is invalid")?
         .as_secs())
+}
+
+fn evaluate_usb_lesson(id: &str, scope: &str) -> Result<(), &'static str> {
+    use sentinel_proto::usb_lesson::{UsbLessonError, UsbLessonScope};
+    let scope = match scope {
+        "selected_file_bytes" => UsbLessonScope::SelectedFileBytes,
+        "input_behavior" => UsbLessonScope::InputBehavior,
+        "firmware_safety" => UsbLessonScope::FirmwareSafety,
+        "nothing_measured" => UsbLessonScope::NothingMeasured,
+        _ => return Err("invalid_scope"),
+    };
+    let feedback =
+        sentinel_intel::usb_lesson::evaluate_usb_lesson(id, scope).map_err(
+            |error| match error {
+                UsbLessonError::InvalidScenarioId => "invalid_scenario_id",
+                UsbLessonError::UnknownScenario => "unknown_scenario",
+            },
+        )?;
+    println!(
+        "{}",
+        serde_json::to_string(&feedback).expect("static feedback serializes")
+    );
+    Ok(())
 }
