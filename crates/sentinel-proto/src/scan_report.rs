@@ -51,3 +51,28 @@ pub struct SelectedFileReport {
     pub engine_failures: u64,
     pub full_signature_engine_active: bool,
 }
+
+/// Path-free finding reference, scoped to the report's job and selection.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ScanReportFinding {
+    pub finding_ref: String,
+    pub state: FileScanOutcome,
+}
+
+/// Output-only directory evidence. Omitted findings are never silently hidden.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SelectedDirectoryReport {
+    pub job_id: String,
+    pub selection_ref: String,
+    pub progress: super::scan_progress::DirectoryScanProgress,
+    pub coverage: ScanReportCoverage,
+    pub full_signature_engine_active: bool,
+    pub findings: Vec<ScanReportFinding>,
+    #[serde(with = "super::scan_progress::decimal_u64")]
+    #[ts(type = "string")]
+    pub findings_omitted: u64,
+}

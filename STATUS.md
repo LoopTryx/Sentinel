@@ -68,3 +68,7 @@ PR #36 now exposes scan_file_with_cancel and checks cancellation before metadata
 ### S1 selected-file typed output — 2026-10-03, issue #9 / PR #36
 
 Generated SelectedFileReport and actual scanner conversion preserve partial coverage, outcome, hash/absence and precise counters, plus bounded opaque job/selection correlation. Four benign/mapping/bound tests pass; native selection authorization, response matching, timeout/transport adapter, directory report conversion, reviewed integration and GLM UI journeys remain open. See scan-progress handoff/evidence. This is a library contract increment, not a connected scan capability or event-ready declaration.
+
+### S1 directory typed output — 2026-10-03, issue #9 / PR #36
+
+SelectedDirectoryReport conversion preserves actual final counters/flags and partial engine coverage, with bounded path-free finding references and explicit omitted count. Two new tests cover real benign success/cancel/skips/entry limit/missing root plus synthetic conversion bounds. Native selection/job authority, deadline/stale-result adapter and GLM UI wiring remain pending. See scan-progress handoff/evidence. No event acceptance or installed protection claimed.

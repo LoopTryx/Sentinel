@@ -143,3 +143,118 @@ fn actual_interrupted_bytes_do_not_gain_hash_or_checked_coverage() {
     assert_eq!(fresh["filesChecked"], "1");
     fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn actual_directory_output_matches_final_callback_for_success_cancel_limits_and_errors() {
+    use sentinel_scan::{
+        pipeline::{DirectoryLimits, scan_directory_with_progress},
+        report::selected_directory_report,
+    };
+    use std::cell::Cell;
+    let dir = fixture();
+    fs::write(dir.join("private-one.txt"), b"one").unwrap();
+    fs::write(dir.join("private-two.txt"), b"two").unwrap();
+    for mode in 0..5 {
+        let cancel = Cell::new(false);
+        let mut events = Vec::new();
+        let root = if mode == 3 {
+            dir.join("missing")
+        } else {
+            dir.clone()
+        };
+        let raw = scan_directory_with_progress(
+            root,
+            if mode == 2 {
+                ScanLimits { max_file_bytes: 1 }
+            } else {
+                ScanLimits::default()
+            },
+            if mode == 4 {
+                DirectoryLimits {
+                    max_entries: 1,
+                    ..DirectoryLimits::default()
+                }
+            } else {
+                DirectoryLimits::default()
+            },
+            || cancel.get(),
+            |p| {
+                if mode == 1 && p.files_checked == 1 {
+                    cancel.set(true)
+                }
+                events.push(p.clone())
+            },
+        );
+        let report = selected_directory_report(&raw, "job-folder", "selection-folder").unwrap();
+        assert_eq!(&report.progress, events.last().unwrap());
+        let json = serde_json::to_value(&report).unwrap();
+        assert_eq!(json["coverage"], "partial");
+        assert_eq!(json["fullSignatureEngineActive"], false);
+        assert_eq!(json["findingsOmitted"], "0");
+        assert!(!json.to_string().contains("private-"));
+        assert!(!json.to_string().contains("relativePath"));
+        if mode == 0 {
+            assert!(report.progress.traversal_complete);
+            assert_eq!(report.progress.files_checked, 2)
+        } else {
+            assert!(!report.progress.traversal_complete)
+        }
+        if mode == 1 {
+            assert!(report.progress.cancelled);
+            assert_eq!(report.progress.files_checked, 1)
+        }
+        if mode == 2 {
+            // Producer records skips as aggregate counters, not detailed findings.
+            assert_eq!(report.progress.files_skipped, 2);
+            assert_eq!(report.progress.files_checked, 0);
+            assert!(report.findings.is_empty());
+        }
+        if mode == 4 {
+            assert!(report.progress.limit_reached);
+            assert_eq!(report.progress.entries_visited, 1);
+            assert_eq!(report.progress.files_checked, 1);
+        }
+        if mode == 3 {
+            assert_eq!(report.progress.access_errors, 1)
+        }
+    }
+    fs::remove_dir_all(dir).unwrap();
+}
+#[test]
+fn directory_findings_are_bounded_path_free_and_omissions_explicit() {
+    use sentinel_scan::{
+        pipeline::{DirectoryLimits, FileFinding, ScanState, scan_directory},
+        report::{MAX_REPORT_FINDINGS, selected_directory_report},
+    };
+    let dir = fixture();
+    let mut raw = scan_directory(
+        &dir,
+        ScanLimits::default(),
+        DirectoryLimits::default(),
+        || false,
+    );
+    // Synthetic conversion stress only: no test-signature or hostile file exists.
+    raw.findings = (0..(MAX_REPORT_FINDINGS + 7))
+        .map(|_| FileFinding {
+            relative_path: "secret/path\nname".repeat(100),
+            state: ScanState::TestSignatureFound,
+        })
+        .collect();
+    raw.complete = false;
+    raw.files_checked = 263;
+    let report = selected_directory_report(&raw, "j", "s").unwrap();
+    assert_eq!(report.findings.len(), MAX_REPORT_FINDINGS);
+    assert_eq!(report.findings_omitted, 7);
+    assert_eq!(
+        serde_json::to_value(&report).unwrap()["findings"][0]["state"],
+        "test_signature_found"
+    );
+    assert_eq!(report.findings.last().unwrap().finding_ref, "finding-256");
+    let json = serde_json::to_string(&report).unwrap();
+    assert!(json.len() < 32768);
+    assert!(!json.contains("secret"));
+    assert!(!json.contains("path"));
+    assert!(selected_directory_report(&raw, "../private", "s").is_err());
+    assert!(selected_directory_report(&raw, "j", "").is_err());
+    fs::remove_dir_all(dir).unwrap();
+}

@@ -154,7 +154,7 @@ pub fn scan_directory_with_progress(
     report
 }
 
-fn progress_snapshot(
+pub(crate) fn progress_snapshot(
     report: &DirectoryReport,
     stage: sentinel_proto::scan_progress::DirectoryScanStage,
 ) -> sentinel_proto::scan_progress::DirectoryScanProgress {
