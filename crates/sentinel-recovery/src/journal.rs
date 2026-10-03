@@ -26,6 +26,7 @@ impl Lease {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum JournalError {
     Io,
+    Busy,
     Corrupt,
     Duplicate,
     RestoreFailed,
@@ -52,6 +53,11 @@ impl Journal {
             .write(true)
             .open(path)
             .map_err(|_| JournalError::Io)?;
+        // Lock before replay or tail truncation, and retain ownership until File drops.
+        file.try_lock().map_err(|error| match error {
+            std::fs::TryLockError::WouldBlock => JournalError::Busy,
+            std::fs::TryLockError::Error(_) => JournalError::Io,
+        })?;
         let mut bytes = Vec::new();
         file.read_to_end(&mut bytes).map_err(|_| JournalError::Io)?;
         let complete = bytes
