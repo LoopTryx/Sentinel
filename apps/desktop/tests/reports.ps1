@@ -58,3 +58,38 @@ foreach ($case in @('missingDigest', 'errorAsChecked', 'skippedAsChecked', 'chec
     Reject $copy
 }
 Write-Host 'Desktop report failure-state consistency tests passed.'
+
+$directory = @{
+    mode='local_read_only_preview'; profile='custom_directory'; coverage='partial'
+    result=@{bytesRead=4; filesVisited=1; filesChecked=1; filesSkipped=0; accessErrors=0
+        engineFailures=0; fullSignatureEngineActive=$false; complete=$true; cancelled=$false
+        limitReached=$false; entriesVisited=1; findings=@()}
+}
+ConvertFrom-SentinelScanReport ($directory | ConvertTo-Json -Depth 8) 'directory' | Out-Null
+foreach ($case in @('cancelledComplete','limitedComplete','skippedComplete','errorComplete','visitedBeyondEntries','unclassifiedVisited','classificationBeyondEntries')) {
+    $copy = $directory | ConvertTo-Json -Depth 8 | ConvertFrom-Json
+    switch ($case) {
+        'cancelledComplete' { $copy.result.cancelled=$true }
+        'limitedComplete' { $copy.result.limitReached=$true }
+        'skippedComplete' { $copy.result.filesSkipped=1 }
+        'errorComplete' { $copy.result.accessErrors=1 }
+        'visitedBeyondEntries' { $copy.result.filesVisited=2 }
+        'unclassifiedVisited' { $copy.result.filesChecked=0 }
+        'classificationBeyondEntries' { $copy.result.complete=$false; $copy.result.filesSkipped=2 }
+    }
+    Reject $copy 'directory'
+}
+foreach ($case in @('cancelled','limited','skipped','accessError','rootAccessError','rootUnsupported')) {
+    $copy = $directory | ConvertTo-Json -Depth 8 | ConvertFrom-Json
+    $copy.result.complete=$false
+    switch ($case) {
+        'cancelled' { $copy.result.cancelled=$true }
+        'limited' { $copy.result.limitReached=$true }
+        'skipped' { $copy.result.filesChecked=0; $copy.result.filesSkipped=1 }
+        'accessError' { $copy.result.filesChecked=0; $copy.result.accessErrors=1 }
+        'rootAccessError' { $copy.result.entriesVisited=0; $copy.result.filesVisited=0; $copy.result.filesChecked=0; $copy.result.accessErrors=1 }
+        'rootUnsupported' { $copy.result.entriesVisited=0; $copy.result.filesVisited=0; $copy.result.filesChecked=0; $copy.result.filesSkipped=1 }
+    }
+    ConvertFrom-SentinelScanReport ($copy | ConvertTo-Json -Depth 8) 'directory' | Out-Null
+}
+Write-Host 'Desktop directory aggregate validation tests passed.'

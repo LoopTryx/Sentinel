@@ -115,6 +115,15 @@ function ConvertFrom-SentinelScanReport {
         }
         if ($result.entriesVisited -isnot [int] -and $result.entriesVisited -isnot [long]) { throw 'Invalid entry count' }
         if ($result.entriesVisited -lt 0 -or $result.findings -isnot [array] -or $result.findings.Count -gt 1000) { throw 'Invalid findings' }
+        if ($result.complete -and ($result.cancelled -or $result.limitReached -or $result.filesSkipped -ne 0 -or $result.accessErrors -ne 0 -or $result.engineFailures -ne 0)) {
+            throw 'Contradictory traversal completion'
+        }
+        # Entry-level skips/errors include directories and the selected root; they
+        # are not all visited files. Decimal addition avoids overflowing Int64.
+        $classified = [decimal]$result.filesChecked + [decimal]$result.filesSkipped + [decimal]$result.accessErrors
+        if ($result.filesVisited -gt $result.entriesVisited -or $result.filesVisited -gt $classified -or $classified -gt ([decimal]$result.entriesVisited + 1) -or $result.engineFailures -ne 0) {
+            throw 'Contradictory directory counts'
+        }
         foreach ($finding in $result.findings) {
             if ($finding.state -notin $states -or $finding.relativePath -isnot [string] -or $finding.relativePath.Length -gt 32768) {
                 throw 'Invalid finding entry'
