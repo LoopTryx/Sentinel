@@ -7,8 +7,16 @@ fn fixture() -> PathBuf {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let dir =
-        std::env::temp_dir().join(format!("sentinel-progress-{}-{nonce}", std::process::id()));
+    fixture_at(nonce)
+}
+
+fn fixture_at(nonce: u128) -> PathBuf {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let sequence = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!(
+        "sentinel-progress-{}-{nonce}-{sequence}",
+        std::process::id()
+    ));
     fs::create_dir(&dir).unwrap();
     dir
 }
@@ -147,4 +155,14 @@ fn initial_cancellation_is_honored_even_for_empty_directory() {
     assert_eq!(report.entries_visited, 0);
     assert!(events.last().unwrap().cancelled);
     fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn fixture_paths_remain_unique_when_clock_samples_match() {
+    let first = fixture_at(0);
+    let second = std::panic::catch_unwind(|| fixture_at(0));
+    fs::remove_dir_all(&first).unwrap();
+    let second = second.expect("equal clock samples must not collide");
+    assert_ne!(first, second);
+    fs::remove_dir_all(second).unwrap();
 }
