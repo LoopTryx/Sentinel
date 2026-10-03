@@ -54,3 +54,28 @@ Public Rust API: `sentinel_scan::pipeline::scan_file_with_cancel(path: impl AsRe
 For initial cancel the report is state=cancelled, bytesRead=0, filesChecked=0, filesSkipped=1, accessErrors=0, sha256=null. A non-cancelled invalid/missing path remains access_error. The file result's filesVisited=1 represents the requested scan attempt, not proof that metadata or bytes were read. Cancellation after one read chunk retains bytesRead=8192 but no hash/checked count; interrupted bytes are not inspected coverage. The actual test's uncancelled positive control reads all 20000 benign bytes and returns one checked result.
 
 No native/Tauri/CLI cancel endpoint, single-file progress callback, timeout state, protected service or full signature coverage is enabled here. ScanResult is the existing Rust/JSON report, not the generated DirectoryScanProgress DTO; the local adapter still needs authoritative typed result conversion/review, subject/job correlation, transport bounds and actual timeout semantics before GLM can call it. Do not use a raw browser path or shell command built from user input. Mid-read cancellation cannot interrupt a blocked filesystem read, so parent deadline/termination remains required. Tests: initial invalid-path cancellation was observed failing with AccessError; after correction it passes alongside a real benign mid-read/retry positive control. All five directory-progress tests remain passing.
+
+## Selected-file typed report follow-up
+
+`sentinel_scan::report::selected_file_report(result: &ScanResult, job_id: &str, selection_ref: &str) -> Result<SelectedFileReport, ReportBindingError>` converts a trusted local result without rescanning. Authoritative source: sentinel-proto/src/scan_report.rs; generated outputs: SelectedFileReport.ts, FileScanOutcome.ts, ScanReportCoverage.ts. The DTO is output-only (Serialize, no Rust Deserialize); it is not an input command or an untrusted report validator. Directory report conversion remains pending.
+
+Both references must be 1–64 bytes of ASCII letters/digits/dash/underscore. Invalid references return the fixed error `invalid scan correlation reference`, without echoing the supplied string. The adapter allocates opaque non-secret IDs and maps selectionRef to a native picker-approved path privately. Syntax validation is not ownership, authentication or permission: resolve/authorize that selection before invoking the scanner, capture the pair for the operation, and accept a response only when BOTH IDs equal the still-active operation. Repeated selection/clicks must invalidate earlier responses. Never use a path, SID, filename or browser input as either reference. No adapter registry, authentication or late-response dropping is activated by this converter.
+
+Example invocation (already authorized benign file; illustrative local code, not an RPC endpoint):
+
+```rust
+let result = scan_file_with_cancel(selected_path, limits, &mut || cancel.load(Ordering::Relaxed));
+let report = selected_file_report(&result, "job-7", "selection_3")?;
+```
+
+Output for the test's six benign bytes:
+
+```json
+{"jobId":"job-7","selectionRef":"selection_3","state":"no_known_finding","coverage":"partial","bytesRead":"6","sha256":"56aea2f152b148a0886d27ff6b06f39b091c4f02ccb75c1aeef470e2d6c8e9c3","filesVisited":"1","filesChecked":"1","filesSkipped":"0","accessErrors":"0","engineFailures":"0","fullSignatureEngineActive":false}
+```
+
+State mappings preserve all seven scanner outcomes. NoKnownFinding means only no finding from the implemented checks. TestSignatureFound is a test-signature outcome, not live malware identification. SkippedLimit/SkippedUnsupported/AccessError/ChangedDuringScan/Cancelled remain distinct incomplete results. Counters retain the original attempt/checked/skip/error meanings and are canonical decimal strings even at u64::MAX; no floating-point conversion. Partial coverage is unconditional. The current producer keeps the full signature engine inactive; the converter copies its actual field rather than inventing engine availability.
+
+A completed hash is local evidence, not proof of safety; do not send it or these reports to an AI/diagnostic service. No paths, names, raw bytes or content appear in the DTO. Scope/exclusions and hash/test-string capability must still be displayed. Cancellation after one 8192-byte chunk retains bytesRead="8192", sha256=null and filesChecked="0". An actual parent timeout must remain a separate incomplete terminal state with last observed evidence, not a constructed successful SelectedFileReport. Transport byte limits and bounded output validation remain adapter responsibilities; this output contract does not parse hostile input.
+
+Acceptance: `cargo test -p sentinel-scan --test report --test progress --test pipeline` and `cargo test -p sentinel-proto`; then full verifier. Four report tests cover actual benign completion, missing file, size cap, initial and mid-read cancellation, retry with new correlation, invalid references/no echo, seven in-memory state mappings and full-width counters. The latter is wire/mapping evidence, not live outcomes. GLM should consume after coordinator-reviewed integration; no GUI operation or S1 rehearsal is claimed.

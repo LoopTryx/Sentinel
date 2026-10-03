@@ -64,3 +64,7 @@ Issue #9: scan_directory_with_progress emits typed cumulative entry/file/read/er
 
 ## 2026-10-03: Selected-file cancellation API follow-up
 PR #36 now exposes scan_file_with_cancel and checks cancellation before metadata/open. Initial cancel/invalid-path regression failed first and passes; actual harmless mid-read cancellation/retry control preserves partial bytes without checked/hash claims. Two additional tests and full verifier pass. No native/CLI cancellation endpoint, single-file progress or timeout adapter activated. Typed report conversion and reviewed job/GUI wiring remain next, along with S1 integration/rehearsals. Original dirty primary checkout preserved.
+
+### S1 selected-file typed output — 2026-10-03, issue #9 / PR #36
+
+Generated SelectedFileReport and actual scanner conversion preserve partial coverage, outcome, hash/absence and precise counters, plus bounded opaque job/selection correlation. Four benign/mapping/bound tests pass; native selection authorization, response matching, timeout/transport adapter, directory report conversion, reviewed integration and GLM UI journeys remain open. See scan-progress handoff/evidence. This is a library contract increment, not a connected scan capability or event-ready declaration.
