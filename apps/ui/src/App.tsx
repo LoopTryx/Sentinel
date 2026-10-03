@@ -115,13 +115,6 @@ function Shell() {
   const { level } = useThreat();
   useBoxGlow();
 
-  const statusLabel =
-    level === "danger"
-      ? "Preview · scenario alert"
-      : level === "warn"
-        ? "Preview · scenario attention"
-        : "Preview · agent unavailable";
-
   const { wave, bg } = ditherColors(level);
 
   return (
