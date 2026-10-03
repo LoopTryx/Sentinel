@@ -7,6 +7,36 @@ fn directory(label: &str) -> PathBuf {
 }
 
 #[test]
+fn persisted_cache_marks_clock_rollback_and_preserves_freshness_boundaries() {
+    let dir = directory("clock-rollback");
+    let _ = std::fs::remove_dir_all(&dir);
+    let feed = UrlhausFeed::parse(b"https://example.test/payload\n", 100, 60).unwrap();
+    Cache::open(&dir).unwrap().activate(&feed).unwrap();
+    let cache = Cache::open(&dir).unwrap();
+    for (url, current) in [
+        ("https://example.test/payload", LookupVerdict::Listed),
+        ("https://example.test/other", LookupVerdict::NotListed),
+    ] {
+        let rollback = cache.lookup(url, 99);
+        assert_eq!(
+            serde_json::to_value(&rollback).unwrap()["verdict"],
+            "clock_anomaly"
+        );
+        assert_eq!(rollback.provider.as_deref(), Some("urlhaus"));
+        assert_eq!(rollback.retrieved_at, Some(100));
+        assert_eq!(rollback.expires_at, Some(160));
+        assert_eq!(cache.lookup(url, 100).verdict, current);
+        assert_eq!(cache.lookup(url, 159).verdict, current);
+        assert_eq!(cache.lookup(url, 160).verdict, LookupVerdict::Stale);
+    }
+    assert_eq!(
+        cache.lookup("not a URL", 99).verdict,
+        LookupVerdict::InvalidUrl
+    );
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn offline_cache_keeps_exact_provenance_and_expiry() {
     let dir = directory("offline");
     let _ = std::fs::remove_dir_all(&dir);
