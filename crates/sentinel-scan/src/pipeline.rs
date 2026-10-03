@@ -113,14 +113,79 @@ impl DirectoryReport {
 /// Skips discovered reparse points and symlinks. Concurrent replacement of an
 /// ancestor path remains outside this preview's guarantees.
 /// Cancellation is checked between entries and between read chunks.
+/// Existing report-only entry point; no observer or GUI dependency.
 pub fn scan_directory(
     root: impl AsRef<Path>,
     file_limits: ScanLimits,
     directory_limits: DirectoryLimits,
+    cancelled: impl FnMut() -> bool,
+) -> DirectoryReport {
+    scan_directory_with_progress(root, file_limits, directory_limits, cancelled, |_| {})
+}
+
+/// Emits actual cumulative traversal counters. No total/percentage is known.
+/// Observer runs synchronously and must not block or panic. Final is emitted
+/// whenever traversal returns normally, including cancelled/limited/errors.
+pub fn scan_directory_with_progress(
+    root: impl AsRef<Path>,
+    file_limits: ScanLimits,
+    directory_limits: DirectoryLimits,
+    cancelled: impl FnMut() -> bool,
+    mut progress: impl FnMut(&sentinel_proto::scan_progress::DirectoryScanProgress),
+) -> DirectoryReport {
+    use sentinel_proto::scan_progress::DirectoryScanStage;
+    let mut last = None;
+    let mut emit = |report: &DirectoryReport, stage| {
+        let snapshot = progress_snapshot(report, stage);
+        if last.as_ref() != Some(&snapshot) {
+            progress(&snapshot);
+            last = Some(snapshot);
+        }
+    };
+    emit(&DirectoryReport::new(), DirectoryScanStage::Running);
+    let report = scan_directory_inner(
+        root,
+        file_limits,
+        directory_limits,
+        cancelled,
+        &mut |report| emit(report, DirectoryScanStage::Running),
+    );
+    emit(&report, DirectoryScanStage::Finished);
+    report
+}
+
+fn progress_snapshot(
+    report: &DirectoryReport,
+    stage: sentinel_proto::scan_progress::DirectoryScanStage,
+) -> sentinel_proto::scan_progress::DirectoryScanProgress {
+    sentinel_proto::scan_progress::DirectoryScanProgress {
+        stage,
+        entries_visited: report.entries_visited,
+        files_visited: report.files_visited,
+        files_checked: report.files_checked,
+        files_skipped: report.files_skipped,
+        access_errors: report.access_errors,
+        engine_failures: report.engine_failures,
+        bytes_read: report.bytes_read,
+        traversal_complete: report.complete,
+        cancelled: report.cancelled,
+        limit_reached: report.limit_reached,
+    }
+}
+
+fn scan_directory_inner(
+    root: impl AsRef<Path>,
+    file_limits: ScanLimits,
+    directory_limits: DirectoryLimits,
     mut cancelled: impl FnMut() -> bool,
+    progress: &mut impl FnMut(&DirectoryReport),
 ) -> DirectoryReport {
     let root = root.as_ref();
     let mut report = DirectoryReport::new();
+    if cancelled() {
+        report.cancelled = true;
+        return report;
+    }
     let metadata = match fs::symlink_metadata(root) {
         Ok(metadata) => metadata,
         Err(_) => {
@@ -142,6 +207,7 @@ pub fn scan_directory(
             }
         };
         for entry in entries {
+            progress(&report);
             if cancelled() {
                 report.cancelled = true;
                 return report;
@@ -191,6 +257,7 @@ pub fn scan_directory(
             report.access_errors += result.access_errors;
             report.engine_failures += result.engine_failures;
             report.bytes_read += result.bytes_read;
+            progress(&report);
             if result.state == ScanState::Cancelled {
                 report.cancelled = true;
                 return report;
