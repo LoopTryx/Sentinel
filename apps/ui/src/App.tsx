@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ThreatProvider, useThreat } from "./state";
 import Dashboard from "./views/Dashboard";
 import ScanView from "./views/ScanView";
-import PasswordView from "./views/PasswordView";
+import PasswordManagerView from "./views/PasswordManagerView";
 import QuarantineView from "./views/QuarantineView";
 import ThreatLogView from "./views/ThreatLogView";
 import WatchtowerView from "./views/WatchtowerView";
@@ -22,8 +22,8 @@ const NAV: { id: ViewId; label: string; icon: string }[] = [
   { id: "dashboard", label: "Console", icon: "shield" },
   { id: "scan", label: "Scan & Detect", icon: "scan" },
   { id: "watchtower", label: "Watchtower", icon: "wifi" },
-  { id: "password", label: "Password Lab", icon: "key" },
-  { id: "quarantine", label: "Vault", icon: "vault" },
+  { id: "password", label: "Passwords", icon: "key" },
+  { id: "quarantine", label: "Quarantine", icon: "vault" },
   { id: "log", label: "Threat Log", icon: "list" },
 ];
 
@@ -31,8 +31,8 @@ const VIEW_TITLES: Record<ViewId, string> = {
   dashboard: "Console",
   scan: "Scan & Detect",
   watchtower: "Watchtower",
-  password: "Password Lab",
-  quarantine: "Vault",
+  password: "Passwords",
+  quarantine: "Quarantine",
   log: "Threat Log",
 };
 
@@ -119,7 +119,7 @@ function Shell() {
   const { wave, bg } = ditherColors(level);
 
   return (
-    <div className="shell">
+    <div className={`shell${view === "password" ? " password-shell" : ""}`}>
       {/* Living dither backdrop — spans the WHOLE app (sidebar included) and
           recolors with the threat state. The sidebar's liquid glass blurs it. */}
       <div
@@ -128,7 +128,7 @@ function Shell() {
           position: "absolute",
           inset: 0,
           zIndex: 0,
-          opacity: 0.45,
+          opacity: view === "password" ? 0.12 : 0.45,
         }}
       >
         <Dither
@@ -202,7 +202,7 @@ function Shell() {
           {view === "dashboard" && <Dashboard />}
           {view === "scan" && <ScanView />}
           {view === "watchtower" && <WatchtowerView />}
-          {view === "password" && <PasswordView />}
+          {view === "password" && <PasswordManagerView />}
           {view === "quarantine" && <QuarantineView />}
           {view === "log" && <ThreatLogView />}
         </div>

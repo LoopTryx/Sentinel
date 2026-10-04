@@ -1,4 +1,5 @@
 import { statusLines } from './status.js';
+import { generatePassword } from './password-generator.js';
 
 const statusList = document.getElementById('harness-status');
 const toggleButton = document.getElementById('fixture-toggle');
@@ -89,6 +90,38 @@ document.getElementById('check-tab').addEventListener('click',async()=>{
  try {const [tab]=await chrome.tabs.query({active:true,currentWindow:true}); if(!tab?.url || !/^https?:\/\//i.test(tab.url)) throw new Error('Open an HTTP/HTTPS page and use Sentinel from its toolbar button.'); showResult('url-result',explainUrl(tab.url));}
  catch {errorResult('url-result',new Error('Current-tab inspection unavailable here. Use the toolbar on an HTTP/HTTPS page or enter a URL manually.'));}
 });
-document.getElementById('open-dashboard').addEventListener('click',()=>{chrome.tabs.create({url:chrome.runtime.getURL('popup.html?view=dashboard')}).catch(()=>errorResult('url-result',new Error('Dashboard unavailable outside the installed extension.')));});
+document.getElementById('open-dashboard').addEventListener('click',async()=>{try{await chrome.tabs.create({url:chrome.runtime.getURL('popup.html?view=dashboard')});}catch{errorResult('url-result',new Error('Dashboard unavailable outside the installed extension.'));}});
 document.getElementById('clear-inputs').addEventListener('click',()=>{urlInput.value='';messageInput.value='';document.getElementById('url-result').replaceChildren();document.getElementById('message-result').replaceChildren();});
 if(new URLSearchParams(location.search).get('view')==='dashboard') document.body.classList.add('dashboard');
+
+const generated = document.getElementById('generated-password');
+const copy = document.getElementById('copy-password');
+const reveal = document.getElementById('reveal-password');
+const feedback = document.getElementById('password-feedback');
+let generation = 0;
+function clearPassword() {
+ generation++; generated.value = ''; generated.type = 'password'; copy.disabled = true;
+ reveal.textContent = 'Show'; feedback.textContent = '';
+}
+for (const button of document.querySelectorAll('[data-view]')) button.addEventListener('click', () => {
+ clearPassword();
+ for (const tab of document.querySelectorAll('[data-view]')) tab.setAttribute('aria-pressed', String(tab === button));
+ for (const panel of document.querySelectorAll('[data-panel]')) panel.hidden = panel.dataset.panel !== button.dataset.view;
+});
+document.getElementById('password-length').addEventListener('input', event => {
+ document.getElementById('length-value').textContent = event.target.value; clearPassword();
+});
+document.getElementById('generate-password').addEventListener('click', () => {
+ clearPassword();
+ try {generated.value = generatePassword(Number(document.getElementById('password-length').value)); copy.disabled = false; feedback.textContent = 'Generated locally. Not saved.';}
+ catch {feedback.textContent = 'Generation unavailable. Try again.';}
+});
+reveal.addEventListener('click', () => {generated.type = generated.type === 'password' ? 'text' : 'password'; reveal.textContent = generated.type === 'password' ? 'Show' : 'Hide';});
+copy.addEventListener('click', async () => {
+ const current = generation;
+ try {await navigator.clipboard.writeText(generated.value); if (current === generation) feedback.textContent = 'Copied to clipboard. Other apps may read your clipboard.';}
+ catch {if (current === generation) feedback.textContent = 'Copy unavailable. Select and copy the generated password manually.';}
+});
+document.getElementById('clear-password').addEventListener('click', clearPassword);
+document.getElementById('clear-inputs').addEventListener('click', clearPassword);
+window.addEventListener('pagehide', clearPassword);

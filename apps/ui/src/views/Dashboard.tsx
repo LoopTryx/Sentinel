@@ -7,13 +7,13 @@ import Icon from "../components/Icon";
 /** Shield modules — honest statuses: local lessons and unavailable/planned runtime capabilities. */
 const SHIELD_MODULES: {
   group: string;
-  modules: { name: string; desc: string; status: "LOCAL LESSON" | "UNAVAILABLE" | "PLANNED" }[];
+  modules: { name: string; desc: string; status: "PREVIEW" | "LOCAL LESSON" | "UNAVAILABLE" | "PLANNED" }[];
 }[] = [
   {
     group: "CORE",
     modules: [
       { name: "Antivirus Engine", desc: "Console adapter unavailable · CLI preview only", status: "UNAVAILABLE" },
-      { name: "Password Lab", desc: "entropy analysis · crypto generator", status: "LOCAL LESSON" },
+      { name: "Passwords", desc: "sample accounts · local generator · vault unavailable", status: "PREVIEW" },
     ],
   },
   {
@@ -135,7 +135,7 @@ export default function Dashboard() {
         </div>
         <div className="stat">
           <div className="num">{"—"}</div>
-          <div className="label">IN VAULT</div>
+            <div className="label">IN QUARANTINE</div>
         </div>
       </div>
 

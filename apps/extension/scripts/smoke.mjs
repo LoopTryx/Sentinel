@@ -18,6 +18,7 @@ const requiredFiles = [
   'src/status.js',
   'src/local-checks.js',
   'src/popup.css',
+  'src/password-generator.js',
 ];
 
 // Every dist file is a copy of a source file, including the runtime scripts:
@@ -32,6 +33,7 @@ const mirroredFromSource = [
   'src/status.js',
   'src/local-checks.js',
   'src/popup.css',
+  'src/password-generator.js',
 ];
 
 function fail(message) {
