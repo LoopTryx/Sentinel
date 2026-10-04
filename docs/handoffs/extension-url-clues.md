@@ -1,0 +1,7 @@
+# GLM handoff: URL/scam clues
+
+Existing `explainUrl(input)` signature/result unchanged. Two additional reason codes use the existing `{code,text}` list: `shortened` for the exact four configured service hosts (case-insensitive, terminal-dot normalized), and `reward_payment` for reward plus payment vocabulary in the once-decoded path. These are generic local clues, never a verified phishing/scam verdict. UI must render every reason with existing partial coverage and unknown-versus-suspicious wording. No missing reason becomes safe; HTTPS does not prove legitimacy.
+
+Examples (paste without navigating): `https://bit.ly/invented-example` gives shortened; `https://example.test/claim-prize/pay-fee` gives reward_payment. Ordinary `https://example.test/login` remains unknown. The owner HTTP example retains four structural warnings. Inputs are capped at 2048 UTF-8 bytes; query/fragment private words are not analyzed or echoed. Matching path text is not returned. No link expansion, network, reputation feed, redirect chain, page contents or automatic browser protection is added.
+
+GLM: review wording/flow and fix the observed narrow dashboard clipping on your own presentation branch under #11. Coordinator: this is stacked on PR40's local tools; no styling, manifest or background changes. Preserve source-based build parity. The previous installed Chrome reload was stopped by the owner; repeat UI verification only in an authorized desktop session, without fabricating a browser pass for the additions.

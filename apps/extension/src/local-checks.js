@@ -10,6 +10,12 @@ export function explainUrl(input) {
  if(/^\[.*\]$/.test(url.hostname) || /^\d+\.\d+\.\d+\.\d+$/.test(url.hostname)) reasons.push({code:'ip',text:'This destination is an IP address, not a named website. This alone does not establish a threat.'});
  if(url.hostname.split('.').some(part=>part.startsWith('xn--'))) reasons.push({code:'internationalized',text:'Internationalized host: review the full ASCII destination for lookalike naming.'});
  if(url.port) reasons.push({code:'port',text:'This URL uses a nondefault port. Verify it against the official service.'});
+ const normalizedHost=url.hostname.toLowerCase().replace(/\.$/,'');
+ if(['bit.ly','tinyurl.com','t.co','is.gd'].includes(normalizedHost)) reasons.push({code:'shortened',text:'This is a shortened-link service. The final destination is not checked here. Short links can be legitimate or conceal phishing; verify the destination independently.'});
+ // Exclude query/fragment and never echo matched text or private paths.
+ let cluePath=url.pathname;
+ try {cluePath=decodeURIComponent(cluePath);} catch { /* Retain literal path for malformed escapes. */ }
+ if(/(?:^|[^a-z])(prize|lottery|reward|winner)(?:[^a-z]|$)/i.test(cluePath) && /(?:^|[^a-z])(pay|payment|fee|deposit)(?:[^a-z]|$)/i.test(cluePath)) reasons.push({code:'reward_payment',text:'The link wording combines reward bait and a payment request. This can occur in scams, but wording alone does not prove fraud. Verify the offer through an independently obtained official address; do not pay to claim an unexpected prize.'});
  return {host:url.hostname,scheme:url.protocol.slice(0,-1),port:url.port || (url.protocol==='https:'?'443':'80'),risk:reasons.length?'suspicious':'unknown',coverage:'partial',reasons,networkAccessed:false,reputationChecked:false};
 }
 export function explainMessage(input) {

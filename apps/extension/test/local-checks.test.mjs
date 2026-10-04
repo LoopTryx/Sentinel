@@ -1,6 +1,30 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {explainUrl, explainMessage} from '../src/local-checks.js';
+test('owner HTTP example preserves all structural warnings',()=>{
+ const result=explainUrl('http://school-login.example.com@192.0.2.10:8080/verify');
+ assert.equal(result.scheme,'http'); assert.equal(result.host,'192.0.2.10');
+ assert.deepEqual(result.reasons.map(r=>r.code),['credentials','http','ip','port']);
+});
+test('shortened HTTPS destinations warn without fetching or suffix confusion',()=>{
+ for(const host of ['bit.ly','tinyurl.com','t.co','is.gd','bit.ly.']) {
+  const result=explainUrl(`https://${host}/invented-private-code?token=secret`);
+  assert.ok(result.reasons.some(r=>r.code==='shortened'));
+  assert.equal(result.networkAccessed,false); assert.equal(result.reputationChecked,false);
+  assert.doesNotMatch(JSON.stringify(result),/invented-private-code|token|secret/);
+ }
+ assert.equal(explainUrl('https://bit.ly.example.test/login').risk,'unknown');
+});
+test('reward plus payment bait is a clue while ordinary login and query words stay unknown',()=>{
+ for(const path of ['/claim-prize/pay-fee','/%63laim-prize/%70ay-fee']) {
+  const result=explainUrl(`https://example.test${path}?private=secret`);
+  assert.ok(result.reasons.some(r=>r.code==='reward_payment'));
+  assert.doesNotMatch(JSON.stringify(result),/claim-prize|pay-fee|private|secret/);
+ }
+ assert.equal(explainUrl('https://example.test/login').risk,'unknown');
+ assert.equal(explainUrl('https://example.test/?q=claim-prize-pay-fee').risk,'unknown');
+ assert.equal(explainUrl('https://example.test/prize').risk,'unknown');
+});
 test('URL explanation identifies actual destination without leaking private URL components',()=>{
  const result=explainUrl('https://trusted.test:invented@evil.test:8443/private?token=invented#secret');
  assert.equal(result.host,'evil.test'); assert.equal(result.coverage,'partial');

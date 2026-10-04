@@ -66,3 +66,7 @@ Issue #37 integrates sentinel-ui cbca6eb into apps/ui, preserving main runtime/e
 ## Chrome browser companion (2026-10-03, issue #39)
 
 The installable extension now has local bounded URL explanations and invented-message clue checks, a toolbar popup and full-tab dashboard. Raw tool inputs are not persisted or uploaded. Actual Chrome 154.0.8037.95 passed installation, redacted result, input clearing/invalidation and synthetic DNR block/allow/restore checks in an isolated profile. All 35 extension tests and tools/verify.ps1 passed. Desktop/native scanning, vault, automatic mail/chat monitoring and download interception remain unavailable. See docs/evidence/chrome-extension-local-tools.md.
+
+### Local URL scam clues — 4 October 2026
+
+Actual installed Chrome manual-input flow showed the owner's HTTP warning plus three structural reasons; invented scam text showed existing clues. Added exact shortener-host and combined reward/payment path clues, with two failing-first tests then passing and full verifier (38 extension tests). These are partial heuristics, no reputation or automatic protection. Installed generated module was updated for testing, but owner interrupted reload; updated browser behavior remains unverified. Review/integration and GLM responsive layout remain pending. See docs/evidence/extension-url-clues.md.
