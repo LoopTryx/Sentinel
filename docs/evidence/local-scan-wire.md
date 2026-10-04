@@ -7,3 +7,5 @@ Before implementation, focused tests failed for missing APIs, then failed behavi
 Actual benign dispatch checks file/folder output and wrong-ticket rejection. Synthetic models cover stale references, abandonment, lifecycle flags, maximum u64 precision, hash and detail bounds. These are not GUI, blocked OS-read timeout, isolation or ten-run evidence. Full repository verification must be recorded after execution.
 
 See local-scan-wire.md handoff. Review/integration pending. Next: trusted native adapter/picker/UI wiring and hard cleanup; S1 remains incomplete.
+
+Full tools/verify.ps1 completed successfully: workspace formatting/lint/tests, Rust-generated TS parity, TS typecheck/tests, UI builds, extension syntax/tests/build/smoke. This is automated repository evidence only.

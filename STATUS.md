@@ -1,5 +1,9 @@
 # Implementation status
 
+## S1 native scan output contract — 4 October 2026
+
+Issue #9: output-only generated tagged poll/report DTOs and selection-aware native response conversion pass focused tests and lint. Correlation, bounded output, lifecycle nulls and precise decimal counters are covered. See [handoff](docs/handoffs/local-scan-wire.md) and [evidence](docs/evidence/local-scan-wire.md). Review/integration pending; no command, picker or installed scan capability enabled. Installed Chrome local-tool checks were verified after owner enablement; source integration and remaining extension acceptance are pending.
+
 ## S1 selection-bound native polling — 4 October 2026
 
 Issue #9 follow-up: `poll_current` automatically abandons progress/reports when the ticket's trusted native selection has been cleared, replaced or invalidated. Controlled held-worker regression failed before the guard; actual benign current-selection report checks and cached-output invalidation pass afterward. Native-only: no command/picker/installed capability or UI completion. See [evidence](docs/evidence/selection-bound-poll.md) and [API handoff](docs/handoffs/local-scan-dispatch.md). Review/integration, hard worker cleanup and S1 event evidence remain pending. Chrome's safety review currently disables the installed extension; owner action is required there, while independent code work continues.
