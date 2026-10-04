@@ -87,3 +87,13 @@ pub enum LocalScanControlState {
     Cancelled,
     TimedOut,
 }
+
+/// Correlated output snapshot; identifiers do not grant scan authority.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct BoundDirectoryProgress {
+    pub job_id: String,
+    pub selection_ref: String,
+    pub progress: super::scan_progress::DirectoryScanProgress,
+}

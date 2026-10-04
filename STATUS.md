@@ -79,3 +79,7 @@ PR36 resumes the interrupted control leaf: cloneable sticky cancellation, bounde
 ## 2026-10-03 recovered GLM UI
 
 Issue #37 integrates sentinel-ui cbca6eb into apps/ui, preserving main runtime/extension and unrelated source history. Recovered navy/glass Y2K visuals, local synthetic theme demo and bounded educational tools run in the browser. No installed native adapter or protection claim. WebGL fallback and subject invalidation regressions pass; six UI tests, full verifier, independent review and six-route Edge smoke pass. See docs/evidence/sentinel-ui-integration.md. Broader live UI integration and S1 rehearsals remain pending.
+
+### S1 bounded latest progress — 2026-10-04 02:06 UTC
+
+PR36 adds a one-slot correlated directory progress component and generated BoundDirectoryProgress. Three new checks cover real benign callback output, wrong/stale refs/regression/final freeze and concurrent close after 1000 synthetic replacements. No unbounded event queue. Selection authority, global concurrency, worker reap/hard timeout and GUI/native dispatch remain pending; close is data invalidation, not worker termination. All fifteen open issue acceptance clauses rechecked; no whole issue closed. See scan-progress handoff/evidence and current audit refresh.

@@ -125,3 +125,33 @@ Returned means scanner return, including access_error/skips; inspect the report.
 The budget is cooperative, not a hard wall-clock completion guarantee. A blocked metadata/open/read cannot be interrupted by this token. state() may become timed_out while has_returned=false and the worker is still blocked; do not label it reaped or allow another unbounded worker. The reviewed parent process deadline/kill/reap path remains required for a hard timeout. Durable ownership/authority, bounded latest progress, selection changes/repeated clicks/stale responses and transport limits remain explicit adapter prerequisites. No service scan capability, protected parser sandbox or S1 completion is enabled.
 
 Acceptance: `cargo test -p sentinel-scan --test control --test report --test progress --test pipeline --lib`, proto regeneration, full verifier. Eight new control checks cover clone cancellation before invalid-path I/O, actual elapsed deadline, access-error return, configuration limits, actual benign 8192-byte cancellation/20000-byte retry, 32 concurrent cancel/finish races, and deterministic clock-injected first-stop/frozen-return boundaries (no machine clock mutation). Tests use invented harmless bytes; no E:, test-signature file or policy changes.
+
+## Bounded latest directory progress slot
+
+`sentinel_scan::progress_slot::LatestScanProgress` is an Arc-backed, one-operation adapter component. Constructor `new(job_id: &str, selection_ref: &str) -> Result<Self, ReportBindingError>` validates the same 1–64 ASCII opaque references. `clone()` shares one slot. `publish(job_id, selection_ref, &DirectoryScanProgress) -> bool` accepts only an exact pair, nondecreasing counters and sticky cancel/limit flags. A finished snapshot seals publication; a wrong pair cannot seal or overwrite the active operation. `latest(job_id, selection_ref) -> Option<BoundDirectoryProgress>` returns a non-destructive copy of the single most recent snapshot. It keeps no event history or queue. Repeated polling may return the same observation; do not animate artificial progress from duplicate polls.
+
+`close()` invalidates abandoned output and drops the retained snapshot under the same mutex. Every later callback is rejected even through an old clone. Closed/wrong-reference/poisoned slots return None/false, not a fabricated zero/success report. Slot operations keep no paths, names, contents, user SID or hash. Authoritative BoundDirectoryProgress in scan_report.rs generates BoundDirectoryProgress.ts; counters retain canonical u64 decimal encoding.
+
+Example actual callback wiring (selection already authorized, background worker):
+
+```rust
+let slot = LatestScanProgress::new("job-7", "selection_3")?;
+let result = scan_directory_with_progress(selected_root, limits, directory_limits,
+    || control.should_stop(),
+    |p| { slot.publish("job-7", "selection_3", p); });
+let state = control.finish();
+let progress = slot.latest("job-7", "selection_3");
+let report = selected_directory_report(&result, "job-7", "selection_3")?;
+```
+
+Output shape:
+
+```json
+{"jobId":"job-7","selectionRef":"selection_3","progress":{"stage":"finished","entriesVisited":"2","filesVisited":"2","filesChecked":"2","filesSkipped":"0","accessErrors":"0","engineFailures":"0","bytesRead":"6","traversalComplete":true,"cancelled":false,"limitReached":false}}
+```
+
+Identity matching is correlation, not ownership/authentication/selection authority. Dispatcher must allocate a fresh pair for each scan, retain its native approved selection privately and bound the number of active operations. This component bounds ONE slot, not total workers/registrations. Do not reuse IDs across a rescan or accept unvalidated transport messages as trusted callbacks. It is directory traversal progress, not an invented single-file/chunk observer or coverage percentage.
+
+On selection change/abandonment, invalidate the old slot and explicitly request old control cancellation; close does NOT cancel, kill or reap its worker. Retain/join the worker under bounded lifecycle rules, and use the reviewed parent deadline when hard termination is needed. Finished progress is a returned traversal observation, not proof of process exit; pair with actual worker completion/control.has_returned and preserve partial reports. A native picker registry, global concurrency gate, Tauri command and GUI stale-result reducer remain pending. Keep actual actions unavailable until dispatch/authority/lifecycle work is integrated and verified.
+
+Acceptance: three new tests observed failing before module implementation, then passing. A real two-file benign traversal emits accepted bound final counters; wrong job/selection cannot overwrite/read/seal, regressing counters/post-final updates are rejected; 1000 synthetic publications retain only latest, and concurrent close rejects late updates/removes output. Synthetic stress is slot behavior, not measured scan throughput. `cargo test -p sentinel-scan --test progress_slot --test control --test report --test progress --test pipeline --lib`; proto regeneration/full verifier; then exact CI/peer review. Next: reviewed local native selection registry + bounded worker dispatch and report/stale-event integration with GLM's source seam.

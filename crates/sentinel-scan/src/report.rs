@@ -38,7 +38,7 @@ pub fn selected_file_report(
         full_signature_engine_active: result.full_signature_engine_active,
     })
 }
-fn valid_reference(value: &str) -> bool {
+pub(crate) fn valid_reference(value: &str) -> bool {
     (1..=64).contains(&value.len())
         && value
             .bytes()
