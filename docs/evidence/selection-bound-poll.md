@@ -1,0 +1,9 @@
+# Selection-bound native polling — 4 October 2026
+
+Issue #9 follow-up to PR44. Added `NativeScanDispatcher::poll_current` to automatically abandon output when the ticket no longer resolves in the trusted native selection registry. Source-only native guard; no UI/picker/RPC capability activated.
+
+Regression evidence: with an initial pass-through method, the existing controlled held-worker lifecycle test failed at `assert!(snapshot.abandoned)` after selection was absent. After the guard, it passes and proves cancellation request, hidden output, and worker-not-yet-returned remain distinct. The actual benign file/folder integration test now uses current-selection polling for successful reports, then rejects a relative registration (invalidating selection), verifies the cached final folder report/progress are hidden, and verifies wrong-ticket rejection and permanently sealed output on subsequent low-level poll. No hostile file, USB or policy test.
+
+Focused `cargo test -p sentinel-scan` passed all 39 unit/integration tests. Full `tools/verify.ps1` passed (exit 0), including Rust workspace tests/lint, generated parity, recovered UI checks/build and extension checks. Log: local `.local-handoff/verify-selection-bound-poll.log`. This does not prove hard timeout, restricted worker, native command/UI integration, or event rehearsals. All work issues remain open pending reviewed acceptance. Next: authoritative command envelope and trusted picker/worker integration with GLM's seam, preserving generated contracts and the recovered UI.
+
+Installed Chrome review resumed by owner authorization: manager refresh removed the stalled Reloading toast, but Sentinel is Off with disabled toggle and Chrome's safety-review Keep/Remove prompt. Updated extension interaction remains blocked on the owner's browser safety decision; no barrier bypass performed. Earlier HTTP/invented-message observations remain separate evidence from unverified new clues.

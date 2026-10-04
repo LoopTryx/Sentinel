@@ -49,7 +49,7 @@ fn actual_benign_dispatch_correlates_file_folder_and_rejects_stale_actions() {
     assert!(!dispatcher.clear_returned(&ticket));
     let start = Instant::now();
     let snapshot = loop {
-        let s = dispatcher.poll(&ticket).unwrap();
+        let s = dispatcher.poll_current(&registry, &ticket).unwrap();
         if s.worker_returned {
             break s;
         }
@@ -78,7 +78,7 @@ fn actual_benign_dispatch_correlates_file_folder_and_rejects_stale_actions() {
     );
     let start = Instant::now();
     let snapshot = loop {
-        let s = dispatcher.poll(&folder).unwrap();
+        let s = dispatcher.poll_current(&registry, &folder).unwrap();
         if s.worker_returned {
             break s;
         }
@@ -94,6 +94,21 @@ fn actual_benign_dispatch_correlates_file_folder_and_rejects_stale_actions() {
         }
         _ => panic!("wrong report"),
     }
+    assert!(
+        registry
+            .register_native_selection("relative-invalid".into(), SelectionKind::File)
+            .is_err()
+    );
+    let stale = dispatcher.poll_current(&registry, &folder).unwrap();
+    assert!(stale.abandoned && stale.worker_returned);
+    assert!(stale.report.is_none() && stale.progress.is_none());
+    registry
+        .register_native_selection(root.clone(), SelectionKind::Directory)
+        .unwrap();
+    let wrong = dispatcher.poll_current(&registry, &ticket).unwrap_err();
+    assert_eq!(wrong, DispatchError::WrongOperation);
+    // Suppression stays sealed, including when later low-level polling occurs.
+    assert!(dispatcher.poll(&folder).unwrap().report.is_none());
     assert!(dispatcher.clear_returned(&folder));
     fs::remove_file(root.join("benign.txt")).unwrap();
     fs::remove_dir(root).unwrap();

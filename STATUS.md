@@ -1,5 +1,9 @@
 # Implementation status
 
+## S1 selection-bound native polling — 4 October 2026
+
+Issue #9 follow-up: `poll_current` automatically abandons progress/reports when the ticket's trusted native selection has been cleared, replaced or invalidated. Controlled held-worker regression failed before the guard; actual benign current-selection report checks and cached-output invalidation pass afterward. Native-only: no command/picker/installed capability or UI completion. See [evidence](docs/evidence/selection-bound-poll.md) and [API handoff](docs/handoffs/local-scan-dispatch.md). Review/integration, hard worker cleanup and S1 event evidence remain pending. Chrome's safety review currently disables the installed extension; owner action is required there, while independent code work continues.
+
 Updated: 2026-10-01
 
 The product, source packages, UI, extension, and private GitHub repository are named **Sentinel** at the owner's request. The original pasted PRD remains a historical source under its original filename. The renamed preview runs locally, but this naming change does not upgrade any protection capability.
