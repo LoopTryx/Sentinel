@@ -143,3 +143,30 @@ fn cancellation_during_large_file_does_not_count_it_as_checked() {
     assert!(!report.complete);
     fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn public_selected_file_cancellation_preserves_partial_bytes_not_hash() {
+    use sentinel_scan::pipeline::scan_file_with_cancel;
+    let dir = fixture_dir();
+    let path = dir.join("benign-cancel.txt");
+    fs::write(&path, vec![b'x'; 20_000]).unwrap();
+    let mut polls = 0;
+    let result = scan_file_with_cancel(&path, ScanLimits::default(), &mut || {
+        polls += 1;
+        polls >= 3
+    });
+    assert_eq!(result.state, ScanState::Cancelled);
+    assert_eq!(result.bytes_read, 8192);
+    assert_eq!(result.files_checked, 0);
+    assert_eq!(result.files_skipped, 1);
+    assert_eq!(result.access_errors, 0);
+    assert!(result.sha256.is_none());
+    let completed = scan_file_with_cancel(&path, ScanLimits::default(), &mut || false);
+    assert_eq!(completed.state, ScanState::NoKnownFinding);
+    assert_eq!(completed.bytes_read, 20_000);
+    assert_eq!(completed.files_checked, 1);
+    assert!(completed.sha256.is_some());
+    assert!(!completed.full_signature_engine_active);
+    assert_eq!(fs::metadata(&path).unwrap().len(), 20_000);
+    fs::remove_dir_all(dir).unwrap();
+}

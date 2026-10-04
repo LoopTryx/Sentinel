@@ -59,6 +59,27 @@ The owner-aligned master plan now assigns GLM to Y2K Cyber Console presentation 
 
 Final integration: PR #16 is merged into main; #3/#4 are marked merged. Three obsolete branches were archived and retired. The old Codex branch is deprecated but preserved pending transfer of unpublished work from the engineer's existing checkout (#1/#6/#7). main is the one authoritative baseline. Next ready assignments: Codex #6/#7 and GLM #10, with #8 contract specification reviewed before browser wiring.
 
+## 2026-10-03: Actual selected-directory progress leaf
+Issue #9: scan_directory_with_progress emits typed cumulative entry/file/read/error counters, initial/final snapshots and cancellation/limit/traversal flags. Five progress tests failed first and now pass; decimal JSON assertion failed first and now passes; six new behavior/contract tests plus existing pipeline checks and full verifier pass. Generated TS uses exact decimal strings. See docs/handoffs/scan-progress.md and docs/evidence/scan-progress.md. Library only: no GUI/native dispatch, single-file/chunk observer, parent timeout or live capability added. Next: reviewed scan job/local adapter integration and GLM wiring; actual event acceptance remains pending.
+
+## 2026-10-03: Selected-file cancellation API follow-up
+PR #36 now exposes scan_file_with_cancel and checks cancellation before metadata/open. Initial cancel/invalid-path regression failed first and passes; actual harmless mid-read cancellation/retry control preserves partial bytes without checked/hash claims. Two additional tests and full verifier pass. No native/CLI cancellation endpoint, single-file progress or timeout adapter activated. Typed report conversion and reviewed job/GUI wiring remain next, along with S1 integration/rehearsals. Original dirty primary checkout preserved.
+
+### S1 selected-file typed output — 2026-10-03, issue #9 / PR #36
+
+Generated SelectedFileReport and actual scanner conversion preserve partial coverage, outcome, hash/absence and precise counters, plus bounded opaque job/selection correlation. Four benign/mapping/bound tests pass; native selection authorization, response matching, timeout/transport adapter, directory report conversion, reviewed integration and GLM UI journeys remain open. See scan-progress handoff/evidence. This is a library contract increment, not a connected scan capability or event-ready declaration.
+
+### S1 directory typed output — 2026-10-03, issue #9 / PR #36
+
+SelectedDirectoryReport conversion preserves actual final counters/flags and partial engine coverage, with bounded path-free finding references and explicit omitted count. Two new tests cover real benign success/cancel/skips/entry limit/missing root plus synthetic conversion bounds. Native selection/job authority, deadline/stale-result adapter and GLM UI wiring remain pending. See scan-progress handoff/evidence. No event acceptance or installed protection claimed.
+
+### S1 cooperative local control / current issue audit — 2026-10-04
+
+PR36 resumes the interrupted control leaf: cloneable sticky cancellation, bounded monotonic deadline, distinct actual-return marker and frozen finish state. Eight new checks pass with harmless actual reads and deterministic ordering. Generated LocalScanControlState and full API/failure handoff supplied. Cooperative expiry does not interrupt blocked OS reads or prove worker exit; no native dispatcher/selection authority/hard timeout enabled. Audit of every current open work issue is docs/coordination/2026-10-04-open-issue-audit.md; candidate PRs do not close issues. Core adapter, GLM integration and actual S1 acceptance remain open.
 ## 2026-10-03 recovered GLM UI
 
 Issue #37 integrates sentinel-ui cbca6eb into apps/ui, preserving main runtime/extension and unrelated source history. Recovered navy/glass Y2K visuals, local synthetic theme demo and bounded educational tools run in the browser. No installed native adapter or protection claim. WebGL fallback and subject invalidation regressions pass; six UI tests, full verifier, independent review and six-route Edge smoke pass. See docs/evidence/sentinel-ui-integration.md. Broader live UI integration and S1 rehearsals remain pending.
+
+### S1 bounded latest progress — 2026-10-04 02:06 UTC
+
+PR36 adds a one-slot correlated directory progress component and generated BoundDirectoryProgress. Three new checks cover real benign callback output, wrong/stale refs/regression/final freeze and concurrent close after 1000 synthetic replacements. No unbounded event queue. Selection authority, global concurrency, worker reap/hard timeout and GUI/native dispatch remain pending; close is data invalidation, not worker termination. All fifteen open issue acceptance clauses rechecked; no whole issue closed. See scan-progress handoff/evidence and current audit refresh.
