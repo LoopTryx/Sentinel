@@ -1,0 +1,7 @@
+# Local scan dispatch evidence — 4 October 2026
+
+Codex issue9 follow-up stacked on PR42; owned files only sentinel-scan dispatch/lib/tests plus handoff/status. Initial actual-dispatch test failed with missing module (compile-time API evidence). It then passed for actual temporary harmless file/folder scans with exact generated counters and final progress/report agreement. Wrong job/stale prior operation, invalid selection/deadline, and busy-before-reap checks pass.
+
+Additional controlled lifecycle test holds a thread using a test-only channel: cooperative timeout remains TimedOut while worker_returned=false, then actual join retains TimedOut with cancelled partial scanner evidence; abandoned result/progress suppressed; dropping manager retains admission until held worker exits; panic returns persistent WorkerFailed and permits explicit cleanup. This additional test was added after implementation, so no failing-first regression claim is made for it.
+
+Focused dispatch/selection/control/progress/report/pipeline/lib suites pass. Full tools/verify.ps1 passed: formatting, clippy, all workspace Rust tests/generated parity, recovered UI typecheck/six tests/build, and 32 extension checks/build/smoke. No extra dependencies, generated wire types, native commands, presentation or OS policy changes. Main integration, trusted picker invocation, stable handle authority, hard process deadlines/sandbox and actual S1 routes/rehearsals remain pending. Preserve all peer/unpublished work and the owner's interrupted Chrome session.
