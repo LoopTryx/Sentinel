@@ -1,5 +1,7 @@
 # Native contract and framing — issue #8
 
+4 October follow-up on existing PR20: executable native_request validator adds strict root/version/ID/known-payload and URL syntax/bounds/allowlist checks without dispatch. Five tests pass. Missing API tests failed first; duplicate URL behavior regression failed before RawValue typed parsing and passes after correction. Debug payload redaction checked. URL2 reuses existing lock package; serde_json raw_value feature preserves duplicates until typed decode. See docs/handoffs/native-request-validation.md. No registration/permissions/transport authentication/live connectivity claimed.
+
 2 October 2026. The revised proposal fixes the ambiguous schemaVersion/minor representation, supplies explicit 1.0 versions and fixed ID/pending/URL/expiry limits, uses opaque subjects and a complete valid Assessment vector, and replaces the incorrect non-ASCII-header requirement with decoded binary-byte-length checks. It requests GLM review before wiring. Exact extension IDs are configured installation inputs and are not fabricated.
 
 `sentinel-proto::native` now has distinct Windows Chrome little-endian framing and a bounded one-frame JSON reader. Internal RPC remains big-endian. The reader checks the declared length before payload allocation/read and returns errors without a correlation ID. JSON parsing alone is not envelope validation. Host I/O deadlines, caller authentication, dispatch/correlation/expiry and browser wiring remain required implementation gates.
@@ -7,3 +9,5 @@
 Actual red/green: a first test implementation reused the internal codec and failed the literal little-endian/multibyte and truncation vectors. The separate codec passes all five native tests, including a reader that panics if an oversized body is touched, invalid UTF-8/JSON and truncated body, cap/cap+1, trailing bytes, binary length bytes, and a typed full unavailable Assessment vector. Full tools/verify.ps1 passes. No generated bindings changed because no DTO schema was added; serde_json moved from dev to runtime dependencies at the existing version, recorded on #8 for coordinator review.
 
 Reproduce: `cargo test -p sentinel-proto --test native_framing`, then `tools/verify.ps1`. Extension permissions/source and native host registration are untouched. No native connection, protection or completed #8 claim; peer contract approval is pending. No URL fetch/DNS, E: access or system policy changes.
+
+Full tools/verify.ps1 passes after final changes: workspace fmt/lint/tests, TS binding parity/typecheck/tests, branch UI build and extension checks. Initial sandbox pnpm dependency access failed; rerun with authorized dependency access passed. No UI files changed or main integration claimed.
