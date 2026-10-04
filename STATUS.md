@@ -2,6 +2,10 @@
 
 Updated: 2026-10-01
 
+## 5 October 2026 — issue #6 terminal transport failure
+
+Codex PR #19 now closes the server-side authenticated pipe on every receive/reply failure. Actual Windows regressions showed a trailing frame could previously be accepted after a rejected oversized header, and partial reads/writes could be retried. The server now releases its handle and subsequent calls return NotConnected. Valid sequential exchanges remain supported. All 27 service tests, workspace Rust checks and separately invoked frontend/extension checks pass; the full wrapper encountered the existing pnpm registry socket restriction. See [exact evidence and adapter semantics](docs/evidence/live-lifecycle.md). Review/integration, native Chrome transport/registration, shared vault, download handoff and full S1 acceptance remain pending. No live protection capability is upgraded by this fix.
+
 The product, source packages, UI, extension, and private GitHub repository are named **Sentinel** at the owner's request. The original pasted PRD remains a historical source under its original filename. The renamed preview runs locally, but this naming change does not upgrade any protection capability.
 
 ## Owner's Phase 1-70 / Phase 1-30 split

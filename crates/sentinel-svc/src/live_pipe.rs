@@ -33,7 +33,7 @@ use windows_sys::Win32::System::Threading::{
 };
 
 pub struct AuthenticatedPipe {
-    file: File,
+    file: Option<File>,
     identity: OsIdentity,
     connected: bool,
     authenticated: bool,
@@ -122,18 +122,37 @@ impl AuthenticatedPipe {
         // SAFETY: new handle exclusively owned by this File.
         let file = unsafe { File::from_raw_handle(handle) };
         Ok(Self {
-            file,
+            file: Some(file),
             identity,
             connected: false,
             authenticated: false,
         })
     }
 
+    /// Receives one token-authenticated frame. Any failure permanently closes
+    /// this channel; create a new pipe instance instead of retrying residual bytes.
     pub fn receive(&mut self, timeout: Duration) -> io::Result<AuthenticatedRequest> {
+        let file = self.file.take().ok_or(io::ErrorKind::NotConnected)?;
+        let result = self.receive_inner(&file, timeout);
+        if result.is_ok() {
+            self.file = Some(file);
+        } else {
+            self.authenticated = false;
+        }
+        // On error File drops only after pending I/O has completed/cancelled.
+        // Neither residual frame bytes nor a partial reply may be reused.
+        result
+    }
+
+    fn receive_inner(
+        &mut self,
+        file: &File,
+        timeout: Duration,
+    ) -> io::Result<AuthenticatedRequest> {
         let deadline = deadline(timeout)?;
         self.authenticated = false;
         if !self.connected {
-            let handle = self.file.as_raw_handle();
+            let handle = file.as_raw_handle();
             operation(handle, remaining(deadline)?, true, |overlapped, _| {
                 // SAFETY: live pipe and pinned operation storage until completion.
                 unsafe { ConnectNamedPipe(handle, overlapped) }
@@ -141,7 +160,7 @@ impl AuthenticatedPipe {
             self.connected = true;
         }
         let mut header = [0; 4];
-        self.read_exact(&mut header, deadline)?;
+        client_read_exact(file.as_raw_handle(), &mut header, deadline)?;
         let length = u32::from_be_bytes(header) as usize;
         if length > MAX_MESSAGE_BYTES {
             return Err(io::Error::new(
@@ -150,8 +169,8 @@ impl AuthenticatedPipe {
             ));
         }
         let mut payload = vec![0; length];
-        self.read_exact(&mut payload, deadline)?;
-        let actual = OsIdentity::from_pipe_client(self.file.as_raw_handle())?;
+        client_read_exact(file.as_raw_handle(), &mut payload, deadline)?;
+        let actual = OsIdentity::from_pipe_client(file.as_raw_handle())?;
         if actual.sid != self.identity.sid
             || actual.session_id != self.identity.session_id
             || actual.session_id == 0
@@ -165,11 +184,10 @@ impl AuthenticatedPipe {
         })
     }
 
-    fn read_exact(&self, bytes: &mut [u8], deadline: Instant) -> io::Result<()> {
-        client_read_exact(self.file.as_raw_handle(), bytes, deadline)
-    }
-
+    /// Consumes the current request's reply permit. Every failure closes the
+    /// channel, including invalid input or an attempt without a request permit.
     pub fn reply(&mut self, payload: &[u8], timeout: Duration) -> io::Result<()> {
+        let file = self.file.take().ok_or(io::ErrorKind::NotConnected)?;
         if !self.authenticated {
             return Err(io::ErrorKind::PermissionDenied.into());
         }
@@ -177,7 +195,9 @@ impl AuthenticatedPipe {
         let deadline = deadline(timeout)?;
         let frame = encode_frame(payload)
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "oversized response"))?;
-        client_write_all(self.file.as_raw_handle(), &frame, deadline)
+        client_write_all(file.as_raw_handle(), &frame, deadline)?;
+        self.file = Some(file);
+        Ok(())
     }
 }
 
@@ -427,7 +447,7 @@ mod server_identity_tests {
             let server = std::thread::spawn(move || {
                 pipe.receive(Duration::from_secs(2)).unwrap();
                 client_write_all(
-                    pipe.file.as_raw_handle(),
+                    pipe.file.as_ref().unwrap().as_raw_handle(),
                     &bytes,
                     deadline(Duration::from_secs(1)).unwrap(),
                 )
@@ -463,13 +483,13 @@ mod server_identity_tests {
             pipe.receive(Duration::from_secs(2)).unwrap();
             std::thread::sleep(Duration::from_millis(60));
             let _ = client_write_all(
-                pipe.file.as_raw_handle(),
+                pipe.file.as_ref().unwrap().as_raw_handle(),
                 &1u32.to_be_bytes(),
                 deadline(Duration::from_secs(1)).unwrap(),
             );
             std::thread::sleep(Duration::from_millis(60));
             let _ = client_write_all(
-                pipe.file.as_raw_handle(),
+                pipe.file.as_ref().unwrap().as_raw_handle(),
                 b"x",
                 deadline(Duration::from_secs(1)).unwrap(),
             );
@@ -548,7 +568,7 @@ mod server_identity_tests {
         );
         // SAFETY: live server pipe with a fully received client request.
         assert_ne!(
-            unsafe { ImpersonateNamedPipeClient(pipe.file.as_raw_handle()) },
+            unsafe { ImpersonateNamedPipeClient(pipe.file.as_ref().unwrap().as_raw_handle()) },
             0
         );
         let _revert = Revert;
