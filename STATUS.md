@@ -1,5 +1,9 @@
 # Implementation status
 
+## Bounded navigation registry follow-up — 4 October 2026
+
+Issue #14 / PR48: one trusted registry, 32 tracked tabs maximum, fresh host IDs, one current hold per tab with replacement/clear invalidation. Ten navigation lifecycle/registry tests and full verifier pass. Original PR48 CI green; this delta needs independent review. See [handoff](docs/handoffs/navigation-hold.md). No live interception, fetch, popup or bridge enabled; expanded S1 features and acceptance remain pending.
+
 ## Expanded extension S1 and navigation lifecycle — 4 October 2026
 
 Owner requires real navigation warnings/desktop events, shared vault/import/audit/generator, supported WhatsApp Web warnings and consent-gated provider explanations before S1 completion (scope PR47). Issue #14 internal navigation hold lifecycle passes five tests and full tools/verify.ps1; see [handoff](docs/handoffs/navigation-hold.md). Replay, stale/forged subject, expiry and terminal sealing are covered. No live rules, fetch, popup, bridge, vault, WhatsApp or cloud upload enabled. Review/integration pending; 45-minute automation uses expanded scope.
