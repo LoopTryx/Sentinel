@@ -8,3 +8,5 @@ dist/
 
 .playwright-cli/
 /artifacts/
+/apps/desktop/console-build/
+/apps/desktop/Sentinel.Native.exe

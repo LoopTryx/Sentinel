@@ -1,5 +1,22 @@
 # Sentinel native desktop preview
 
+## GLM glass console (owner-requested primary presentation)
+
+The existing GLM React/Y2K console can run in its own desktop window, preserving its navigation, components and typography. `GlassConsole.cs` replaces the Windows title bar with a narrow native draggable header, accessible minimize/maximize/restore/close buttons and resize borders. Double-clicking the header toggles maximize. Windows 11 Acrylic is requested where supported; other systems keep the navy fallback. The React glass treatment is opt-in (`?desktop=glass`), with reduced-transparency CSS support. Regular browser presentation remains unchanged.
+
+This preserves the original React UI using WebView2; it is not a rewrite into native WPF controls. WPF owns the window frame. The older WPF file-scanning preview below is preserved separately. The console still has no native agent/vault bridge, and its unavailable/partial/scenario labels remain authoritative.
+
+Build the UI with `pnpm --filter @sentinel/ui build`, then build the window using an already acquired official Microsoft WebView2 SDK (tested with 1.0.4258.31):
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File apps/desktop/build-console.ps1 -WebView2SdkPath <sdk-directory>
+.\apps\desktop\console-build\Sentinel.Glass.exe
+```
+
+The installed WebView2 runtime is required. Build output and its dedicated preview profile stay ignored. Assets load directly from `apps/ui/dist` through the reserved `sentinel.example` virtual host; no development server or external site is required. Foreign requests/windows and permission requests are rejected; native host objects and web messages are disabled. The presentation flag grants no native capability.
+
+Run `apps/desktop/tests/glass-console.ps1` after building. This smoke check requires a visible window and a desktop session with permission to start WebView2; the filesystem/process sandbox can prevent browser initialization. It uses a separate smoke profile, checks actual local navigation, React Console rendering, the glass flag, custom frame and backend-unavailable status, then closes. Startup has a 30-second deadline. The check does not verify installed protection, authenticated connectivity or every window interaction. Actual custom minimize, restore, maximize/double-click and close were observed on the owner's desktop on 5 October 2026. Software rendering is used for the WPF frame to keep its controls visible over Acrylic; the web content retains its own renderer.
+
 On Windows, from the repository root:
 
 ```powershell

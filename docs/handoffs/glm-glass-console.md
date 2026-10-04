@@ -1,0 +1,11 @@
+# Owner correction: keep GLM's UI, add desktop glass
+
+5 October 2026 · Codex · issue #11 · branch `codex/issue-11-native-glass`, based on PR #51.
+
+The owner rejected the separate WPF replacement layout. That experiment was removed from tracked changes and saved locally for recovery. GLM's React/Y2K layout is preserved. The new desktop frame embeds the exact bundled UI, with native custom title controls and Windows Acrylic where supported. `apps/ui/src/desktop-glass.css` changes only opt-in translucent surfaces; no navigation, component layout, threat semantics, contracts or permissions change.
+
+Entry: build UI, run `apps/desktop/build-console.ps1` with an official existing WebView2 SDK directory, then open `apps/desktop/console-build/Sentinel.Glass.exe`. This is a repository preview entry, not a packaged release or replacement for the pending Tauri/runtime integration. It retains WebView2 to preserve the existing React design. The native frame exposes no web-message or host-object bridge. Shared vault and antivirus operations are still unavailable in this console.
+
+Evidence: 10 UI tests passed; production UI build passed; `tools/verify.ps1` passed. Visible native smoke passed with an isolated smoke profile and installed WebView2 runtime outside the process sandbox. Actual owner-desktop inspection showed the original GLM console, translucent surfaces, Acrylic backdrop and custom header; minimize, restore, header double-click maximize and close were observed. The first sandboxed smoke could not initialize WebView2. A `.local` virtual-host attempt also delayed navigation; the host uses the Microsoft-recommended reserved `.example` domain instead. WPF hardware composition obscured native controls over Acrylic; the final host uses a software-rendered WPF frame and the standard independently rendered WebView2 content.
+
+GLM/coordinator: review palette/readability, reduced-transparency behavior, non-Acrylic fallback, Windows DPI/resize behavior and runtime integration choice. Do not treat this presentation milestone as completed AV/vault/browser connectivity. No main merge or issue closure is authorized by this handoff alone.

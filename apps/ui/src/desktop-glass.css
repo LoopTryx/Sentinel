@@ -1,0 +1,33 @@
+/* GLM's layout, typography and state colors stay authoritative.
+   This opt-in desktop layer lets the native Windows backdrop show through. */
+html[data-desktop="glass"],
+html[data-desktop="glass"] body,
+html[data-desktop="glass"] #root { background: transparent; }
+
+html[data-desktop="glass"] .shell {
+  background: linear-gradient(135deg, rgba(8, 15, 35, .42), rgba(8, 18, 40, .25));
+}
+html[data-desktop="glass"] .sidebar {
+  background: linear-gradient(180deg, rgba(24, 33, 73, .58), rgba(12, 17, 41, .46));
+  border-right-color: rgba(205, 228, 255, .17);
+  backdrop-filter: blur(24px) saturate(135%);
+  box-shadow: 8px 0 32px rgba(5, 8, 26, .18);
+}
+html[data-desktop="glass"] .topbar {
+  background: rgba(7, 11, 30, .28);
+  backdrop-filter: blur(18px);
+}
+html[data-desktop="glass"] .panel,
+html[data-desktop="glass"] .stat {
+  background: linear-gradient(145deg, rgba(23, 39, 74, .57), rgba(7, 15, 38, .43));
+  border-color: rgba(178, 210, 255, .22);
+  backdrop-filter: blur(20px) saturate(130%);
+  box-shadow: inset 0 1px 0 rgba(224, 240, 255, .07), 0 12px 28px rgba(3, 8, 23, .12);
+}
+html[data-desktop="glass"] .dither-bg { opacity: .14 !important; }
+@media (prefers-reduced-transparency: reduce) {
+  html[data-desktop="glass"] .shell { background: #070b1e; }
+  html[data-desktop="glass"] .sidebar { background: #101736; }
+  html[data-desktop="glass"] .panel,
+  html[data-desktop="glass"] .stat { background: #0b1230; }
+}
