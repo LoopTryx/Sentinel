@@ -46,6 +46,11 @@ fn actual_benign_dispatch_correlates_file_folder_and_rejects_stale_actions() {
         DispatchError::WrongOperation
     );
     assert!(!dispatcher.cancel(&wrong));
+    let response =
+        sentinel_scan::dispatch_wire::poll_current_response(&mut dispatcher, &registry, &wrong);
+    let json = serde_json::to_value(response).unwrap();
+    assert_eq!(json["status"], "error");
+    assert_eq!(json["data"], "wrong_operation");
     assert!(!dispatcher.clear_returned(&ticket));
     let start = Instant::now();
     let snapshot = loop {
@@ -56,6 +61,16 @@ fn actual_benign_dispatch_correlates_file_folder_and_rejects_stale_actions() {
         assert!(start.elapsed() < Duration::from_secs(5));
         std::thread::yield_now();
     };
+    let wire = sentinel_scan::dispatch_wire::dispatch_snapshot(&ticket, &snapshot).unwrap();
+    let response =
+        sentinel_scan::dispatch_wire::poll_current_response(&mut dispatcher, &registry, &ticket);
+    let json = serde_json::to_value(response).unwrap();
+    assert_eq!(json["status"], "snapshot");
+    assert_eq!(json["data"]["ticket"]["jobId"], ticket.job_id);
+    assert_eq!(
+        serde_json::to_value(&wire).unwrap()["report"]["kind"],
+        "file"
+    );
     match snapshot.report.unwrap() {
         NativeScanReport::File(r) => {
             assert_eq!(r.files_checked, 1);
@@ -85,6 +100,11 @@ fn actual_benign_dispatch_correlates_file_folder_and_rejects_stale_actions() {
         assert!(start.elapsed() < Duration::from_secs(5));
         std::thread::yield_now();
     };
+    let wire = sentinel_scan::dispatch_wire::dispatch_snapshot(&folder, &snapshot).unwrap();
+    assert_eq!(
+        serde_json::to_value(&wire).unwrap()["report"]["kind"],
+        "directory"
+    );
     let progress = snapshot.progress.unwrap();
     match snapshot.report.unwrap() {
         NativeScanReport::Directory(r) => {
@@ -102,6 +122,8 @@ fn actual_benign_dispatch_correlates_file_folder_and_rejects_stale_actions() {
     let stale = dispatcher.poll_current(&registry, &folder).unwrap();
     assert!(stale.abandoned && stale.worker_returned);
     assert!(stale.report.is_none() && stale.progress.is_none());
+    let wire = sentinel_scan::dispatch_wire::dispatch_snapshot(&folder, &stale).unwrap();
+    assert!(wire.abandoned && wire.report.is_none() && wire.progress.is_none());
     registry
         .register_native_selection(root.clone(), SelectionKind::Directory)
         .unwrap();
