@@ -37,6 +37,11 @@ pub enum NativeReadError {
 /// Reads one frame only; the host owns transport deadlines and envelope validation.
 /// Errors carry no request ID. Body bytes are not read until the header is bounded.
 pub fn read_chrome_json(reader: &mut impl Read) -> Result<serde_json::Value, NativeReadError> {
+    let payload = read_chrome_payload(reader)?;
+    serde_json::from_slice(&payload).map_err(|_| NativeReadError::InvalidJson)
+}
+
+fn read_chrome_payload(reader: &mut impl Read) -> Result<Vec<u8>, NativeReadError> {
     let mut header = [0; 4];
     reader
         .read_exact(&mut header)
@@ -46,7 +51,7 @@ pub fn read_chrome_json(reader: &mut impl Read) -> Result<serde_json::Value, Nat
     reader
         .read_exact(&mut payload)
         .map_err(NativeReadError::Io)?;
-    serde_json::from_slice(&payload).map_err(|_| NativeReadError::InvalidJson)
+    Ok(payload)
 }
 
 fn checked_length(header: [u8; 4]) -> Result<usize, FrameError> {
@@ -56,4 +61,20 @@ fn checked_length(header: [u8; 4]) -> Result<usize, FrameError> {
     } else {
         Ok(length)
     }
+}
+
+#[derive(Debug)]
+pub enum NativeRequestReadError {
+    Transport(NativeReadError),
+    Request(crate::native_request::NativeRequestError),
+}
+
+/// Preferred native v1 ingress: validate original bytes, preserving duplicate fields.
+/// Reads exactly one bounded frame. Caller still owns deadlines, port closure on
+/// errors, caller authentication and dispatch. Never log request payloads.
+pub fn read_chrome_request(
+    reader: &mut impl Read,
+) -> Result<crate::native_request::NativeRequest, NativeRequestReadError> {
+    let payload = read_chrome_payload(reader).map_err(NativeRequestReadError::Transport)?;
+    crate::native_request::validate_request(&payload).map_err(NativeRequestReadError::Request)
 }
