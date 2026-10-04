@@ -83,3 +83,8 @@ Issue #37 integrates sentinel-ui cbca6eb into apps/ui, preserving main runtime/e
 ### S1 bounded latest progress — 2026-10-04 02:06 UTC
 
 PR36 adds a one-slot correlated directory progress component and generated BoundDirectoryProgress. Three new checks cover real benign callback output, wrong/stale refs/regression/final freeze and concurrent close after 1000 synthetic replacements. No unbounded event queue. Selection authority, global concurrency, worker reap/hard timeout and GUI/native dispatch remain pending; close is data invalidation, not worker termination. All fifteen open issue acceptance clauses rechecked; no whole issue closed. See scan-progress handoff/evidence and current audit refresh.
+
+### S1 native selection registry — 4 October 2026
+
+Issue9 follow-up retains one native picker-approved path, invalidates replacements/clear/rejected registrations, and omits paths from diagnostics. Three new tests and focused scan suites pass. Trusted native registration only; no remote path input, stable filesystem identity, global worker gate or native dispatch claimed. See docs/handoffs/native-selection-registry.md. Connected journeys and S1 acceptance remain pending.
+
