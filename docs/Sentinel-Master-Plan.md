@@ -1,5 +1,7 @@
 # Sentinel — Master Product Requirements and Implementation Plan
 
+Owner scope update, 4 October 2026: [expanded real extension S1 requirements](proposals/extension-owner-scope-2026-10-04.md) makes navigation warning/desktop activity, shared vault/import/audit/generator, supported WhatsApp Web inline warnings, and consent-gated provider explanations required before S1 completion. Earlier S1 deferrals are superseded for these features. Complete journeys remain pending.
+
 Owner update, 2 October 2026: this document is the shared specification for both engineers. Section 19 resolves the latest owner request against earlier wording: GLM owns presentation, Codex owns logic, and Y2K Cyber Console begins during the functional preview. Existing privacy, trust-boundary and hardware evidence gates remain mandatory. Assignment prompts are in docs/agent-prompts/; the concrete issue queue and consolidation evidence are in docs/coordination/2026-10-02-integration.md. Local preparation is not proof of remote adoption.
 
 Version 4.0 owner-aligned consolidation · 2 October 2026 · Owner: Loop
