@@ -2,6 +2,8 @@
 
 Owner direction: desktop is the home for browser harness activity. One navigation/assessment identity follows warning, popup and desktop detail; local explanation stays available without provider access. Desktop owns history, capability/settings and vault surface; extension handles context-specific alert and explicit actions. Both show the same measured outcome and limitations. GLM owns styling and UI adapters.
 
+Owner clarification: connectivity means actual shared vault operations, actual browser-event logging, and completed-download handoff to desktop file inspection. The inbox below is only a prerequisite and does not fulfill connectivity. Download scanning checks acquired bytes, not decrypted network packets. Track supported pause/staging/scan/release or retained hold separately; browser APIs do not universally prevent execution/access. Native broker must validate approved file identity/access and isolate bounded analysis. No raw browser-provided filesystem path becomes authority. Source URL warning and actual file evidence are separate. Preserve Defender and report unknown/partial/unsupported engines; never infer clean from a URL or packet check. Same download/job/assessment references must connect desktop report and extension warning.
+
 ## Implemented native inbox prerequisite
 
 Authoritative Rust DTOs: sentinel-proto/src/browser_activity.rs; generated TS BrowserActivityEvent/BrowserActivityKind. Fields: sessionRef, sequence (u32), navigationRef, assessmentRef, kind. Fixed kinds navigation_held, potentially_harmful, inspection_unavailable, continued_once, dismissed. No URL/message/password/raw file/error text field. Events are partial evidence, not a risk verdict or safety promise.
