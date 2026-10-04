@@ -88,3 +88,7 @@ PR36 adds a one-slot correlated directory progress component and generated Bound
 
 Issue9 follow-up retains one native picker-approved path, invalidates replacements/clear/rejected registrations, and omits paths from diagnostics. Three new tests and focused scan suites pass. Trusted native registration only; no remote path input, stable filesystem identity, global worker gate or native dispatch claimed. See docs/handoffs/native-selection-registry.md. Connected journeys and S1 acceptance remain pending.
 
+
+### S1 native benign dispatch — 4 October 2026
+
+NativeScanDispatcher now resolves trusted registry selections and runs actual bounded file/folder scans on one admitted worker, retaining one typed result/latest directory snapshot. Matching poll/cancel/abandon/reap/clear APIs and fixed errors supplied. Actual scan and controlled timeout/drop/panic checks pass; hard blocked-I/O termination, stable handles, native command wire envelope and GLM journey remain pending. See local-scan-dispatch handoff/evidence. No installed service capability or completed S1 claim.
