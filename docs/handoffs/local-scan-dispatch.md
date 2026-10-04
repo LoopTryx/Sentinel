@@ -14,6 +14,12 @@
 
 ## Bounds and lifecycle
 
+### Selection-aware adapter polling
+
+`poll_current(&mut self, registry: &NativeSelectionRegistry, ticket: &ScanTicket) -> Result<DispatchSnapshot, DispatchError>` is the preferred native adapter observation. If the ticket's selection no longer resolves in the trusted registry, it calls `abandon` BEFORE polling/joining. This covers selection clear, replacement, and rejected registration (which clears the registry). Old progress and reports remain permanently suppressed, including already returned reports. Unknown tickets still return `WrongOperation` and cannot abandon another session.
+
+Example: `let snapshot = dispatcher.poll_current(&registry, &ticket)?;`. A valid current selection preserves ordinary progress/report output. On invalidation, `abandoned=true`; `worker_returned=false` may persist until the actual cooperative worker exits. Continue polling and clear only after actual join. Errors retain the existing fixed path-free variants, including persistent `WorkerFailed`. No new wire DTO, endpoint or capability is added. The native host must serialize picker registration and polling; UI must still invalidate its own previously rendered state on selection/view changes. Low-level `poll` remains available for reap/cleanup and does not itself consult the registry. This guard cannot revoke output already shown, establish handle identity, or interrupt blocked OS I/O.
+
 Fixed S1 limits: 8 MiB per file, 128 traversal entries, depth 4, 128 pending directories and 64 scanner findings; existing report conversion remains path-free/partial with explicit omissions. These bounds are scope, not a success guarantee. Display skips/limits and actual engine capability. Directory updates use one latest slot; file reads do not invent per-chunk progress. The thread retains one result via its JoinHandle, not an event queue. Poll clones at most that bounded typed report; consumer polling/history must also be bounded.
 
 One process-global RAII permit admits this API's active scan. Worker AND owning session retain it, so a stopped/finished-but-unreaped session remains busy until poll joins it. A dispatcher retains at most one session, even after completion; clear explicitly before reuse. Do not create unbounded dispatchers/history. This gate does not restrict direct library scanners or other processes; the future command host must own one dispatcher and serialize native calls.

@@ -243,6 +243,19 @@ impl NativeScanDispatcher {
         session.control.request_cancel();
         true
     }
+    /// Selection-aware native adapter entry point. Clear/replacement/rejected
+    /// registration permanently abandons mismatched output before observation.
+    /// The host must serialize picker changes and polling on the owning thread.
+    pub fn poll_current(
+        &mut self,
+        registry: &NativeSelectionRegistry,
+        ticket: &ScanTicket,
+    ) -> Result<DispatchSnapshot, DispatchError> {
+        if registry.resolve(&ticket.selection_ref).is_none() {
+            self.abandon(ticket);
+        }
+        self.poll(ticket)
+    }
     /// Suppresses abandoned output and requests cancellation. Still poll/reap;
     /// neither abandonment nor selection replacement interrupts blocked I/O.
     pub fn abandon(&mut self, ticket: &ScanTicket) -> bool {
@@ -346,7 +359,15 @@ mod tests {
         assert!(dispatcher.clear_returned(&ticket));
 
         let (ticket, release) = held(&mut dispatcher, Duration::from_secs(2));
-        assert!(dispatcher.abandon(&ticket));
+        let registry = NativeSelectionRegistry::new();
+        // The trusted picker has no current selection; the old operation must
+        // become abandoned automatically, even if the adapter forgot abandon.
+        let snapshot = dispatcher.poll_current(&registry, &ticket).unwrap();
+        assert!(snapshot.abandoned);
+        assert!(snapshot.progress.is_none());
+        assert!(snapshot.report.is_none());
+        assert!(!snapshot.worker_returned);
+        assert_eq!(snapshot.state, LocalScanControlState::Cancelled);
         release.send(()).unwrap();
         let snapshot = returned(&mut dispatcher, &ticket);
         assert!(snapshot.abandoned);
