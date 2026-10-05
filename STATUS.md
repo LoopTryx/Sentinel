@@ -1,6 +1,16 @@
 # Implementation status
 
+## Bounded navigation registry follow-up — 4 October 2026
+
+Issue #14 / PR48: one trusted registry, 32 tracked tabs maximum, fresh host IDs, one current hold per tab with replacement/clear invalidation. Ten navigation lifecycle/registry tests and full verifier pass. Original PR48 CI green; this delta needs independent review. See [handoff](docs/handoffs/navigation-hold.md). No live interception, fetch, popup or bridge enabled; expanded S1 features and acceptance remain pending.
+
+## Expanded extension S1 and navigation lifecycle — 4 October 2026
+
+Owner requires real navigation warnings/desktop events, shared vault/import/audit/generator, supported WhatsApp Web warnings and consent-gated provider explanations before S1 completion (scope PR47). Issue #14 internal navigation hold lifecycle passes five tests and full tools/verify.ps1; see [handoff](docs/handoffs/navigation-hold.md). Replay, stale/forged subject, expiry and terminal sealing are covered. No live rules, fetch, popup, bridge, vault, WhatsApp or cloud upload enabled. Review/integration pending; 45-minute automation uses expanded scope.
+
 Updated: 2026-10-01
+
+5 October navigation follow-up: PR #48 adds trusted timer expiry polling for the bounded 32-tab hold registry. Idle current holds now transition to expired exactly once when polled at/past deadline; polling does not extend deadlines, complete an inspection or allow navigation. Four new tests plus ten existing navigation tests pass. See [timer API and integration semantics](docs/handoffs/navigation-hold.md). This remains internal lifecycle logic; DNR interception, target/policy binding, popup and native desktop connectivity remain pending. Approved GLM glass presentation is unchanged.
 
 The product, source packages, UI, extension, and private GitHub repository are named **Sentinel** at the owner's request. The original pasted PRD remains a historical source under its original filename. The renamed preview runs locally, but this naming change does not upgrade any protection capability.
 
