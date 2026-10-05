@@ -86,6 +86,43 @@ fn disabled_configuration_and_precancel_do_not_launch_a_process() {
 }
 
 #[test]
+fn preparation_observes_cancellation_and_deadline_before_engine_launch() {
+    use sentinel_scan::clamav::scan_benign_file;
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+    let root = std::env::temp_dir().join(format!(
+        "sentinel-clamav-preparation-{}-{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir(&root).unwrap();
+    let sample = root.join("harmless-text.txt");
+    std::fs::write(&sample, vec![b'a'; 1024 * 1024]).unwrap();
+    let engine = root.join("absent-engine.exe");
+    let db = root.join("absent-database");
+    let timeout = scan_benign_file(&sample, &engine, &db, Duration::from_nanos(1), || false);
+    let mut results = Vec::new();
+    for stop_at in [2, 3, 4] {
+        let mut calls = 0;
+        let result = scan_benign_file(&sample, &engine, &db, Duration::from_secs(1), || {
+            calls += 1;
+            calls >= stop_at
+        });
+        results.push((result, calls, stop_at));
+    }
+    std::fs::remove_dir_all(root).unwrap();
+    assert_eq!(timeout.state, ClamAvState::TimedOut);
+    assert_eq!(timeout.coverage, Coverage::Unavailable);
+    for (result, calls, stop_at) in results {
+        assert_eq!(result.state, ClamAvState::Cancelled);
+        assert_eq!(result.coverage, Coverage::Unavailable);
+        assert_eq!(calls, stop_at);
+    }
+}
+
+#[test]
 #[ignore = "requires explicitly configured verified ClamAV and harmless synthetic pack"]
 fn official_engine_benign_journey_and_failure_states() {
     use sentinel_scan::clamav::scan_benign_file;
@@ -128,12 +165,15 @@ fn official_engine_benign_journey_and_failure_states() {
     );
     assert!(start.elapsed() < Duration::from_secs(5));
     // Admission remains occupied until the bounded pipe threads actually finish.
+    // This fixture fits one preparation chunk: checks 1-4 precede spawn,
+    // so check 5 observes cancellation in the engine loop after launch.
+    assert!(std::fs::metadata(&sample).unwrap().len() < 64 * 1024);
     let mut calls = 0;
     let start = Instant::now();
     loop {
         let r = scan_benign_file(&sample, &exe, &db, Duration::from_secs(20), || {
             calls += 1;
-            calls >= 2
+            calls >= 5
         });
         if r.state != ClamAvState::Busy {
             assert_eq!(r.state, ClamAvState::Cancelled);

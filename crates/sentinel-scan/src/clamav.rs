@@ -106,6 +106,7 @@ pub fn scan_benign_file(
     {
         return report(ClamAvState::Unavailable);
     }
+    let start = Instant::now();
     if cancelled() {
         return report(ClamAvState::Cancelled);
     }
@@ -139,12 +140,22 @@ pub fn scan_benign_file(
     }
     // Never hand a growing source directly to clamscan's stdin temp-file copier.
     let mut snapshot = Vec::new();
-    if (&file)
-        .take(MAX_FILE + 1)
-        .read_to_end(&mut snapshot)
-        .is_err()
-    {
-        return report(ClamAvState::Unavailable);
+    let mut source = (&file).take(MAX_FILE + 1);
+    let mut chunk = [0; 64 * 1024];
+    loop {
+        if cancelled() {
+            return report(ClamAvState::Cancelled);
+        }
+        if start.elapsed() >= timeout {
+            return report(ClamAvState::TimedOut);
+        }
+        let Ok(count) = source.read(&mut chunk) else {
+            return report(ClamAvState::Unavailable);
+        };
+        if count == 0 {
+            break;
+        }
+        snapshot.extend_from_slice(&chunk[..count]);
     }
     if snapshot.len() as u64 != opened.len()
         || !file
@@ -152,6 +163,12 @@ pub fn scan_benign_file(
             .is_ok_and(|last| crate::pipeline::same_basic_identity(&opened, &last))
     {
         return report(ClamAvState::SourceChanged);
+    }
+    if cancelled() {
+        return report(ClamAvState::Cancelled);
+    }
+    if start.elapsed() >= timeout {
+        return report(ClamAvState::TimedOut);
     }
     let mut command = Command::new(executable);
     command
@@ -222,7 +239,6 @@ pub fn scan_benign_file(
         let _ = child.wait();
         return report(ClamAvState::Failed);
     }
-    let start = Instant::now();
     let mut output = None;
     let mut input_complete = false;
     loop {

@@ -4,6 +4,8 @@
 
 Updated: 2026-10-01
 
+5 October scan-runtime follow-up: PR #50 now checks cancellation/time between bounded 64 KiB benign snapshot reads and preserves one cooperative preparation-to-engine budget. Five ordinary adapter tests and the separately configured existing verified ClamAV/synthetic-pack journey pass; full verifier and final scan formatting/lint pass. OS open/read blocking, hostile-parser confinement, official databases, jobs/bridge/UI integration remain pending. No antivirus protection or whole-issue completion is claimed. See [engine handoff](docs/handoffs/clamav-engine.md).
+
 The product, source packages, UI, extension, and private GitHub repository are named **Sentinel** at the owner's request. The original pasted PRD remains a historical source under its original filename. The renamed preview runs locally, but this naming change does not upgrade any protection capability.
 
 ## Owner's Phase 1-70 / Phase 1-30 split
