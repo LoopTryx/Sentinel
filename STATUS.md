@@ -2,6 +2,8 @@
 
 Updated: 2026-10-01
 
+Owner translucency follow-up (5 October 2026): Codex PR #53 lowers only desktop glass surface tint while retaining the GLM layout, custom frame and solid reduced-transparency fallback. Full repository verifier, 10 UI tests and visible native glass smoke pass. This presentation adjustment does not add vault, antivirus or extension connectivity. Runtime progress remains on its separate review branches, including PR #19 terminal server channel disposal (31d31ea) and PR #52 bounded native lifecycle/origin checks (2008ec7).
+
 The product, source packages, UI, extension, and private GitHub repository are named **Sentinel** at the owner's request. The original pasted PRD remains a historical source under its original filename. The renamed preview runs locally, but this naming change does not upgrade any protection capability.
 
 ## Owner's Phase 1-70 / Phase 1-30 split
