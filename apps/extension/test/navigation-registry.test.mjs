@@ -51,3 +51,57 @@ test('invalid replacement preserves current hold and extra inputs never echo',()
   assert.equal(r.finish({...h.subject,tabId:2,url:'private'},'unknown',101),null);
   assert.equal(r.read(1),h);
 });
+
+test('timer expires idle warnings once without extending their deadline',()=>{
+  const r=new NavigationHoldRegistry();
+  const h=r.begin(1,100,50);
+  assert.deepEqual(r.expire(149),[]);
+  assert.equal(r.read(1),h);
+  const expired=r.expire(150);
+  assert.equal(expired.length,1);
+  assert.equal(expired[0].state,'expired');
+  assert.equal(expired[0].reason,'inspection_required');
+  assert.equal(r.read(1),expired[0]);
+  assert.deepEqual(r.expire(151),[]);
+  assert.equal(r.continueOnce(h,151),null);
+  assert.equal(r.continueOnce(expired[0],151),null);
+  assert.equal(r.finish(h.subject,'potentially_harmful',151),expired[0]);
+});
+
+test('polling leaves an on-time inspection unsealed and retains its result on expiry',()=>{
+  const r=new NavigationHoldRegistry();
+  const h=r.begin(1,100,50);
+  assert.deepEqual(r.expire(110),[]);
+  const inspected=r.finish(h.subject,'potentially_harmful',111);
+  assert.equal(inspected.reason,'potentially_harmful');
+  assert.deepEqual(r.expire(149),[]);
+  const [expired]=r.expire(150);
+  assert.equal(expired.reason,'potentially_harmful');
+  assert.equal(r.continueOnce(inspected,150),null);
+});
+
+test('timer excludes cleared, replaced and continued holds and bounds each batch',()=>{
+  const r=new NavigationHoldRegistry();
+  for(let i=0;i<32;i++)r.begin(i,100,50);
+  r.clear(0);
+  const replacement=r.begin(1,101,100);
+  r.continueOnce(r.read(2),110);
+  const expired=r.expire(150);
+  assert.equal(expired.length,29);
+  assert.equal(r.read(1),replacement);
+  assert.equal(r.read(2).state,'continued_once');
+  assert.equal(new Set(expired.map(h=>h.subject.tabId)).size,29);
+  assert.deepEqual(r.expire(151),[]);
+  assert.equal(r.expire(201).length,1);
+});
+
+test('invalid timer inputs preserve every hold; rollback expires held authority',()=>{
+  const r=new NavigationHoldRegistry();
+  const h=r.begin(1,100,50);
+  for(const now of [NaN,Infinity,-1,1.5,Number.MAX_SAFE_INTEGER+1]) {
+    assert.throws(()=>r.expire(now),/invalid navigation clock/);
+    assert.equal(r.read(1),h);
+  }
+  assert.equal(r.expire(99)[0].state,'expired');
+  assert.equal(r.continueOnce(h,100),null);
+});

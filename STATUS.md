@@ -10,6 +10,8 @@ Owner requires real navigation warnings/desktop events, shared vault/import/audi
 
 Updated: 2026-10-01
 
+5 October navigation follow-up: PR #48 adds trusted timer expiry polling for the bounded 32-tab hold registry. Idle current holds now transition to expired exactly once when polled at/past deadline; polling does not extend deadlines, complete an inspection or allow navigation. Four new tests plus ten existing navigation tests pass. See [timer API and integration semantics](docs/handoffs/navigation-hold.md). This remains internal lifecycle logic; DNR interception, target/policy binding, popup and native desktop connectivity remain pending. Approved GLM glass presentation is unchanged.
+
 The product, source packages, UI, extension, and private GitHub repository are named **Sentinel** at the owner's request. The original pasted PRD remains a historical source under its original filename. The renamed preview runs locally, but this naming change does not upgrade any protection capability.
 
 ## Owner's Phase 1-70 / Phase 1-30 split

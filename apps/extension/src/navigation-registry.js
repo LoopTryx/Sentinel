@@ -1,4 +1,4 @@
-import {createNavigationHold, finishInspection, consumeContinuation, invalidateHold} from './navigation-hold.js';
+import {createNavigationHold, finishInspection, consumeContinuation, invalidateHold, pollHoldExpiry} from './navigation-hold.js';
 
 // Internal trusted extension owner, not a content-script request endpoint.
 export class NavigationHoldRegistry {
@@ -19,6 +19,19 @@ export class NavigationHoldRegistry {
     return next;
   }
   read(tabId) { return this.#tabs.get(tabId) ?? null; }
+  // Host-owned monotonic time only; each call visits at most 32 current tabs.
+  expire(now) {
+    if (!Number.isSafeInteger(now) || now < 0) throw new TypeError('invalid navigation clock');
+    const expired = [];
+    for (const [tabId, hold] of this.#tabs) {
+      const next = pollHoldExpiry(hold, now);
+      if (next !== hold) {
+        this.#tabs.set(tabId, next);
+        if (next.state === 'expired') expired.push(next);
+      }
+    }
+    return expired;
+  }
   finish(subject, reason, now) {
     const hold = this.#tabs.get(subject?.tabId);
     if (!hold || hold.subject.navigationId !== subject.navigationId || hold.subject.assessmentId !== subject.assessmentId) return null;

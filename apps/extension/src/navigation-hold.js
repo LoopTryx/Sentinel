@@ -41,6 +41,13 @@ export function finishInspection(hold, subject, reason, now) {
   // Even ordinary results stay held/unknown until an explicit user decision.
   return publish(owner, 'held', reason);
 }
+// Trusted timer path: advances time without completing/sealing an inspection.
+export function pollHoldExpiry(hold, now) {
+  const owner = owners.get(hold);
+  if (!owner || owner.current !== hold || hold.state !== 'held') return owner?.current ?? hold;
+  current(hold, hold.subject, now);
+  return owner.current;
+}
 export function consumeContinuation(hold, subject, now) {
   const owner = current(hold, subject, now);
   return owner ? publish(owner, 'continued_once', hold.reason) : null;
