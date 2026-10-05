@@ -137,6 +137,12 @@ impl PendingRequests {
         Ok(ticket.id)
     }
 
+    /// Invalidate this pending reply after a trusted dismissal or subject change.
+    /// This consumes the ticket but neither stops work nor authorizes a wire reply.
+    /// Replay history and the session budget remain sealed, including after expiry.
+    pub fn cancel(&mut self, ticket: PendingTicket, now: Instant) -> Result<(), PendingError> {
+        self.complete(ticket, now).map(|_| ())
+    }
     /// Poll from the host's timer, then emit timeout responses for these IDs.
     /// Replay history stays sealed. At most 32 correlations are returned.
     pub fn expire(&mut self, now: Instant) -> Result<Vec<String>, PendingError> {

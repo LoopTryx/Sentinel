@@ -124,3 +124,87 @@ fn validated_url_ingress_expires_once_without_retaining_the_payload() {
         PendingError::Replay
     );
 }
+
+#[test]
+fn cancellation_consumes_only_its_ticket_and_suppresses_late_completion() {
+    let now = Instant::now();
+    let mut session = PendingRequests::new(now).unwrap();
+    let ticket = session.admit(&request("dismissed"), now).unwrap();
+    let late = ticket.clone();
+    let other = session.admit(&request("still_current"), now).unwrap();
+    assert_eq!(session.cancel(ticket, now), Ok(()));
+    assert_eq!(session.pending_count(), 1);
+    assert_eq!(
+        session.complete(late.clone(), now),
+        Err(PendingError::Unknown)
+    );
+    assert_eq!(session.cancel(late, now), Err(PendingError::Unknown));
+    assert_eq!(
+        session.admit(&request("dismissed"), now).unwrap_err(),
+        PendingError::Replay
+    );
+    assert_eq!(session.complete(other, now), Ok("still_current".into()));
+    assert!(
+        session
+            .expire(now + Duration::from_secs(5))
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
+fn cancellation_respects_session_clock_deadline_and_disconnect() {
+    let now = Instant::now();
+    let later = now + Duration::from_secs(1);
+    let mut a = PendingRequests::new(now).unwrap();
+    let mut b = PendingRequests::new(now).unwrap();
+    let at = a.admit(&request("same"), later).unwrap();
+    let bt = b.admit(&request("same"), now).unwrap();
+    assert_eq!(b.cancel(at.clone(), now), Err(PendingError::Foreign));
+    assert_eq!(b.pending_count(), 1);
+    assert_eq!(a.cancel(at.clone(), now), Err(PendingError::ClockRollback));
+    assert_eq!(a.pending_count(), 1);
+    assert_eq!(a.complete(at, later), Ok("same".into()));
+    assert_eq!(
+        b.cancel(bt.clone(), now + Duration::from_secs(5)),
+        Err(PendingError::Expired)
+    );
+    assert_eq!(b.pending_count(), 0);
+    assert_eq!(
+        b.complete(bt, now + Duration::from_secs(5)),
+        Err(PendingError::Unknown)
+    );
+    let closed = a.admit(&request("closed"), later).unwrap();
+    a.disconnect();
+    assert_eq!(a.cancel(closed, later), Err(PendingError::Closed));
+}
+
+#[test]
+fn cancellation_releases_pending_capacity_without_resetting_session_budget() {
+    let now = Instant::now();
+    let mut session = PendingRequests::new(now).unwrap();
+    let mut tickets = Vec::new();
+    for i in 0..32 {
+        tickets.push(session.admit(&request(&format!("cancel{i}")), now).unwrap());
+    }
+    assert_eq!(
+        session.admit(&request("extra"), now).unwrap_err(),
+        PendingError::Busy
+    );
+    session.cancel(tickets.remove(0), now).unwrap();
+    let extra = session.admit(&request("extra"), now).unwrap();
+    assert_eq!(session.pending_count(), 32);
+    session.cancel(extra, now).unwrap();
+    for ticket in tickets {
+        session.cancel(ticket, now).unwrap();
+    }
+    for i in 33..256 {
+        let ticket = session.admit(&request(&format!("cancel{i}")), now).unwrap();
+        session.cancel(ticket, now).unwrap();
+    }
+    assert_eq!(session.pending_count(), 0);
+    assert_eq!(
+        session.admit(&request("new"), now).unwrap_err(),
+        PendingError::SessionBudget
+    );
+}

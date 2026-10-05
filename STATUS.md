@@ -65,3 +65,8 @@ Issue8 / codex/issue-8-native-pending stacked on PR20: internal32-pending/5s dea
 ## Native installed-origin prerequisite — 5 October 2026
 Issue #8 / PR #52 follow-up, codex/issue-8-native-pending: one-to-four validated explicit Chrome extension IDs, byte-exact canonical origin match, malformed/duplicate/wildcard/normalization rejection and redacted diagnostics. Four new tests and fourteen related native regressions pass; proto clippy passes. No OS identity authentication, registration, native permission or live bridge enabled. Signatures/examples/errors/bounds/limitations and durable next steps: docs/handoffs/native-origin.md. Glass UI remains on the dedicated PR #53/build; no presentation edits on this logic branch. All expanded S1 end-to-end acceptance and reviewed integration remain pending.
 Verification: Rust full-workspace checks passed; local monolithic wrapper failed at dependency reconciliation/network. Equivalent remaining TS/UI1/32 extension/build/syntax/smoke/generated-parity checks passed with pinned-cache reconciliation disabled. No dependency/config edits; exact-head fresh-install CI and peer review remain required.
+
+
+## Native pending cancellation - 5 October 2026
+
+PR52 adds trusted explicit single-use ticket cancellation. Eight focused lifecycle tests pass; cancellation rejects late callbacks, releases a pending slot and retains replay/session-budget history. Deadline, foreign-session, rollback and disconnect semantics remain distinct. This private native helper does not stop workers, send browser responses or wire the host. Reviewed transport, real shared history/vault/download journeys and whole-issue completion remain pending. See docs/handoffs/native-pending.md.
