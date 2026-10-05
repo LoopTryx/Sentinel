@@ -154,6 +154,13 @@ fn directory_output_preserves_progress_and_rejects_unbounded_or_mismatched_detai
         json["report"]["data"]["findingsOmitted"],
         "18446744073709551615"
     );
+    if let Some(NativeScanReport::Directory(r)) = s.report.as_mut() {
+        r.full_signature_engine_active = true;
+    }
+    assert!(dispatch_snapshot(&ticket(), &s).is_err());
+    if let Some(NativeScanReport::Directory(r)) = s.report.as_mut() {
+        r.full_signature_engine_active = false;
+    }
     s.progress.as_mut().unwrap().job_id = "different-job".into();
     assert!(dispatch_snapshot(&ticket(), &s).is_err());
     s.progress.as_mut().unwrap().job_id = "job-1".into();
@@ -168,6 +175,15 @@ fn directory_output_preserves_progress_and_rejects_unbounded_or_mismatched_detai
             };
             257
         ];
+    }
+    assert!(dispatch_snapshot(&ticket(), &s).is_err());
+}
+
+#[test]
+fn file_output_rejects_unsupported_full_engine_claim() {
+    let mut s = snapshot();
+    if let Some(NativeScanReport::File(r)) = s.report.as_mut() {
+        r.full_signature_engine_active = true;
     }
     assert!(dispatch_snapshot(&ticket(), &s).is_err());
 }

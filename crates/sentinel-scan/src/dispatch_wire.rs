@@ -59,6 +59,7 @@ pub fn dispatch_snapshot(
     let report = match snapshot.report.as_ref() {
         Some(NativeScanReport::File(r)) => {
             if !matches(&r.job_id, &r.selection_ref)
+                || r.full_signature_engine_active
                 || snapshot.progress.is_some()
                 || r.sha256.as_ref().is_some_and(|hash| {
                     hash.len() != 64 || !hash.bytes().all(|b| b.is_ascii_hexdigit())
@@ -70,6 +71,7 @@ pub fn dispatch_snapshot(
         }
         Some(NativeScanReport::Directory(r)) => {
             if !matches(&r.job_id, &r.selection_ref)
+                || r.full_signature_engine_active
                 || r.findings.len() > MAX_REPORT_FINDINGS
                 || r.findings.iter().any(|f| !valid_reference(&f.finding_ref))
                 || snapshot

@@ -100,3 +100,8 @@ Issue9 follow-up retains one native picker-approved path, invalidates replacemen
 ### S1 native benign dispatch — 4 October 2026
 
 NativeScanDispatcher now resolves trusted registry selections and runs actual bounded file/folder scans on one admitted worker, retaining one typed result/latest directory snapshot. Matching poll/cancel/abandon/reap/clear APIs and fixed errors supplied. Actual scan and controlled timeout/drop/panic checks pass; hard blocked-I/O termination, stable handles, native command wire envelope and GLM journey remain pending. See local-scan-dispatch handoff/evidence. No installed service capability or completed S1 claim.
+
+
+## Local scan capability invariant - 5 October 2026
+
+PR46 rejects constructed file/directory snapshots claiming an active full signature engine on the static benign-scan path. Both red-first assertions then pass; five wire tests and actual benign file/folder dispatch pass, strict lint passes. The existing InvalidSnapshot response and generated schema remain. This is native output validation, not installed protection or reviewed UI/worker/job integration. See docs/handoffs/local-scan-wire.md.
