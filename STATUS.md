@@ -1,6 +1,10 @@
 # Implementation status
 
+4 October optional antivirus increment (Codex issue9 branch): researched current GitHub candidates, selected ClamAV1.5.4 over the hash/test-only preview for broader signature coverage. A bounded explicit benign-file separate-process adapter and generated output DTOs are implemented; official portable engine digest/Talos signature verified, real harmless synthetic-database scans/missing-DB/timeout/cancel checks pass. Production official databases, containment and UI/job integration are pending; default full engine stays inactive. This does not claim benchmark superiority or completed antivirus. See docs/handoffs/clamav-engine.md.
+
 Updated: 2026-10-01
+
+5 October scan-runtime follow-up: PR #50 now checks cancellation/time between bounded 64 KiB benign snapshot reads and preserves one cooperative preparation-to-engine budget. Five ordinary adapter tests and the separately configured existing verified ClamAV/synthetic-pack journey pass; full verifier and final scan formatting/lint pass. OS open/read blocking, hostile-parser confinement, official databases, jobs/bridge/UI integration remain pending. No antivirus protection or whole-issue completion is claimed. See [engine handoff](docs/handoffs/clamav-engine.md).
 
 The product, source packages, UI, extension, and private GitHub repository are named **Sentinel** at the owner's request. The original pasted PRD remains a historical source under its original filename. The renamed preview runs locally, but this naming change does not upgrade any protection capability.
 
