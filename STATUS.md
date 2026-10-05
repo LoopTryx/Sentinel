@@ -62,3 +62,8 @@ Final integration: PR #16 is merged into main; #3/#4 are marked merged. Three ob
 ## 2026-10-03 recovered GLM UI
 
 Issue #37 integrates sentinel-ui cbca6eb into apps/ui, preserving main runtime/extension and unrelated source history. Recovered navy/glass Y2K visuals, local synthetic theme demo and bounded educational tools run in the browser. No installed native adapter or protection claim. WebGL fallback and subject invalidation regressions pass; six UI tests, full verifier, independent review and six-route Edge smoke pass. See docs/evidence/sentinel-ui-integration.md. Broader live UI integration and S1 rehearsals remain pending.
+
+## 5 October 2026 - independent local reuse audit increment
+
+Issue13: pure bounded audit borrows up to128 synthetic-tested password strings (<=1024 UTF-8 bytes each), reports exact duplicate groups by batch index and rejects invalid batches without partial results or secret-bearing errors. Authoritative output-only Rust/TS DTOs; no serialized input/password retention/logging. Three focused tests,18 export tests and strict proto lint passed. See docs/handoffs/password-reuse-audit.md for signatures/examples/errors, invalidation and GLM integration prerequisites. Full repository verification recorded after completion. No vault, import, authenticated bridge, current UI capability or valuable-secret use enabled; independent security review and real shared journeys remain pending. Scope22/47 and native20/52 review/integration still outstanding; no issue closure.
+Full tools/verify.ps1 passed in isolated current-main source; generated-binding parity and all available T01 checks passed. No native/Chrome manual journey or vault acceptance claimed.
