@@ -198,3 +198,71 @@ fn valid_frame_without_process_exit_still_times_out() {
     assert!(started.elapsed() < Duration::from_secs(3));
     fs::remove_file(path).unwrap();
 }
+
+#[test]
+fn precancel_and_expired_budget_do_not_access_source_or_launch_worker() {
+    use sentinel_scan::worker::scan_file_via_worker_cancellable;
+    let absent = fixture_path("cancel-absent");
+    let worker = fixture_path("cancel-absent-worker.exe");
+    assert_eq!(
+        scan_file_via_worker_cancellable(&absent, &worker, Duration::from_secs(5), || true)
+            .unwrap_err(),
+        WorkerScanError::Cancelled
+    );
+    assert_eq!(
+        scan_file_via_worker_cancellable(&absent, &worker, Duration::ZERO, || false).unwrap_err(),
+        WorkerScanError::TimedOut
+    );
+    let path = fixture_path("cancel-before-launch");
+    fs::write(&path, b"harmless").unwrap();
+    let mut calls = 0;
+    let result = scan_file_via_worker_cancellable(&path, &worker, Duration::from_secs(5), || {
+        calls += 1;
+        calls >= 2
+    });
+    fs::remove_file(path).unwrap();
+    assert_eq!(result.unwrap_err(), WorkerScanError::Cancelled);
+    assert_eq!(calls, 2);
+}
+
+#[test]
+#[cfg(windows)]
+fn cancellation_after_launch_terminates_and_releases_inherited_source() {
+    use sentinel_scan::worker::scan_file_via_worker_cancellable;
+    let path = fixture_path("cancel-after-launch");
+    fs::write(&path, b"H").unwrap();
+    let started = std::time::Instant::now();
+    let mut calls = 0;
+    let result = scan_file_via_worker_cancellable(
+        &path,
+        env!("CARGO_BIN_EXE_fixture-worker"),
+        Duration::from_secs(5),
+        || {
+            calls += 1;
+            calls >= 3
+        },
+    );
+    // With no cleanup the child retains its inherited source handle for 10s.
+    fs::remove_file(path).unwrap();
+    assert_eq!(result.unwrap_err(), WorkerScanError::Cancelled);
+    assert_eq!(calls, 3);
+    assert!(started.elapsed() < Duration::from_secs(3));
+}
+
+#[test]
+#[cfg(windows)]
+fn cancellation_rejects_valid_frame_from_worker_that_does_not_exit() {
+    use sentinel_scan::worker::scan_file_via_worker_cancellable;
+    let path = fixture_path("cancel-valid-no-exit");
+    fs::write(&path, b"P").unwrap();
+    let started = std::time::Instant::now();
+    let result = scan_file_via_worker_cancellable(
+        &path,
+        env!("CARGO_BIN_EXE_fixture-worker"),
+        Duration::from_secs(5),
+        || started.elapsed() >= Duration::from_millis(300),
+    );
+    fs::remove_file(path).unwrap();
+    assert_eq!(result.unwrap_err(), WorkerScanError::Cancelled);
+    assert!(started.elapsed() < Duration::from_secs(3));
+}

@@ -58,3 +58,8 @@ Local integration retains GLM b84c4af extension work and Codex 197516a asynchron
 The owner-aligned master plan now assigns GLM to Y2K Cyber Console presentation and Codex to logic. Specialized prompts and an eleven-item issue draft queue are under docs/agent-prompts/ and docs/coordination/. Authenticated Git/REST access was restored by the owner; the GitHub plugin remains unable to see Sentinel. Eleven work issues #5–#15 are published. Live PR #3/#4 CI and peer reviews were inspected, including GLM msg 10. Integration publication, main merge and recoverable branch retirement are recorded in the consolidation PR and dated coordination record. Phase 1-70 and R1/R2 remain incomplete.
 
 Final integration: PR #16 is merged into main; #3/#4 are marked merged. Three obsolete branches were archived and retired. The old Codex branch is deprecated but preserved pending transfer of unpublished work from the engineer's existing checkout (#1/#6/#7). main is the one authoritative baseline. Next ready assignments: Codex #6/#7 and GLM #10, with #8 contract specification reviewed before browser wiring.
+
+
+## Cancellable worker runtime - 5 October 2026
+
+PR17 adds a cancellable native worker entry point while preserving the existing signature. Twelve actual harmless Windows client process tests and strict scan/worker lint pass. Cancellation before access/launch or during collection suppresses a report; launched-worker cancellation uses owned Job Object termination/reaping, with CleanupFailed distinct. One cooperative budget covers preparation/collection/validation. Restricted token/network/filesystem isolation, cleanup-failure injection, authenticated job/UI wiring and whole-issue acceptance remain pending. See docs/evidence/worker-cancellation.md.

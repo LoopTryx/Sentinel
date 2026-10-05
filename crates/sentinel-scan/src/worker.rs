@@ -27,6 +27,7 @@ pub enum WorkerScanError {
     SourceChanged,
     LaunchFailed,
     TimedOut,
+    Cancelled,
     WorkerFailed,
     InvalidResponse,
     CleanupFailed,
@@ -39,6 +40,20 @@ pub fn scan_file_via_worker(
     worker_executable: impl AsRef<Path>,
     timeout: Duration,
 ) -> Result<ScanResult, WorkerScanError> {
+    scan_file_via_worker_cancellable(path, worker_executable, timeout, || false)
+}
+
+/// Cooperative native cancellation, before access/launch and during collection.
+/// Windows cancellation terminates/reaps the invocation's owned Job Object;
+/// cleanup failure remains distinct and no cancelled result counts as checked.
+pub fn scan_file_via_worker_cancellable(
+    path: impl AsRef<Path>,
+    worker_executable: impl AsRef<Path>,
+    timeout: Duration,
+    mut cancelled: impl FnMut() -> bool,
+) -> Result<ScanResult, WorkerScanError> {
+    let start = Instant::now();
+    checkpoint(start, timeout, &mut cancelled)?;
     let path = path.as_ref();
     let initial = fs::symlink_metadata(path).map_err(|_| WorkerScanError::SourceUnavailable)?;
     if !initial.is_file() || crate::pipeline::is_reparse_point(&initial) {
@@ -58,6 +73,7 @@ pub fn scan_file_via_worker(
     let child_stdin = file
         .try_clone()
         .map_err(|_| WorkerScanError::SourceUnavailable)?;
+    checkpoint(start, timeout, &mut cancelled)?;
     #[cfg(windows)]
     let mut child = Child::spawn(worker_executable.as_ref(), &child_stdin)
         .map_err(|_| WorkerScanError::LaunchFailed)?;
@@ -69,7 +85,7 @@ pub fn scan_file_via_worker(
         .stderr(Stdio::null())
         .spawn()
         .map_err(|_| WorkerScanError::LaunchFailed)?;
-    let output = match collect_output(&mut child, timeout) {
+    let output = match collect_output(&mut child, start, timeout, &mut cancelled) {
         Ok(output) => output,
         Err(error) => {
             let _ = child.kill();
@@ -82,6 +98,7 @@ pub fn scan_file_via_worker(
             return Err(error);
         }
     };
+    checkpoint(start, timeout, &mut cancelled)?;
     let payload = decode_frame(&output).map_err(|_| WorkerScanError::InvalidResponse)?;
     let response: WorkerResponse =
         serde_json::from_slice(payload).map_err(|_| WorkerScanError::InvalidResponse)?;
@@ -96,13 +113,19 @@ pub fn scan_file_via_worker(
     {
         return Err(WorkerScanError::SourceChanged);
     }
+    checkpoint(start, timeout, &mut cancelled)?;
     Ok(response.report)
 }
 
 // Peek makes reads nonblocking without a reader thread that can be stranded
 // by a descendant retaining stdout. The deadline covers exit AND pipe EOF.
 #[cfg(windows)]
-fn collect_output(child: &mut Child, timeout: Duration) -> Result<Vec<u8>, WorkerScanError> {
+fn collect_output(
+    child: &mut Child,
+    start: Instant,
+    timeout: Duration,
+    cancelled: &mut impl FnMut() -> bool,
+) -> Result<Vec<u8>, WorkerScanError> {
     use std::os::windows::io::AsRawHandle;
     use windows_sys::Win32::Foundation::ERROR_BROKEN_PIPE;
     use windows_sys::Win32::System::Pipes::PeekNamedPipe;
@@ -111,15 +134,12 @@ fn collect_output(child: &mut Child, timeout: Duration) -> Result<Vec<u8>, Worke
         .stdout
         .take()
         .ok_or(WorkerScanError::InvalidResponse)?;
-    let start = Instant::now();
     let mut output = Vec::new();
     let mut chunk = [0u8; 8192];
     let mut expected = None;
     let mut status = None;
     loop {
-        if start.elapsed() >= timeout {
-            return Err(WorkerScanError::TimedOut);
-        }
+        checkpoint(start, timeout, cancelled)?;
         if status.is_none() {
             status = child
                 .try_wait()
@@ -181,9 +201,14 @@ fn collect_output(child: &mut Child, timeout: Duration) -> Result<Vec<u8>, Worke
 // Non-Windows development fallback retains the original exit-first behavior.
 // The supported production platform and saturation acceptance are Windows.
 #[cfg(not(windows))]
-fn collect_output(child: &mut Child, timeout: Duration) -> Result<Vec<u8>, WorkerScanError> {
-    let start = Instant::now();
+fn collect_output(
+    child: &mut Child,
+    start: Instant,
+    timeout: Duration,
+    cancelled: &mut impl FnMut() -> bool,
+) -> Result<Vec<u8>, WorkerScanError> {
     let status = loop {
+        checkpoint(start, timeout, cancelled)?;
         match child.try_wait() {
             Ok(Some(status)) => break status,
             Ok(None) if start.elapsed() < timeout => std::thread::sleep(Duration::from_millis(10)),
@@ -216,6 +241,19 @@ fn collect_output(child: &mut Child, timeout: Duration) -> Result<Vec<u8>, Worke
     Ok(output)
 }
 
+fn checkpoint(
+    start: Instant,
+    timeout: Duration,
+    cancelled: &mut impl FnMut() -> bool,
+) -> Result<(), WorkerScanError> {
+    if cancelled() {
+        Err(WorkerScanError::Cancelled)
+    } else if start.elapsed() >= timeout {
+        Err(WorkerScanError::TimedOut)
+    } else {
+        Ok(())
+    }
+}
 fn valid_worker_report(report: &ScanResult) -> bool {
     if report.files_visited != 1
         || report.engine_failures != 0
