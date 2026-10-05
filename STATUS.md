@@ -1,5 +1,9 @@
 # Implementation status
 
+## S1 native scan output contract — 4 October 2026
+
+Issue #9: output-only generated tagged poll/report DTOs and selection-aware native response conversion pass focused tests and lint. Correlation, bounded output, lifecycle nulls and precise decimal counters are covered. See [handoff](docs/handoffs/local-scan-wire.md) and [evidence](docs/evidence/local-scan-wire.md). Review/integration pending; no command, picker or installed scan capability enabled. Installed Chrome local-tool checks were verified after owner enablement; source integration and remaining extension acceptance are pending.
+
 ## S1 selection-bound native polling — 4 October 2026
 
 Issue #9 follow-up: `poll_current` automatically abandons progress/reports when the ticket's trusted native selection has been cleared, replaced or invalidated. Controlled held-worker regression failed before the guard; actual benign current-selection report checks and cached-output invalidation pass afterward. Native-only: no command/picker/installed capability or UI completion. See [evidence](docs/evidence/selection-bound-poll.md) and [API handoff](docs/handoffs/local-scan-dispatch.md). Review/integration, hard worker cleanup and S1 event evidence remain pending. Chrome's safety review currently disables the installed extension; owner action is required there, while independent code work continues.
@@ -96,3 +100,8 @@ Issue9 follow-up retains one native picker-approved path, invalidates replacemen
 ### S1 native benign dispatch — 4 October 2026
 
 NativeScanDispatcher now resolves trusted registry selections and runs actual bounded file/folder scans on one admitted worker, retaining one typed result/latest directory snapshot. Matching poll/cancel/abandon/reap/clear APIs and fixed errors supplied. Actual scan and controlled timeout/drop/panic checks pass; hard blocked-I/O termination, stable handles, native command wire envelope and GLM journey remain pending. See local-scan-dispatch handoff/evidence. No installed service capability or completed S1 claim.
+
+
+## Local scan capability invariant - 5 October 2026
+
+PR46 rejects constructed file/directory snapshots claiming an active full signature engine on the static benign-scan path. Both red-first assertions then pass; five wire tests and actual benign file/folder dispatch pass, strict lint passes. The existing InvalidSnapshot response and generated schema remain. This is native output validation, not installed protection or reviewed UI/worker/job integration. See docs/handoffs/local-scan-wire.md.
