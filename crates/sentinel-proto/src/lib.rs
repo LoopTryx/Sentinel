@@ -2,6 +2,8 @@ pub mod assessment;
 pub mod capability;
 pub mod jobs;
 pub mod native;
+pub mod native_origin;
+pub mod native_pending;
 pub mod native_request;
 pub mod rpc;
 pub mod status;
