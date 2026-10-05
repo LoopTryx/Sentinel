@@ -1,0 +1,21 @@
+{
+  "version": { "major": 1, "minor": 0 },
+  "id": "request-1",
+  "kind": "assessment",
+  "payload": {
+    "id": "assessment-1",
+    "subjectRef": "url-subject-1",
+    "risk": "unknown",
+    "confidence": "low",
+    "coverage": "unavailable",
+    "checks": [
+      { "id": "local_analyzer", "state": "skipped", "reasonKey": "web.check.analyzer.unavailable", "evidenceRefs": [] }
+    ],
+    "reasons": [{ "code": "analyzer_unavailable", "messageKey": "web.reason.analyzerUnavailable" }],
+    "actions": [{ "id": "open_learn_more", "requiresAdmin": false }],
+    "engineVersions": {},
+    "observedAt": "2026-10-02T12:00:00Z",
+    "expiresAt": "2026-10-02T12:00:05Z",
+    "lessonIds": []
+  }
+}
