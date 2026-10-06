@@ -29,7 +29,7 @@ test('actual shared runtime: authentication, computed dummy audit, edits and red
  } finally {await r.close();}
 });
 
-test('real harmless file bytes produce bounded synthetic findings, errors and cancellation states', async()=>{
+test('real harmless file bytes produce bounded synthetic findings and errors', async()=>{
  const folder=await mkdtemp(join(tmpdir(),'sentinel-demo-'));
  const r=await startRuntime();
  const call=async(route,body={})=>(await fetch(r.url+route,{method:'POST',headers:{Authorization:'Bearer '+r.desktopToken,'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
@@ -38,14 +38,25 @@ test('real harmless file bytes produce bounded synthetic findings, errors and ca
   await writeFile(join(folder,'example.txt'),'SENTINEL_SYNTHETIC_TEST_ONLY_V1');
   const started=await call('/scan',{path:folder});
   let s; for(let i=0;i<100;i++){s=await call('/state');if(s.scan?.status!=='running')break;await new Promise(res=>setTimeout(res,10));}
-  assert.equal(s.scan.id,started.id); assert.equal(s.scan.status,'completed');
-  assert.equal(s.scan.checked,2); assert.equal(s.scan.findings.length,1);
-  assert.equal(s.scan.findings[0].kind,'synthetic_test'); assert.equal(s.scan.coverage,'partial');
+  assert.equal(s.scan.id,started.id); assert.equal(s.scan.status,'partial');
+  assert.equal(s.scan.checked,2); assert.equal(s.scan.findings.filter(f=>f.kind==='synthetic_test').length,1);
+  assert.ok(s.scan.findings.some(f=>f.kind==='synthetic_test')); assert.equal(s.scan.coverage,'partial');
   assert.equal((await call('/scan',{path:'E:/anything'})).error,'selection_unsupported');
   for(const path of ['//?/E:/anything','//localhost/E$/anything','\\\\?\\E:\\anything'])assert.equal((await call('/scan',{path})).error,'selection_unsupported');
   await call('/scan',{path:join(folder,'missing')});
   for(let i=0;i<100;i++){s=await call('/state');if(s.scan?.status!=='running')break;await new Promise(res=>setTimeout(res,10));}
   assert.equal(s.scan.status,'failed'); assert.equal(s.scan.checked,0);
+ }finally{await r.close();await rm(folder,{recursive:true,force:true});}
+});
+
+test('cancel stops an actual running file read and runtime close reaps its handle',async()=>{
+ const folder=await mkdtemp(join(tmpdir(),'sentinel-demo-cancel-'));const r=await startRuntime();
+ const call=async(route,body={})=>(await fetch(r.url+route,{method:'POST',headers:{Authorization:'Bearer '+r.desktopToken,'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+ try{
+  const file=join(folder,'large.txt');await writeFile(file,Buffer.alloc(8*1024*1024,65));
+  await call('/scan',{path:file});await call('/cancel');let state;
+  for(let i=0;i<100;i++){state=await call('/state');if(state.scan.status!=='running')break;await new Promise(resolve=>setTimeout(resolve,20));}
+  assert.equal(state.scan.status,'cancelled');
  }finally{await r.close();await rm(folder,{recursive:true,force:true});}
 });
 

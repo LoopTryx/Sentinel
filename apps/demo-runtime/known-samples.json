@@ -1,0 +1,23 @@
+[
+  {
+    "name": "01-clean.txt",
+    "size": 66,
+    "sha256": "f1601bdd138c6164b102a1d50e32e4ce2324188fe7dc7a1fbb9b6e9bd3712fe1",
+    "md5": "623c7ef8b0d4543bfcfcb1036e75256a",
+    "synthetic": false
+  },
+  {
+    "name": "02-marker.txt",
+    "size": 94,
+    "sha256": "421513e6a14a0a63672210e2a7f7009e1b7ab6108335e31fa494bdb19f8c3879",
+    "md5": "2518558838726da6b77290c6c220e093",
+    "synthetic": true
+  },
+  {
+    "name": "03-encoded.json",
+    "size": 103,
+    "sha256": "f5cfb66a47ead3d91bcbf6c014568bb83f0c05306cb8c00fd9b7a67ea34285c5",
+    "md5": "f736664bc9285bdddc09b0cbee706d46",
+    "synthetic": true
+  }
+]

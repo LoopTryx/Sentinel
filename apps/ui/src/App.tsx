@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import {useDemoState} from './demo-bridge';
 import { ThreatProvider, useThreat } from "./state";
 import Dashboard from "./views/Dashboard";
 import ScanView from "./views/ScanView";
@@ -105,12 +106,13 @@ function useBoxGlow() {
 }
 
 function Shell() {
+  const {state:demo}=useDemoState();
   const [view, setView] = useState<ViewId>("dashboard");
   const { level } = useThreat();
   useBoxGlow();
 
   const statusLabel =
-    level === "danger"
+    demo ? 'Connected demo · partial coverage' : level === "danger"
       ? "Preview · scenario alert"
       : level === "warn"
         ? "Preview · scenario attention"

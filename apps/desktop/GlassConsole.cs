@@ -34,7 +34,7 @@ public sealed class SentinelGlassConsole : Window
     bool closing;
     readonly bool demo;
     readonly JavaScriptSerializer json = new JavaScriptSerializer { MaxJsonLength = 131072 };
-    readonly HttpClient runtimeClient = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+    readonly HttpClient runtimeClient = new HttpClient { Timeout = TimeSpan.FromSeconds(8), MaxResponseContentBufferSize = 131072 };
     string runtimeUrl, runtimeToken;
     int requests;
 
@@ -249,8 +249,21 @@ public sealed class SentinelGlassConsole : Window
                     }
                     if (closing) return;
                     string glass = await core.ExecuteScriptAsync("document.documentElement.dataset.desktop === 'glass'");
+                    string backend = "unavailable";
+                    if (demo) {
+                        using (var probe = new HttpRequestMessage(HttpMethod.Post, runtimeUrl + "/state")) {
+                            probe.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", runtimeToken);
+                            probe.Content = new StringContent("{}", Encoding.UTF8, "application/json");
+                            using (var response = await runtimeClient.SendAsync(probe)) {
+                                if (!response.IsSuccessStatusCode) throw new InvalidOperationException();
+                                var snapshot = json.Deserialize<Dictionary<string, object>>(await response.Content.ReadAsStringAsync());
+                                if ((string)snapshot["mode"] != "synthetic_demo" || !(bool)snapshot["connected"]) throw new InvalidOperationException();
+                                backend = "demo_runtime";
+                            }
+                        }
+                    }
                     deadline.Stop();
-                    File.WriteAllText(evidence, "navigation=True\nglass=" + glass + "\nheading=" + heading + "\ncustom_chrome=True\nbackdrop_requested=" + backdrop + "\nbackend=unavailable\n");
+                    File.WriteAllText(evidence, "navigation=True\nglass=" + glass + "\nheading=" + heading + "\ncustom_chrome=True\nbackdrop_requested=" + backdrop + "\nbackend=" + backend + "\n");
                     if (smoke) { if (glass != "true" || heading != "\"Console\"") Environment.ExitCode = 1; Close(); }
                 } catch (Exception error) { Fail(error.GetType().Name + "_" + error.HResult.ToString("X8")); }
             };

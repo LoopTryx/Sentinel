@@ -4,7 +4,7 @@ import {lstat, open, opendir, realpath, writeFile} from 'node:fs/promises';
 import {basename, resolve, join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {generatePassword} from '../extension/src/password-generator.js';
-import {inspectWithDefender} from './defender.mjs';
+import {inspectWithClamAV} from './clamav.mjs';
 
 const MARKER='SENTINEL_SYNTHETIC_TEST_ONLY_V1';
 const LIMIT=8*1024*1024;
@@ -36,7 +36,7 @@ function keys(body,list){return body&&typeof body==='object'&&!Array.isArray(bod
 
 export async function startRuntime({port=0}={}) {
  const desktopToken=randomBytes(32).toString('hex');
- let browserToken='',extensionId='',unlocked=false,scan=null,closed=false,revision=0;
+ let browserToken='',extensionId='',unlocked=false,scan=null,closed=false,revision=0,activeScan=Promise.resolve();
  const events=[];
  const accounts=[
   {id:'mail',name:'Orbit Mail',user:'alex@example.test',host:'mail.example.test',password:'password123'},
@@ -77,11 +77,11 @@ export async function startRuntime({port=0}={}) {
      const name=basename(item.path).slice(0,80);
      current.files.push({name,sha256:digest,bytes:count});
      if(syntheticMatch(bytes))current.findings.push({name,kind:'synthetic_test',reason:'Harmless Sentinel test marker detected; this is not malware.',sha256:digest});
-     if(item.depth===0 && process.platform==='win32'){
-      current.engine='Microsoft Defender selected-file scan + bounded byte inspection';
-      const result=await inspectWithDefender(item.path,()=>current.cancel||closed);
+     {
+      current.engine='ClamAV 1.5.4 harmless-sample adapter + bounded byte inspection';
+      const result=await inspectWithClamAV(bytes,()=>current.cancel||closed);
       current.findings.push({name,kind:'provider_'+result.status,reason:result.reason,sha256:digest});
-      if(result.status!=='no_detection')current.errors++;
+      if(!['no_detection','synthetic_match'].includes(result.status))current.skipped++;
       const final=await handle.stat();
       if(final.size!==after.size||final.mtimeMs!==after.mtimeMs){current.errors++;}
      }
@@ -120,7 +120,12 @@ export async function startRuntime({port=0}={}) {
   if(['/rotate','/reveal'].includes(req.url)&&keys(body,['id'])){
    if(!unlocked)return respond(423,{error:'demo_locked'});
    const account=accounts.find(a=>a.id===body.id);if(!account)return respond(400,{error:'invalid_account'});
-   if(req.url==='/rotate'){account.password=generatePassword(24,webcrypto);revision++;event(desktop?'desktop':'browser','demo_password_rotated');return respond(200,{ok:true});}
+   if(req.url==='/rotate'){
+    let generated='';
+    for(let attempt=0;attempt<32;attempt++){const candidate=generatePassword(24,webcrypto);if(auditPassword(candidate).health==='Stronger'&&!accounts.some(a=>a.password===candidate)){generated=candidate;break;}}
+    if(!generated)return respond(503,{error:'generation_unavailable'});
+    account.password=generated;revision++;event(desktop?'desktop':'browser','demo_password_rotated');return respond(200,{ok:true});
+   }
    return respond(200,{password:account.password,mode:'synthetic_demo'});
   }
   if(req.url==='/cancel'&&desktop&&keys(body,[])){if(scan?.status==='running')scan.cancel=true;return respond(200,{ok:true});}
@@ -129,13 +134,13 @@ export async function startRuntime({port=0}={}) {
    const ordinaryPath=typeof body.path==='string'&&(process.platform==='win32'?/^[a-df-z]:[\\/]/i.test(body.path):/^\/(?!\/)/.test(body.path));
    if(!ordinaryPath||body.path.length>1024||/^E:/i.test(body.path)||body.path.includes('\0'))return respond(400,{error:'selection_unsupported'});
    scan={id:randomBytes(12).toString('hex'),status:'running',coverage:'partial',engine:'Bounded read-only SHA-256 and harmless synthetic signatures',visited:0,checked:0,skipped:0,errors:0,bytes:0,files:[],findings:[],cancel:false};
-   void runScan(resolve(body.path),scan);return respond(200,{id:scan.id});
+   activeScan=runScan(resolve(body.path),scan);return respond(200,{id:scan.id});
   }
   return respond(desktop?400:403,{error:desktop?'invalid_request':'forbidden'});
  });
  server.maxConnections=8;server.requestTimeout=5000;server.headersTimeout=5000;
  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});
- return {desktopToken,url:'http://127.0.0.1:'+server.address().port,port:server.address().port,close:async()=>{closed=true;if(scan)scan.cancel=true;server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}};
+ return {desktopToken,url:'http://127.0.0.1:'+server.address().port,port:server.address().port,close:async()=>{closed=true;if(scan)scan.cancel=true;server.closeAllConnections();await new Promise(resolve=>server.close(resolve));await activeScan;}};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
  const runtime=await startRuntime();

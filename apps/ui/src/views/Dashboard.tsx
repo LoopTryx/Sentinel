@@ -120,7 +120,7 @@ export default function Dashboard() {
               textShadow: "0 1px 8px rgba(10,14,31,0.8)",
             }}
           >
-            {demo?'Selected-file Defender inspection · shared dummy vault · paired browser events':'No live protection is installed — learning and presentation preview'}
+            {demo?'ClamAV harmless-sample inspection · shared dummy vault · paired browser events':'No live protection is installed — learning and presentation preview'}
           </div>
         </div>
       </section>
