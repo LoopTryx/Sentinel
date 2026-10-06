@@ -7,18 +7,9 @@
     "frontendDist": "../ui/dist"
   },
   "app": {
-    "windows": [
-      {
-        "title": "SENTINEL \u2014 Think. Protect. Defend.",
-        "width": 1360,
-        "height": 900,
-        "minWidth": 960,
-        "minHeight": 640,
-        "resizable": true
-      }
-    ],
+    "windows": [],
     "security": {
-      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:",
+      "csp": null,
       "capabilities": [
         "default"
       ]

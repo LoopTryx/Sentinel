@@ -8,7 +8,7 @@ mod commands;
 
 use sentinel_av::db;
 use std::sync::Mutex;
-use tauri::Manager;
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 fn main() {
     tauri::Builder::default()
@@ -25,6 +25,20 @@ fn main() {
                 vault,
                 app_data,
             });
+            // The window is built in code with an explicit WebviewUrl: the
+            // config-driven window in this shell stayed on about:blank (the
+            // URL was present in the baked context but never navigated).
+            // Creating it here navigates reliably on Windows/GNU builds.
+            let _window = WebviewWindowBuilder::new(
+                app,
+                "main",
+                WebviewUrl::App("index.html".into()),
+            )
+            .title("SENTINEL — Think. Protect. Defend.")
+            .inner_size(1360.0, 900.0)
+            .min_inner_size(960.0, 640.0)
+            .resizable(true)
+            .build()?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
