@@ -9,7 +9,7 @@
   "app": {
     "windows": [
       {
-        "title": "Sentinel — fixture preview",
+        "title": "SENTINEL \u2014 Think. Protect. Defend.",
         "width": 1360,
         "height": 900,
         "minWidth": 960,
@@ -18,7 +18,10 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:",
+      "capabilities": [
+        "default"
+      ]
     }
   },
   "bundle": {

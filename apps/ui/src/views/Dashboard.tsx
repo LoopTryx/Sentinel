@@ -1,12 +1,24 @@
+import { useEffect, useState } from "react";
+import { backendInvoke, hasBackend } from "../backend";
 import { useThreat } from "../state";
 import Grainient from "../components/ui/Grainient";
 import Icon from "../components/Icon";
 
+interface AppStatus {
+  threats_total: number;
+  quarantined_total: number;
+  signatures: number;
+  protection: string;
+}
+
 /**
  * Console dashboard — the owner's reference layout (hero flex, wide activity
- * card + right rail, section heads) carrying the integrated preview's honest
- * content: no agent connection, no live-protection claims, synthetic scenario
- * instead of real backend calls (there is no backend in this preview).
+ * card + right rail, section heads). Two honest modes, switched by a real
+ * backend probe:
+ * - LIVE (desktop shell answers `app_status`): the sentinel-av engine runs —
+ *   green "Live protection active" chip, real counters, real EICAR simulation.
+ * - PREVIEW (no backend): "Preview · no agent connection", em-dash tiles,
+ *   synthetic theme-only scenario. Nothing fakes success in either mode.
  */
 
 /** Shield modules — honest statuses: local lessons and unavailable/planned runtime capabilities. */
@@ -46,8 +58,40 @@ const statusLabel =
 
 export default function Dashboard({ onViewAll }: { onViewAll: () => void }) {
   const { level, feed, setLevel, push } = useThreat();
+  const [live, setLive] = useState(false);
+  const [status, setStatus] = useState<AppStatus | null>(null);
+  const [simulating, setSimulating] = useState(false);
+  const [simDone, setSimDone] = useState(false);
 
-  function simulateAttack() {
+  // Live probe: when the desktop shell answers, this console runs the real
+  // sentinel-av engine and says so; otherwise the honest preview stays.
+  useEffect(() => {
+    if (!hasBackend()) return;
+    const refresh = () =>
+      backendInvoke<AppStatus>("app_status")
+        .then((st) => {
+          setLive(true);
+          setStatus(st);
+        })
+        .catch(() => setLive(false));
+    refresh();
+    const t = setInterval(refresh, 4000);
+    return () => clearInterval(t);
+  }, []);
+
+  async function simulateAttack() {
+    if (live) {
+      setSimulating(true);
+      setSimDone(false);
+      try {
+        await backendInvoke("simulate_attack");
+        setSimDone(true);
+      } finally {
+        setSimulating(false);
+      }
+      return;
+    }
+    // Preview mode: theme-only illustration, clearly labeled.
     setLevel("danger");
     push({
       kind: "scenario",
@@ -57,7 +101,9 @@ export default function Dashboard({ onViewAll }: { onViewAll: () => void }) {
       ts: new Date().toLocaleTimeString(),
     });
   }
+
   function resetConsole() {
+    setSimDone(false);
     setLevel("preview");
   }
 
@@ -89,7 +135,9 @@ export default function Dashboard({ onViewAll }: { onViewAll: () => void }) {
                 padding: "7px 14px",
                 borderRadius: 8,
                 border: "2px solid rgba(155,120,255,0.75)",
-                background: "linear-gradient(180deg, #74b3f5, #2f89e3)",
+                background: live
+                  ? "linear-gradient(180deg, #7dffb2, #2fd67e)"
+                  : "linear-gradient(180deg, #74b3f5, #2f89e3)",
                 color: "#04220f",
                 fontFamily: "var(--font-mono)",
                 fontSize: 12.5,
@@ -107,7 +155,7 @@ export default function Dashboard({ onViewAll }: { onViewAll: () => void }) {
                   display: "inline-block",
                 }}
               />
-              Preview · no agent connection
+              {live ? "Live protection active" : "Preview · no agent connection"}
             </div>
             <h2
               style={{
@@ -131,27 +179,36 @@ export default function Dashboard({ onViewAll }: { onViewAll: () => void }) {
                 textShadow: "0 1px 8px rgba(10,14,31,0.8)",
               }}
             >
-              No live protection is installed — learning and presentation preview
+              {live
+                ? "Signature engine online · YARA rules loaded · vault encrypted"
+                : "No live protection is installed — learning and presentation preview"}
             </div>
           </div>
           <div className="protection-pill" style={{ flexShrink: 0, alignSelf: "flex-start" }}>
-            <span className="led" /> {statusLabel[level] ?? statusLabel.preview}
+            <span className="led" />
+            {live
+              ? level === "danger"
+                ? "Threat contained"
+                : level === "warn"
+                  ? "Needs attention"
+                  : "All systems secure"
+              : statusLabel[level] ?? statusLabel.preview}
           </div>
         </div>
       </section>
 
-      {/* ── STAT TILES — no backend in this preview, so honest em-dashes ── */}
+      {/* ── STAT TILES — real engine numbers in live mode, honest em-dashes in preview ── */}
       <div className="stat-grid">
         <div className="stat">
-          <div className="num">{"—"}</div>
+          <div className="num">{live && status ? status.signatures : "—"}</div>
           <div className="label">SIGNATURES LOADED</div>
         </div>
         <div className="stat">
-          <div className="num">{"—"}</div>
+          <div className="num">{live && status ? status.threats_total : "—"}</div>
           <div className="label">THREATS CAUGHT</div>
         </div>
         <div className="stat">
-          <div className="num">{"—"}</div>
+          <div className="num">{live && status ? status.quarantined_total : "—"}</div>
           <div className="label">IN VAULT</div>
         </div>
       </div>
@@ -161,7 +218,7 @@ export default function Dashboard({ onViewAll }: { onViewAll: () => void }) {
         <section className="panel" style={{ display: "flex", flexDirection: "column" }}>
           <div className="section-head">
             <h3 className="panel-title" style={{ margin: 0 }}>
-              SCENARIO ACTIVITY
+              {live ? "ACTIVITY" : "SCENARIO ACTIVITY"}
             </h3>
             <button className="section-link" onClick={onViewAll}>
               View all
@@ -179,7 +236,9 @@ export default function Dashboard({ onViewAll }: { onViewAll: () => void }) {
           >
             {feed.length === 0 && (
               <div style={{ color: "var(--text-faint)" }}>
-                {"// live telemetry unavailable — choose a labeled scenario"}
+                {live
+                  ? "// telemetry channel open — waiting for events..."
+                  : "// live telemetry unavailable — choose a labeled scenario"}
               </div>
             )}
             {feed.slice(0, 30).map((l) => (
@@ -215,36 +274,49 @@ export default function Dashboard({ onViewAll }: { onViewAll: () => void }) {
 
         <div className="side-rail">
           <section className="panel">
-            <h3 className="panel-title">SYNTHETIC SCENARIO</h3>
+            <h3 className="panel-title">{live ? "ATTACK SIMULATION — LIVE DEMO" : "SYNTHETIC SCENARIO"}</h3>
             <p style={{ color: "var(--text-dim)", fontSize: 13, lineHeight: 1.6, margin: "0 0 14px" }}>
-              Changes the console theme using invented evidence. No file, device
-              or system policy is touched.
+              {live
+                ? "Stages a safe EICAR test attack, then watch the shield detect, isolate and neutralize it in real time."
+                : "Changes the console theme using invented evidence. No file, device or system policy is touched."}
             </p>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button className="btn danger" onClick={simulateAttack}>
+              <button className="btn danger" onClick={simulateAttack} disabled={simulating}>
                 <Icon name="play" size={14} />
-                PREVIEW ALERT
+                {live ? (simulating ? "ENGAGED…" : "SIMULATE ATTACK") : "PREVIEW ALERT"}
               </button>
               <button className="btn ghost" onClick={resetConsole}>
                 RESET CONSOLE
               </button>
             </div>
+            {live && simDone && level === "danger" && (
+              <div
+                style={{
+                  marginTop: 14,
+                  color: "var(--danger)",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 12.5,
+                }}
+              >
+                Attack simulated → detected → neutralized. Check the Vault.
+              </div>
+            )}
           </section>
 
           <section className="panel">
             <h3 className="panel-title">CAPABILITY STATUS</h3>
             <div className="kv-row">
               <span className="kv-key">
-                Scan adapter <span className="status-dot" style={{ display: "inline-block" }} />
+                Antivirus engine <span className="status-dot" style={{ display: "inline-block" }} />
               </span>
-              <span className="kv-val" style={{ color: "var(--warn)" }}>
-                unavailable
+              <span className="kv-val" style={{ color: live ? "var(--state)" : "var(--warn)" }}>
+                {live ? "live" : "unavailable"}
               </span>
             </div>
             <div className="kv-row">
               <span className="kv-key">Vault backend</span>
-              <span className="kv-val" style={{ color: "var(--warn)" }}>
-                unavailable
+              <span className="kv-val" style={{ color: live ? "var(--state)" : "var(--warn)" }}>
+                {live ? "live" : "unavailable"}
               </span>
             </div>
             <div className="kv-row" style={{ borderBottom: "none" }}>

@@ -1,0 +1,11 @@
+Cyber Shield demo corpus — macro lure sample (inert text).
+
+Sub Document_Open()
+    Dim sh
+    Set sh = CreateObject("WScript.Shell")
+    sh.Run "notepad.exe"
+End Sub
+
+A real dropper hides this pattern inside a Word/Excel file: the moment
+the document opens, a macro hook chains into shell execution. SENTINEL
+flags the combination as suspicious via Fake_Document_Macro_Lure.

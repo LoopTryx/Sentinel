@@ -15,6 +15,7 @@
     "@hugeicons/core-free-icons": "^1.2.1",
     "@hugeicons/react": "^1.1.2",
     "@sentinel/contracts": "workspace:*",
+    "@tauri-apps/api": "^2.12.1",
     "gsap": "3.15.0",
     "motion": "^12.23.24",
     "ogl": "1.0.11",
