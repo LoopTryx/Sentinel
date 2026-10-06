@@ -1,27 +1,93 @@
-# Sentinel v3
+<div align="center">
 
-Local-first Windows security companion, following [the v3 master plan](docs/Sentinel-Master-Plan.md). Microsoft Defender remains enabled. This repository is at the R0 feasibility stage; it does not currently provide protection.
+# SENTINEL
 
-## Delivery order
+**A glass desktop console. A connected browser companion.**
 
-R0 establishes platform evidence, contracts, and recovery boundaries. R1 targets a protected personal alpha, including a verified USB storage and HID gate on a declared Windows 11 test configuration. R2 expands the vault, monitoring, message analysis, lessons, and signed updates. R3 completes presentation and localization.
+Explore file inspection, password health and suspicious-link warnings in one Windows school demo.
 
-See [STATUS.md](STATUS.md) for observed progress and remaining gates. Historical plans in `docs/` are references; the v3 master plan is authoritative.
+[**Download v1.0.0**](https://github.com/LoopTryx/Sentinel/releases/tag/v1.0.0) · [Demo guide](docs/today-demo.md) · [Report an issue](https://github.com/LoopTryx/Sentinel/issues)
 
-The owner's [Phase 1-70 / Phase 1-30 checkpoints](docs/phase-1-70-30.md) set a basic functional preview before the final protection and release gates. The [Chrome extension harness](apps/extension/README.md) currently blocks one synthetic fixture domain only; it is not a general Web Shield.
+**Windows · Chrome extension · Local processing · v1.0.0 school demo**
 
-## Available development commands
+</div>
 
-Run `./tools/verify.ps1` on Windows to check the Rust workspace, UI, and extension harness. The CLI supports a fixture status and an offline URL feed demo:
+---
+
+![Sentinel console design](docs/evidence/sentinel-ui-integration.png)
+
+*Earlier console preview showing the visual foundation. v1 adds the glass desktop window, shared dummy accounts and connected runtime; this image is not evidence of live protection.*
+
+## What you can try
+
+| Feature | In v1.0.0 |
+|---|---|
+| **Glass desktop** | Grouped navigation, custom window controls and an activity feed connected to local session events. |
+| **File inspection** | Selected file/folder reads, hashes, cancellation and partial/error results. ClamAV detects the included harmless test signatures. |
+| **Password workspace** | Four invented accounts, computed weakness/reuse checks, recommendations and a cryptographic generator. Paired clients share demo account edits. |
+| **URL warnings** | Opted-in navigation warnings based on local keyword rules and a sourced domain-list snapshot. Coverage is partial. |
+| **WhatsApp warnings** | Opted-in local wording checks and inline explanations for supported rendered WhatsApp Web messages. |
+
+**Scope:** this is a working school demo, not a finished antivirus or credential vault. ClamAV receives only verified harmless sample bytes; other selected files get bounded byte inspection. Demo passwords stay in memory and reset when the runtime stops. Microsoft Defender remains enabled.
+
+## Start the demo
+
+1. Download **Sentinel-v1.0.0-Windows-portable.zip** from the [release page](https://github.com/LoopTryx/Sentinel/releases/tag/v1.0.0) and extract it.
+2. On Windows, ensure **PowerShell 7**, **.NET Framework** and the **WebView2 runtime** are available.
+3. Open PowerShell 7 in the extracted folder and run:
+
+   ```powershell
+   ./Start-Sentinel-Demo.ps1
+   ```
+
+4. In Chrome, open `chrome://extensions`, enable Developer mode, choose **Load unpacked**, and select the extracted `apps/extension/dist` folder.
+5. Open the desktop **Threat Log** connection controls. Create pairing for the extension's exact ID, then enter the displayed port/key in the extension's connection controls.
+6. Enable URL or WhatsApp warnings through the extension controls and approve the relevant Chrome permissions yourself.
+
+The ZIP is portable; there is no installer. See the [five-minute walkthrough and pairing details](docs/today-demo.md) if you get stuck.
+
+### A quick route through Sentinel
+
+- **Passwords:** inspect Orbit Mail's weak password and the reused School Portal/Arcade passwords. Generate a demo replacement and observe the audit change in both paired clients.
+- **Scan & Detect:** select `apps/demo-runtime/samples/02-marker.txt`, then the samples folder. Inspect the actual findings, byte counts and hashes.
+- **Browser:** enable warnings and use the controlled examples in the demo guide. Review local explanations without submitting private messages or passwords.
+- **Threat Log:** inspect the session's recorded actions and reason codes.
+
+## Build from source
+
+Use the [v1.0.0 source archives](https://github.com/LoopTryx/Sentinel/releases/tag/v1.0.0) for the pinned release. `main` contains subsequent work.
+
+From the repository root, with Node.js and the repository's pnpm version available:
 
 ```powershell
-cargo run -p sentinel-cli -- status --fixture
-cargo run -p sentinel-cli -- intel import-local data/fixtures/feeds/urlhaus-sample.txt .local-intel-cache
-cargo run -p sentinel-cli -- intel lookup-offline .local-intel-cache https://malware.test/payload.exe
+pnpm install --frozen-lockfile
+pnpm --filter @sentinel/ui build
+node apps/extension/scripts/build.mjs
+./apps/desktop/build-console.ps1 -WebView2SdkPath "C:/path/to/Microsoft.Web.WebView2"
+pwsh -NoProfile -File ./tools/launch-demo.ps1
 ```
 
-The feed uses benign `.test` URLs. Lookup never visits the URL. A `not_listed` result means only that the URL is absent from the loaded feed; it is not a safety verdict. The cache directory is local demo data and should be removed when no longer needed.
+The native host needs the official WebView2 SDK. The prepared ClamAV executable, databases and certificate files are included in the portable release; they are not vendored into the source archive. Follow the [demo setup notes](docs/today-demo.md) when preparing a source build.
 
-## Recovered Y2K console
+To run the repository checks on a configured Windows development machine:
 
-GLM's recovered UI is integrated under apps/ui. Run pnpm install --frozen-lockfile, then pnpm --filter @sentinel/ui dev from repository root. See [console instructions](apps/ui/README.md) and [integration evidence](docs/evidence/sentinel-ui-integration.md). This frontend currently exposes local educational tools and labeled scenarios; native scan/quarantine/history adapters remain unavailable.
+```powershell
+./tools/verify.ps1
+```
+
+## Still being built
+
+Persistent encrypted credential storage, approved imports/autofill, download-to-desktop scanning, automatic desktop logging of navigation warnings, consented cloud explanations and full offline/rehearsal acceptance remain unfinished. Do not enter real credentials into the demo vault.
+
+## Project map
+
+| Location | Purpose |
+|---|---|
+| [`apps/ui`](apps/ui) | React console and password workspace |
+| [`apps/desktop`](apps/desktop) | Glass Windows host used by this demo |
+| [`apps/extension`](apps/extension) | Chrome companion and local warnings |
+| [`apps/demo-runtime`](apps/demo-runtime) | Shared demo state and bounded inspection |
+| [`packages/contracts`](packages/contracts) | Generated contracts between components |
+| [`crates`](crates) | Rust runtime and security foundations |
+
+[Release evidence](docs/v1.0.0-demo.md) · [Implementation status](STATUS.md) · [Master plan](docs/Sentinel-Master-Plan.md) · [Collaboration rules](docs/AI-COLLABORATION.md)
