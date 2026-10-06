@@ -39,7 +39,7 @@ try{
  });
  assert.equal(disabled.enabled,false);assert.equal(disabled.rules.length,0);
  // Synthetic DOM fixture: validates the observer and UI, not live WhatsApp coverage.
- await context.route('https://web.whatsapp.com/**',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html><body><div data-testid="msg-container"><span data-testid="tail-in"></span><div data-pre-plain-text="dummy"><span class="selectable-text">URGENT: send money to claim your prize</span></div></div><div data-testid="msg-container"><span data-testid="tail-out"></span><div data-pre-plain-text="dummy"><span class="selectable-text">URGENT: send money</span></div></div><div class="message-in"><div data-pre-plain-text="dummy"><span class="selectable-text">See you at school tomorrow</span></div></div></body></html>'}));
+ await context.route('https://web.whatsapp.com/**',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html><body><div data-testid="msg-container"><span data-testid="tail-in"></span><div data-pre-plain-text="dummy"><span class="selectable-text">Come claim your free price of 100$!!</span></div></div><div data-testid="msg-container"><span data-testid="tail-out"></span><div data-pre-plain-text="dummy"><span class="selectable-text">URGENT: send money</span></div></div><div class="message-in"><div data-pre-plain-text="dummy"><span class="selectable-text">See you at school tomorrow</span></div></div></body></html>'}));
  const whatsapp=await context.newPage();await whatsapp.goto('https://web.whatsapp.com/');
  const waState=await page.evaluate(()=>chrome.runtime.sendMessage({kind:'whatsapp_toggle',enabled:true}));
  assert.equal(waState.enabled,true);assert.equal(waState.unavailableTabs,0);
@@ -54,9 +54,18 @@ try{
  await whatsapp.waitForFunction(()=>document.querySelectorAll('[data-sentinel-scam]').length===0);
  await whatsapp.locator('[data-testid=msg-container] .selectable-text').first().evaluate(el=>{el.textContent='URGENT: send money';});
  await whatsapp.waitForFunction(()=>document.querySelectorAll('[data-sentinel-scam]').length===1);
+ // Tail-less consecutive bubbles have unknown direction: show wording, not an incoming verdict.
+ await whatsapp.evaluate(()=>{const node=document.createElement('div');node.dataset.testid='msg-container';node.innerHTML='<span data-icon="pending"></span><div data-pre-plain-text="dummy"><span class="selectable-text">Come claim your free price of 100$!!</span></div>';document.body.append(node);});
+ await whatsapp.waitForFunction(()=>document.querySelectorAll('[data-sentinel-scam]').length===2,{},{timeout:1000});
+ const ambiguous=whatsapp.locator('[data-sentinel-scam]').last();
+ assert.match(await ambiguous.locator('button').innerText(),/Suspicious wording/);
+ await ambiguous.locator('button').click();
+ assert.match(await ambiguous.locator('.detail').innerText(),/direction.*unavailable/i);
+ await whatsapp.locator('[data-icon=pending]').evaluate(el=>{el.dataset.icon='msg-check';});
+ await whatsapp.waitForFunction(()=>document.querySelectorAll('[data-sentinel-scam]').length===1,{},{timeout:1000});
  await page.evaluate(()=>chrome.runtime.sendMessage({kind:'whatsapp_toggle',enabled:false}));
  await whatsapp.waitForFunction(()=>document.querySelectorAll('[data-sentinel-scam]').length===0);
- console.log('PASS: synthetic WhatsApp DOM shows incoming-only badge/details, removes corrected warnings and cleans up on pause. Live WhatsApp remains a separate acceptance check.');
+ console.log('PASS: synthetic WhatsApp DOM shows incoming and explicit unknown-direction clues, excludes confirmed outgoing, removes corrected warnings and cleans up on pause. Live WhatsApp remains a separate acceptance check.');
  console.log('PASS: actual Chromium accepted rules, redirected both keyword orders and uppercase, and removed rules on pause.');
 }finally{
  await context?.close();
