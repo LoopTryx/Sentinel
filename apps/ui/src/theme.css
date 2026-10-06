@@ -40,8 +40,8 @@
   --text-faint: #4a587f;
 
   /* type */
-  --font-display: "Chakra Petch", "Segoe UI", sans-serif;
-  --font-body: "Space Grotesk", "Segoe UI", sans-serif;
+  --font-display: "Roboto", "Segoe UI", sans-serif;
+  --font-body: "Inter", "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", Consolas, monospace;
 
   --radius: 14px;
@@ -132,21 +132,99 @@ body::after {
   /* anchors the app-wide .dither-bg backdrop behind everything, sidebar included */
   position: relative;
   display: grid;
-  grid-template-columns: 218px 1fr;
+  grid-template-columns: 218px minmax(0, 1fr);
   height: 100%;
 }
 
 .sidebar {
   position: relative;
   z-index: 1;
-  border-right: 1px solid rgba(255, 255, 255, 0.25);
-  /* v0.2 console: solid deep-navy panel, no glass — the dither stays behind it */
-  background: linear-gradient(180deg, #182149 0%, #101736 55%, #0c1129 100%);
-  box-shadow: 8px 0 32px rgba(5, 8, 26, 0.45);
+  border-right: none;
+  /* Apple liquid glass: heavy frost + saturation lift + full rim light.
+     Neutral white optics only — the panel keeps taking its hue from the
+     dither flowing behind it. */
+  backdrop-filter: blur(30px) saturate(190%) brightness(1.08);
+  -webkit-backdrop-filter: blur(30px) saturate(190%) brightness(1.08);
+  background: linear-gradient(
+    165deg,
+    rgba(255, 255, 255, 0.13) 0%,
+    rgba(255, 255, 255, 0.055) 38%,
+    rgba(255, 255, 255, 0.04) 62%,
+    rgba(255, 255, 255, 0.09) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 1px 0 0 rgba(255, 255, 255, 0.16),
+    inset -1px 0 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 30px 44px -30px rgba(255, 255, 255, 0.3),
+    0 12px 44px rgba(5, 8, 26, 0.38);
   display: flex;
   flex-direction: column;
   padding: 18px 12px;
   gap: 4px;
+}
+
+/* liquid motion: a slow specular band drifting across the glass + fine grain,
+   so the panel reads as a material rather than a flat gradient. Static under
+   prefers-reduced-motion; layers sit under the nav content. */
+.sidebar {
+  overflow: hidden;
+}
+.sidebar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(
+      115deg,
+      transparent 32%,
+      rgba(255, 255, 255, 0.09) 44%,
+      rgba(168, 216, 255, 0.17) 50%,
+      rgba(255, 255, 255, 0.09) 56%,
+      transparent 68%
+    );
+  background-size: 300% 100%;
+  background-repeat: no-repeat;
+  mix-blend-mode: screen;
+  animation: liquid-sheen 11s ease-in-out infinite;
+}
+.sidebar > * {
+  position: relative;
+  z-index: 1;
+}
+@keyframes liquid-sheen {
+  0%, 100% { background-position: 115% 0; }
+  50% { background-position: -15% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar::before { animation: none; background-position: 50% 0; opacity: 0.5; }
+}
+@media (forced-colors: active) {
+  .sidebar::before { display: none; }
+}
+
+/* edge lens: thin light-wrap ring, brightest top-left, fading bottom-right */
+.sidebar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.6) 0%,
+    rgba(255, 255, 255, 0.12) 28%,
+    rgba(255, 255, 255, 0.03) 55%,
+    rgba(255, 255, 255, 0.18) 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
 }
 
 .brand {
@@ -280,7 +358,26 @@ body::after {
 }
 /* flex children must keep their natural height and scroll instead —
    shrinking silently clipped the bottom of the dashboard with no scrollbar */
-.content > * { flex-shrink: 0; }
+.content > * { flex-shrink: 0; min-width: 0; }
+
+/* ---- status badges: icon-free pills, color paired with text ---- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.badge.ok { color: var(--safe); border-color: rgba(62, 230, 160, 0.45); }
+.badge.warn { color: var(--warn); border-color: rgba(255, 196, 107, 0.45); }
+.badge.danger { color: var(--danger); border-color: rgba(255, 138, 122, 0.45); }
+.badge.unknown { color: var(--text-dim); border-style: dashed; }
 
 /* ---- status LED + protection pill ---- */
 .led {
@@ -356,10 +453,11 @@ body[data-threat="danger"] .led { animation-duration: 0.7s; }
   inset: 0;
   padding: 1.5px;
   background: radial-gradient(
-    280px circle at var(--glow-x, 50%) var(--glow-y, 50%),
-    rgba(var(--accent-rgb), calc(var(--glow-intensity, 0) * 0.9)) 0%,
-    rgba(var(--accent-rgb), calc(var(--glow-intensity, 0) * 0.4)) 35%,
-    transparent 65%
+    360px circle at var(--glow-x, 50%) var(--glow-y, 50%),
+    rgba(var(--accent-rgb), calc(var(--glow-intensity, 0) * 1)) 0%,
+    rgba(var(--accent-rgb), calc(var(--glow-intensity, 0) * 0.55)) 30%,
+    rgba(var(--accent-rgb), calc(var(--glow-intensity, 0) * 0.25)) 55%,
+    transparent 75%
   );
   border-radius: inherit;
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -433,7 +531,7 @@ body[data-threat="danger"] .led { animation-duration: 0.7s; }
 /* ---- stats ---- */
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 .stat .num {
@@ -499,7 +597,7 @@ body[data-threat="danger"] .led { animation-duration: 0.7s; }
 /* ---- password lab: live analysis instrument cards ---- */
 .pw-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 @media (max-width: 1180px) {
@@ -604,3 +702,63 @@ body[data-threat="danger"] .led { animation-duration: 0.7s; }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
 
+
+/* ---- console layout pattern: hero flex, wide feed + right rail ---- */
+.hero-flex {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+.console-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .console-grid { grid-template-columns: 1fr; }
+}
+.side-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.section-link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--blue-bright);
+}
+.section-link:hover { color: var(--text); }
+.kv-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--grid-line);
+}
+.kv-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--text-dim);
+}
+.kv-val {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text);
+}

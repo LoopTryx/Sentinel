@@ -1,17 +1,5 @@
-@font-face {
-  font-family: 'Chakra Petch';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url('./assets/fonts/ChakraPetch-600.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Chakra Petch';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('./assets/fonts/ChakraPetch-700.woff2') format('woff2');
-}
+/* JetBrains Mono only — display/body faces are Inter + Roboto via @fontsource (see main.tsx).
+   Space Grotesk / Chakra Petch woff2 files remain in assets/fonts for the brand posters. */
 @font-face {
   font-family: 'JetBrains Mono';
   font-style: normal;
@@ -19,38 +7,11 @@
   font-display: swap;
   src: url('./assets/fonts/JetBrainsMono-400.woff2') format('woff2');
 }
+
 @font-face {
   font-family: 'JetBrains Mono';
   font-style: normal;
   font-weight: 500;
   font-display: swap;
   src: url('./assets/fonts/JetBrainsMono-500.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Space Grotesk';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('./assets/fonts/SpaceGrotesk-400.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Space Grotesk';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url('./assets/fonts/SpaceGrotesk-500.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Space Grotesk';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url('./assets/fonts/SpaceGrotesk-600.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Space Grotesk';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('./assets/fonts/SpaceGrotesk-700.woff2') format('woff2');
 }

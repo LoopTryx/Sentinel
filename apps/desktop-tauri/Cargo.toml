@@ -1,0 +1,30 @@
+[package]
+name = "sentinel-console"
+version = "0.1.0"
+edition = "2021"
+description = "SENTINEL console shell — Tauri 2 command adapter over the sentinel-av engine and the apps/ui bundle"
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "2.7.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.12.0", features = [] }
+tauri-plugin-dialog = "2.8.0"
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4"] }
+sentinel-av = { path = "../../crates/sentinel-av" }
+
+# Note: kept as a standalone crate (own lockfile, detached from the root
+# workspace) so the Tauri/WebView2 dependency tree does not join CI's
+# `cargo test --workspace`. The space in the repo path breaks resource
+# embedding, so build with CARGO_TARGET_DIR outside the checkout.
+[workspace]
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+opt-level = 2

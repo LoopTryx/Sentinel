@@ -105,16 +105,15 @@ function useBoxGlow() {
 }
 
 function Shell() {
-  const [view, setView] = useState<ViewId>("dashboard");
+  // Deep-linkable views (e.g. ?view=scan) for reproducible screenshots and
+  // future adapter handoffs; guarded for non-DOM renders.
+  const [view, setView] = useState<ViewId>(() => {
+    if (typeof window === "undefined") return "dashboard";
+    const requested = new URLSearchParams(window.location.search).get("view");
+    return (VIEW_TITLES as Record<string, string>)[requested ?? ""] ? (requested as ViewId) : "dashboard";
+  });
   const { level } = useThreat();
   useBoxGlow();
-
-  const statusLabel =
-    level === "danger"
-      ? "Preview · scenario alert"
-      : level === "warn"
-        ? "Preview · scenario attention"
-        : "Preview · agent unavailable";
 
   const { wave, bg } = ditherColors(level);
 
@@ -191,15 +190,12 @@ function Shell() {
       <main className="main">
         <header className="topbar" style={{ position: "relative", zIndex: 2 }}>
           <h1>{VIEW_TITLES[view]}</h1>
-          <div className="protection-pill">
-            <span className="led" /> {statusLabel}
-          </div>
         </header>
         <div
           className="content"
           style={{ position: "relative", zIndex: 1, background: "transparent" }}
         >
-          {view === "dashboard" && <Dashboard />}
+          {view === "dashboard" && <Dashboard onViewAll={() => setView("log")} />}
           {view === "scan" && <ScanView />}
           {view === "watchtower" && <WatchtowerView />}
           {view === "password" && <PasswordView />}

@@ -1,0 +1,1 @@
+MALWARE-SIMULATION-PAYLOAD :: Trojan.TestDropper :: This file simulates a malware sample for the Cyber Shield demo corpus. Do NOT run outside the demo.

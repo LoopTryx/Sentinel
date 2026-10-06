@@ -1,0 +1,9 @@
+SIM-RANSOM-DEMO :: Cyber Shield ransomware demo sample :: inert text file, do NOT mistake it for real malware.
+
+All your documents have been encrypted with military grade AES.
+Send bitcoin to the address below to receive your recovery key.
+Your photos, videos and databases are safe until the timer expires.
+
+(This file is part of the Cyber Shield demo corpus. It is a plain text
+file with no executable capability whatsoever. SENTINEL flags it as
+malicious via the Sim_Ransomware_Demo YARA rule.)

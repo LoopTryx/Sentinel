@@ -17,7 +17,10 @@ describe('integrated console capability boundaries', () => {
   });
   it('does not offer scans through missing native commands', () => {
     const html = renderToStaticMarkup(<ScanView />);
-    expect(html).toContain('unavailable');
+    // The scan adapter is still absent: start is disabled and the page says so
+    // explicitly. Rehearsal mode replays recorded scans but cannot inspect this device.
+    expect(html).toContain('scan adapter');
+    expect(html).toContain('Real inspection stays disabled until the adapter is connected');
     expect(html).toContain('disabled');
     expect(html).not.toContain('neutralizes what it catches');
   });
