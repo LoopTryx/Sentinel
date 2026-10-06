@@ -1,11 +1,12 @@
 const $=id=>document.getElementById(id);
 const call=async(method,data={})=>{const r=await chrome.runtime.sendMessage({kind:'demo_call',method,data});if(r?.error)throw new Error(r.error);return r?.data;};
-let epoch=0,lastRevision=-1,lastUnlocked=false,busy=false,lastSignature='';
+let epoch=0,lastRevision=-1,lastUnlocked=false,busy=false,lastSignature='',connectionError=false;
 function clearSecrets(){epoch++;document.querySelectorAll('.demo-secret').forEach(e=>e.textContent='••••••••');}
 async function refresh(){
  if(busy)return;busy=true;
  try{
   const state=await call('state');if(state?.mode!=='synthetic_demo'||!Array.isArray(state.accounts)||state.accounts.length>128)throw new Error('Invalid demo state.');
+  if(connectionError){$('demo-feedback').textContent='';connectionError=false;}
   if(lastRevision!==state.revision||lastUnlocked!==state.unlocked)clearSecrets();lastRevision=state.revision;lastUnlocked=state.unlocked;
   $('desktop-status').textContent='Desktop demo connected';$('demo-lock').textContent=state.unlocked?'Lock demo vault':'Unlock demo vault';$('demo-lock').disabled=false;
   const signature=JSON.stringify([state.accounts,state.unlocked,state.revision]);
@@ -23,7 +24,7 @@ async function refresh(){
    rotate.onclick=async()=>{clearSecrets();try{await call('rotate',{id:account.id});$('demo-feedback').textContent='Demo replacement saved. Website accounts were not changed.';await refresh();}catch{$('demo-feedback').textContent='Replacement unavailable.';}};
    item.append(heading,identity,reasons,secret,reveal,rotate);list.append(item);
   }
- }catch(error){clearSecrets();lastUnlocked=false;lastSignature='';$('desktop-status').textContent='Desktop disconnected';$('demo-lock').disabled=true;$('demo-accounts').replaceChildren();$('demo-feedback').textContent=error.message;}
+ }catch(error){clearSecrets();lastUnlocked=false;lastSignature='';connectionError=true;$('desktop-status').textContent='Desktop disconnected';$('demo-lock').disabled=true;$('demo-accounts').replaceChildren();$('demo-feedback').textContent=error.message;}
  finally{busy=false;}
 }
 $('demo-extension-id').textContent=chrome.runtime.id;
