@@ -16,6 +16,8 @@ foreach($file in Get-ChildItem -LiteralPath (Join-Path $repo 'apps\desktop\conso
  if($file.Extension -in @('.exe','.dll')){Copy-DemoFile $file.FullName ('apps\desktop\console-build\'+$file.Name)}
 }
 $clam=Join-Path $repo '.local-handoff\clamav-1.5.4\portable\clamav-1.5.4.win.x64'
+New-Item -ItemType Directory -Path (Join-Path $stage '.local-handoff\clamav-1.5.4\portable\clamav-1.5.4.win.x64') -Force | Out-Null
+Copy-Item -LiteralPath (Join-Path $clam 'certs') -Destination (Join-Path $stage '.local-handoff\clamav-1.5.4\portable\clamav-1.5.4.win.x64\certs') -Recurse
 foreach($file in Get-ChildItem -LiteralPath $clam -File){
  if($file.Extension -eq '.dll' -or $file.Name -in @('clamscan.exe','COPYING')){Copy-DemoFile $file.FullName ('.local-handoff\clamav-1.5.4\portable\clamav-1.5.4.win.x64\'+$file.Name)}
 }
