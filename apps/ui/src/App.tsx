@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import {useDemoState} from './demo-bridge';
 import { ThreatProvider, useThreat } from "./state";
 import Dashboard from "./views/Dashboard";
@@ -152,6 +152,10 @@ function Shell() {
         </div>
 
         {NAV.map((n) => (
+          <Fragment key={n.id}>
+          {n.id === "dashboard" && <div className="nav-label">Protect</div>}
+          {n.id === "password" && <div className="nav-label">Tools</div>}
+          {n.id === "quarantine" && <div className="nav-label">System</div>}
           <button
             key={n.id}
             aria-current={view === n.id ? "page" : undefined} className={`nav-btn${view === n.id ? " active" : ""}`}
@@ -176,6 +180,7 @@ function Shell() {
               </span>
             )}
           </button>
+          </Fragment>
         ))}
 
         <div className="sidebar-footer">
@@ -201,7 +206,7 @@ function Shell() {
           className="content"
           style={{ position: "relative", zIndex: 1, background: "transparent" }}
         >
-          {view === "dashboard" && <Dashboard />}
+          {view === "dashboard" && <Dashboard onViewAll={() => setView("log")} />}
           {view === "scan" && <ScanView />}
           {view === "watchtower" && <WatchtowerView />}
           {view === "password" && <PasswordManagerView />}
@@ -220,3 +225,4 @@ export default function App() {
     </ThreatProvider>
   );
 }
+

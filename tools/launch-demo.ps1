@@ -12,7 +12,9 @@ if(-not $ownsInstance){$instanceMutex.Dispose();throw 'This Sentinel demo is alr
 $worker=$null
 try {
 if(Test-Path -LiteralPath $config){Remove-Item -LiteralPath $config}
-$worker=Start-Process -FilePath (Get-Command node.exe).Source -ArgumentList @(('"'+$runtime+'"')) -WorkingDirectory $repo -WindowStyle Hidden -PassThru
+$bundledNode=Join-Path $repo 'tools\runtime\node.exe'
+$nodeExecutable=if(Test-Path -LiteralPath $bundledNode){$bundledNode}else{(Get-Command node.exe).Source}
+$worker=Start-Process -FilePath $nodeExecutable -ArgumentList @(('"'+$runtime+'"')) -WorkingDirectory $repo -WindowStyle Hidden -PassThru
   for($attempt=0;$attempt -lt 100;$attempt++){
     if($worker.HasExited){throw 'Demo runtime exited before launch.'}
     if(Test-Path -LiteralPath $config){break}

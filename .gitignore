@@ -10,3 +10,6 @@ dist/
 /artifacts/
 /apps/desktop/console-build/
 /apps/desktop/Sentinel.Native.exe
+
+/.local-handoff/
+/.pnpm-store/
