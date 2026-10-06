@@ -5,6 +5,18 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {startRuntime} from './server.mjs';
 
+test('only desktop may shut down, response is delivered and close is repeatable',async()=>{
+ let finish;const stopped=new Promise(resolve=>{finish=resolve;});const r=await startRuntime({onShutdown:finish});
+ const call=(route,body={},token=r.desktopToken,extra={})=>fetch(r.url+route,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',...extra},body:JSON.stringify(body)});
+ try{
+  const id='c'.repeat(32);const pair=await(await call('/pair',{extensionId:id})).json();
+  assert.equal((await call('/shutdown',{},pair.token,{'X-Sentinel-Extension':id})).status,403);
+  assert.deepEqual(await(await call('/shutdown')).json(),{ok:true});
+  await stopped;await r.close();await r.close();
+  await assert.rejects(call('/state'));
+ }finally{await r.close();}
+});
+
 test('actual shared runtime: authentication, computed dummy audit, edits and redacted events', async () => {
  const r = await startRuntime();
  const call = (route, body={}, token=r.desktopToken, extra={}) => fetch(r.url+route,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',...extra},body:JSON.stringify(body)});

@@ -2,6 +2,8 @@
 
 Updated: 2026-10-01
 
+Owner deadline demo (6 October 2026): `codex/issue-9-today-demo` preserves the GLM glass desktop and adds a distinct invented-account runtime, computed weakness/reuse recommendations, cryptographic replacements, bounded read-only scan reports and paired extension events. Verified ClamAV 1.5.4 replaces the temporary Defender adapter; Defender remains enabled. Actual Chrome companion installation/pairing and URL X-Ray reason-code delivery to desktop were observed. Actual single-marker runtime scan completed with the ClamAV synthetic match. Initial three-file folder run exposed cold-start timeouts and stayed partial; the revised startup budget still needs its folder rerun. See [connected demo route and evidence](docs/today-demo.md). This candidate is pushed for review, not merged and not completion of the expanded S1 vault, navigation, download, WhatsApp/cloud or rehearsal gates.
+
 Owner translucency follow-up (5 October 2026): Codex PR #53 lowers only desktop glass surface tint while retaining the GLM layout, custom frame and solid reduced-transparency fallback. Full repository verifier, 10 UI tests and visible native glass smoke pass. This presentation adjustment does not add vault, antivirus or extension connectivity. Runtime progress remains on its separate review branches, including PR #19 terminal server channel disposal (31d31ea) and PR #52 bounded native lifecycle/origin checks (2008ec7).
 
 The product, source packages, UI, extension, and private GitHub repository are named **Sentinel** at the owner's request. The original pasted PRD remains a historical source under its original filename. The renamed preview runs locally, but this naming change does not upgrade any protection capability.

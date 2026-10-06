@@ -22,7 +22,7 @@ export async function inspectWithClamAV(bytes,cancelled=()=>false){
   const child=spawn(fileURLToPath(EXE),['--database='+DB,...(official?['--database='+officialDir+'/daily.cvd']:[]),'--no-summary','--max-filesize=8M','--max-scansize=8M','--max-recursion=1',...disabled.map(flag=>'--'+flag+'=no'),'-'],{windowsHide:true,stdio:['pipe','pipe','pipe'],shell:false});
   let finished=false,stopped=false,count=0,output='';const start=Date.now();
   const stop=()=>{stopped=true;child.kill();};
-  const timer=setInterval(()=>{if(cancelled()||Date.now()-start>15000)stop();},50);
+  const timer=setInterval(()=>{if(cancelled()||Date.now()-start>30000)stop();},50);
   const finish=result=>{if(finished)return;finished=true;clearInterval(timer);resolve(result);};
   const consume=chunk=>{count+=chunk.length;if(count>32768)stop();else output+=chunk.toString('utf8');};child.stdout.on('data',consume);child.stderr.on('data',consume);
   child.stdin.on('error',()=>{});child.stdin.end(bytes);

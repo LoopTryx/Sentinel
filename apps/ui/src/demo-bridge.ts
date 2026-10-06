@@ -1,5 +1,6 @@
 import {useEffect, useState} from 'react';
 import type {DemoState} from '@sentinel/contracts/generated/DemoState';
+import {isDemoState} from './demo-state';
 type NativePort={postMessage:(message:string)=>void;addEventListener:(kind:string,handler:(e:{data:unknown})=>void)=>void};
 const port=()=> (window as unknown as {chrome?:{webview?:NativePort}}).chrome?.webview;
 let serial=0, listening=false;
@@ -15,6 +16,6 @@ export function demoCall(method:string,data:Record<string,unknown>={}):Promise<a
 export function useDemoState(){
  const [state,setState]=useState<DemoState|null>(null);
  const [error,setError]=useState('');
- useEffect(()=>{if(!port())return;let live=true,busy=false;async function poll(){if(busy)return;busy=true;try{const data=await demoCall('state');if(data.mode!=='synthetic_demo'||data.connected!==true||!Array.isArray(data.accounts)||data.accounts.length>128||!Array.isArray(data.events)||data.events.length>64)throw new Error('Invalid demo state.');if(live){setState(data);setError('');}}catch(e){if(live){setState(null);setError(e instanceof Error?e.message:'Disconnected');}}finally{busy=false;}}void poll();const timer=setInterval(poll,900);return()=>{live=false;clearInterval(timer);};},[]);
+ useEffect(()=>{if(!port())return;let live=true,busy=false;async function poll(){if(busy)return;busy=true;try{const data=await demoCall('state');if(!isDemoState(data))throw new Error('Invalid demo state.');if(live){setState(data);setError('');}}catch(e){if(live){setState(null);setError(e instanceof Error?e.message:'Disconnected');}}finally{busy=false;}}void poll();const timer=setInterval(poll,900);return()=>{live=false;clearInterval(timer);};},[]);
  return {state,error};
 }
