@@ -35,6 +35,7 @@ const SHIELD_MODULES: {
 
 export default function Dashboard() {
   const {state:demo}=useDemoState();
+  const modules=SHIELD_MODULES.map(group=>({...group,modules:group.modules.map(module=>demo&&module.name==='Antivirus Engine'?{...module,status:'BOUNDED DEMO',desc:'ClamAV harmless-sample scans · real reports · partial coverage'}:demo&&module.name==='Passwords'?{...module,status:'SHARED DEMO',desc:'Invented shared accounts · weakness/reuse audit · generated replacements'}:module)}));
   const { level, feed, setLevel, push } = useThreat();
   const [simulating, setSimulating] = useState(false);
   const [simDone, setSimDone] = useState(false);
@@ -128,16 +129,16 @@ export default function Dashboard() {
       {/* ── STAT TILES ── */}
       <div className="stat-grid">
         <div className="stat">
-          <div className="num">{"—"}</div>
-          <div className="label">SIGNATURES LOADED</div>
+          <div className="num">{demo?.scan?.checked??'—'}</div>
+          <div className="label">{demo?'FILES INSPECTED':'SIGNATURES LOADED'}</div>
         </div>
         <div className="stat">
-          <div className="num">{"—"}</div>
-          <div className="label">THREATS CAUGHT</div>
+          <div className="num">{demo?.scan?.findings.filter(f=>f.kind==='provider_synthetic_match').length??'—'}</div>
+          <div className="label">{demo?'CLAMAV TEST MATCHES':'THREATS CAUGHT'}</div>
         </div>
         <div className="stat">
-          <div className="num">{"—"}</div>
-            <div className="label">IN QUARANTINE</div>
+          <div className="num">{demo?.events.filter(e=>e.source==='browser').length??'—'}</div>
+            <div className="label">{demo?'BROWSER EVENTS':'IN QUARANTINE'}</div>
         </div>
       </div>
 
@@ -221,7 +222,7 @@ export default function Dashboard() {
       <section className="panel">
         <h3 className="panel-title">SHIELD MODULES</h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginTop: 14 }}>
-          {SHIELD_MODULES.map((g) => (
+          {modules.map((g) => (
             <div
               key={g.group}
               style={{
