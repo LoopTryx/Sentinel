@@ -74,6 +74,7 @@ import { explainUrl, explainMessage } from './local-checks.js';
 const urlInput=document.getElementById('url-input');
 const messageInput=document.getElementById('message-input');
 function showResult(id, result) {
+ window.dispatchEvent(new CustomEvent('sentinel-local-assessment',{detail:result}));
  const target=document.getElementById(id); target.replaceChildren();
  const heading=document.createElement('strong');
  heading.textContent=result.host ? `Destination: ${result.host} (${result.scheme}, port ${result.port})` : 'Local message clues';

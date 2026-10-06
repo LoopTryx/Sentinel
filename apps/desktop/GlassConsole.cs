@@ -11,6 +11,9 @@ using System.Windows.Shell;
 using System.Windows.Threading;
 using System.Windows.Markup;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Web.Script.Serialization;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
 
@@ -29,6 +32,11 @@ public sealed class SentinelGlassConsole : Window
     readonly DispatcherTimer deadline = new DispatcherTimer();
     bool backdrop;
     bool closing;
+    readonly bool demo;
+    readonly JavaScriptSerializer json = new JavaScriptSerializer { MaxJsonLength = 131072 };
+    readonly HttpClient runtimeClient = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+    string runtimeUrl, runtimeToken;
+    int requests;
 
     [STAThread]
     public static void Main(string[] args)
@@ -37,11 +45,12 @@ public sealed class SentinelGlassConsole : Window
         string root = Path.GetFullPath(Path.Combine(here, "../../.."));
         RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
         var app = new Application();
-        app.Run(new SentinelGlassConsole(Path.Combine(root, "apps/ui/dist"), Path.Combine(here, "glass-smoke.txt"), args.Length == 1 && args[0] == "--smoke"));
+        app.Run(new SentinelGlassConsole(Path.Combine(root, "apps/ui/dist"), Path.Combine(here, "glass-smoke.txt"), Array.IndexOf(args, "--smoke") >= 0, Array.IndexOf(args, "--demo") >= 0));
     }
 
-    public SentinelGlassConsole(string assets, string evidence, bool smoke)
+    public SentinelGlassConsole(string assets, string evidence, bool smoke, bool demo)
     {
+        this.demo = demo;
         this.assets = assets; this.evidence = evidence; this.smoke = smoke;
         Title = "Sentinel — GLM Glass Console";
         Width = 1280; Height = 850; MinWidth = 850; MinHeight = 600;
@@ -81,7 +90,7 @@ public sealed class SentinelGlassConsole : Window
         Loaded += Initialize;
         deadline.Interval = TimeSpan.FromSeconds(30);
         deadline.Tick += delegate { Fail("initialization_timeout"); };
-        Closed += delegate { closing = true; deadline.Stop(); view.Dispose(); };
+        Closed += delegate { closing = true; deadline.Stop(); runtimeClient.Dispose(); view.Dispose(); };
     }
 
     Button WindowButton(string glyph, string name, Action action)
@@ -125,6 +134,63 @@ public sealed class SentinelGlassConsole : Window
         return Uri.TryCreate(value, UriKind.Absolute, out uri) && uri.Scheme == "https" && uri.Host == "sentinel.example" && uri.Port == 443 && uri.UserInfo.Length == 0;
     }
 
+    async void RuntimeMessage(object sender, CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        if (closing || !demo || e.Source != "https://sentinel.example/index.html?desktop=glass") return;
+        string id = null;
+        try {
+            string raw = e.TryGetWebMessageAsString();
+            if (raw.Length > 4096 || requests >= 4) return;
+            var request = json.Deserialize<Dictionary<string, object>>(raw);
+            if (request.Count != 3 || !request.ContainsKey("id") || !request.ContainsKey("method") || !request.ContainsKey("data")) return;
+            id = request["id"] as string;
+            string method = request["method"] as string;
+            if (id == null || !System.Text.RegularExpressions.Regex.IsMatch(id, "^[a-zA-Z0-9_-]{1,64}$")) return;
+            string route = null;
+            object data = request["data"];
+            if (method == "scan.select") {
+                var selection = data as Dictionary<string, object>;
+                if (selection == null || selection.Count != 1 || !selection.ContainsKey("kind")) throw new InvalidOperationException();
+                string path = null;
+                if ((selection["kind"] as string) == "file") {
+                    var picker = new Microsoft.Win32.OpenFileDialog { Title = "Select a file for bounded read-only inspection" };
+                    if (picker.ShowDialog(this) == true) path = picker.FileName;
+                } else if ((selection["kind"] as string) == "folder") {
+                    using (var picker = new System.Windows.Forms.FolderBrowserDialog { Description = "Select a small benign folder (64 files maximum)" }) {
+                        if (picker.ShowDialog() == System.Windows.Forms.DialogResult.OK) path = picker.SelectedPath;
+                    }
+                } else throw new InvalidOperationException();
+                if (path == null) { Reply(id, new { cancelled = true }); return; }
+                route = "scan"; data = new { path = path };
+            } else if (method == "state" || method == "lock" || method == "unlock" || method == "rotate" || method == "reveal" || method == "cancel" || method == "pair") route = method;
+            else throw new InvalidOperationException();
+            requests++;
+            try {
+                var message = new HttpRequestMessage(HttpMethod.Post, runtimeUrl + "/" + route);
+                message.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", runtimeToken);
+                message.Content = new StringContent(json.Serialize(data), Encoding.UTF8, "application/json");
+                using (message) using (var response = await runtimeClient.SendAsync(message, HttpCompletionOption.ResponseHeadersRead)) {
+                    if (response.Content.Headers.ContentLength > 131072) throw new InvalidOperationException();
+                    string text;
+                    using (var cancel = new System.Threading.CancellationTokenSource(8000)) using (var stream = await response.Content.ReadAsStreamAsync()) using (var bytes = new MemoryStream()) {
+                        var chunk = new byte[8192]; int count;
+                        while ((count = await stream.ReadAsync(chunk, 0, chunk.Length, cancel.Token)) != 0) {
+                            if (bytes.Length + count > 131072) throw new InvalidOperationException();
+                            bytes.Write(chunk, 0, count);
+                        }
+                        text = Encoding.UTF8.GetString(bytes.ToArray());
+                    }
+                    Reply(id, json.DeserializeObject(text));
+                }
+            } finally { requests--; }
+        } catch { if (id != null) Reply(id, new { error = "runtime_unavailable" }); }
+    }
+
+    void Reply(string id, object data)
+    {
+        if (!closing) view.CoreWebView2.PostWebMessageAsJson(json.Serialize(new { id = id, data = data }));
+    }
+
     void Fail(string reason)
     {
         if (closing) return;
@@ -150,7 +216,14 @@ public sealed class SentinelGlassConsole : Window
             if (closing) return;
             var core = view.CoreWebView2;
             core.Settings.AreHostObjectsAllowed = false;
-            core.Settings.IsWebMessageEnabled = false;
+            core.Settings.IsWebMessageEnabled = demo;
+            if (demo) {
+                var config = json.Deserialize<Dictionary<string, string>>(File.ReadAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "demo-runtime.json")));
+                Uri target;
+                if (!Uri.TryCreate(config["url"], UriKind.Absolute, out target) || target.Scheme != "http" || target.Host != "127.0.0.1" || target.Port < 1024 || target.AbsolutePath != "/" || target.Query.Length != 0 || target.UserInfo.Length != 0 || !System.Text.RegularExpressions.Regex.IsMatch(config["token"], "^[a-f0-9]{64}$")) throw new InvalidOperationException();
+                runtimeUrl = config["url"]; runtimeToken = config["token"];
+                core.WebMessageReceived += RuntimeMessage;
+            }
             core.Settings.AreDevToolsEnabled = false;
             core.Settings.AreDefaultScriptDialogsEnabled = false;
             core.PermissionRequested += delegate(object s, CoreWebView2PermissionRequestedEventArgs e) { e.State = CoreWebView2PermissionState.Deny; e.Handled = true; };

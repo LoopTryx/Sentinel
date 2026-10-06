@@ -2,6 +2,7 @@
   "manifest_version": 3,
   "name": "Sentinel Browser Companion",
   "version": "0.2.0",
+  "optional_host_permissions": ["http://127.0.0.1/*"],
   "description": "Local on-demand URL and message clues, with transparent coverage and no uploads.",
   "permissions": [
     "declarativeNetRequest",

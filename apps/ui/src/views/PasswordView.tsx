@@ -104,9 +104,14 @@ function generatePassword(len: number, upper: boolean, digits: boolean, symbols:
   if (upper) chars += "ABCDEFGHJKLMNPQRSTUVWXYZ";
   if (digits) chars += "23456789";
   if (symbols) chars += "!@#$%^&*-_=+?";
-  const buf = new Uint32Array(len);
-  crypto.getRandomValues(buf);
-  return Array.from(buf, (n) => chars[n % chars.length]).join("");
+  const limit = Math.floor(256 / chars.length) * chars.length;
+  let output = '';
+  for (let rounds = 0; rounds < 128 && output.length < len; rounds++) {
+    const bytes = crypto.getRandomValues(new Uint8Array(64));
+    for (const n of bytes) if (n < limit && output.length < len) output += chars[n % chars.length];
+  }
+  if (output.length !== len) throw new Error('Random generation unavailable');
+  return output;
 }
 
 /* --------------------------------- view ---------------------------------- */

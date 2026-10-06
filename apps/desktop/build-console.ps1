@@ -12,6 +12,7 @@ foreach ($file in @($core, $wpf, $loader)) {
 New-Item -ItemType Directory -Path $output -Force | Out-Null
 $references = @($core, $wpf, (Join-Path $framework 'WPF\PresentationFramework.dll'), (Join-Path $framework 'WPF\PresentationCore.dll'), (Join-Path $framework 'WPF\WindowsBase.dll'), (Join-Path $framework 'System.Xaml.dll'), (Join-Path $framework 'System.Drawing.dll'))
 $arguments = @('/nologo', '/target:winexe', '/platform:x64', ('/out:' + (Join-Path $output 'Sentinel.Glass.exe')))
+$references += @((Join-Path $framework 'System.Net.Http.dll'), (Join-Path $framework 'System.Web.Extensions.dll'), (Join-Path $framework 'System.Windows.Forms.dll'))
 $arguments += $references | ForEach-Object { "/reference:$_" }
 $arguments += Join-Path $PSScriptRoot 'GlassConsole.cs'
 & (Join-Path $framework 'csc.exe') $arguments

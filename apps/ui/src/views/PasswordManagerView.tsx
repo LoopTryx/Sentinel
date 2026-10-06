@@ -1,6 +1,8 @@
 import { useState } from "react";
 import PasswordView from "./PasswordView";
 import "./password-manager.css";
+import {useDemoState} from '../demo-bridge';
+import ConnectedVault from './ConnectedVault';
 
 // Invented metadata only. This view never accepts, stores or unlocks credentials.
 const ACCOUNTS = [
@@ -11,6 +13,7 @@ const ACCOUNTS = [
 ] as const;
 
 export default function PasswordManagerView() {
+  const {state} = useDemoState();
   const [mode, setMode] = useState<"accounts" | "health" | "tools">("accounts");
   const [sample, setSample] = useState(false);
   const [query, setQuery] = useState("");
@@ -18,6 +21,7 @@ export default function PasswordManagerView() {
   const accounts = ACCOUNTS.filter(a => `${a.name} ${a.user} ${a.host}`.toLowerCase().includes(query.toLowerCase()) && (mode !== "health" || a.health !== "Unique"));
   const active = accounts.find(a => a.id === selected);
   function closeSample() { setSample(false); setQuery(""); setSelected(null); }
+  if (state) return <ConnectedVault state={state}/>;
   return <div className="password-manager">
     <section className="pm-heading">
       <div><span className="pm-eyebrow">SENTINEL / PASSWORDS</span><h2>Your accounts. One place.</h2><p>Find a login, review its health, or generate a stronger password.</p></div>

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useThreat } from "../state";
 import Grainient from "../components/ui/Grainient";
 import Icon from "../components/Icon";
+import {useDemoState} from '../demo-bridge';
 
 /** Shield modules — honest statuses: local lessons and unavailable/planned runtime capabilities. */
 const SHIELD_MODULES: {
@@ -33,6 +34,7 @@ const SHIELD_MODULES: {
 ];
 
 export default function Dashboard() {
+  const {state:demo}=useDemoState();
   const { level, feed, setLevel, push } = useThreat();
   const [simulating, setSimulating] = useState(false);
   const [simDone, setSimDone] = useState(false);
@@ -94,7 +96,7 @@ export default function Dashboard() {
                 display: "inline-block",
               }}
             />
-            PREVIEW · NO AGENT CONNECTION
+            {demo?'LOCAL DEMO RUNTIME CONNECTED':'PREVIEW · NO AGENT CONNECTION'}
           </div>
           <h2
             style={{
@@ -118,7 +120,7 @@ export default function Dashboard() {
               textShadow: "0 1px 8px rgba(10,14,31,0.8)",
             }}
           >
-            No live protection is installed — learning and presentation preview
+            {demo?'Selected-file Defender inspection · shared dummy vault · paired browser events':'No live protection is installed — learning and presentation preview'}
           </div>
         </div>
       </section>

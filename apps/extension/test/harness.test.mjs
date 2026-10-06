@@ -12,6 +12,7 @@ test('manifest requests only fixture-blocking capability', async () => {
   assert.equal(manifest.name, 'Sentinel Browser Companion');
   assert.deepEqual(manifest.permissions, ['declarativeNetRequest', 'storage', 'activeTab']);
   assert.equal(manifest.host_permissions, undefined);
+  assert.deepEqual(manifest.optional_host_permissions,['http://127.0.0.1/*']);
   assert.equal(manifest.background.service_worker, 'src/service-worker.js');
   assert.equal(manifest.background.type, 'module');
   assert.equal(manifest.action.default_popup, 'popup.html');
@@ -49,8 +50,8 @@ test('popup renders truthful states and a fixture-only toggle', async () => {
   assert.match(html, /id="harness-status"/);
   assert.match(html, /id="fixture-toggle"/);
   assert.match(html, /blocked\.sentinel\.invalid/);
-  assert.match(html, /Not connected to the Sentinel agent/);
-  assert.match(html, /does not classify websites, scan downloads, or collect browsing history/);
+  assert.match(html, /In-memory storage resets/);
+  assert.match(html, /No download monitoring, real vault, automatic site classification or WhatsApp monitoring yet/);
 
   const script = await read('src/popup.js');
   assert.match(script, /statusLines/);

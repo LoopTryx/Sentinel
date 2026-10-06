@@ -19,6 +19,8 @@ const requiredFiles = [
   'src/local-checks.js',
   'src/popup.css',
   'src/password-generator.js',
+  'src/demo-transport.js',
+  'src/demo-popup.js',
 ];
 
 // Every dist file is a copy of a source file, including the runtime scripts:
@@ -34,6 +36,8 @@ const mirroredFromSource = [
   'src/local-checks.js',
   'src/popup.css',
   'src/password-generator.js',
+  'src/demo-transport.js',
+  'src/demo-popup.js',
 ];
 
 function fail(message) {

@@ -1,4 +1,5 @@
 import { FIXTURE_RULESET_ID, computeStatus } from './status.js';
+import {demoRequest} from './demo-transport.js';
 
 const STATUS_KEY = 'harnessStatus';
 
@@ -86,6 +87,10 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) {
     return false;
+  }
+  if(message?.kind==='demo_call'){
+    demoRequest(message,sender).then(data=>sendResponse({data})).catch(()=>sendResponse({error:'Desktop unavailable or request refused.'}));
+    return true;
   }
   if (message?.kind === 'harness_status') {
     respondWithStatus(currentStatus(), sendResponse);

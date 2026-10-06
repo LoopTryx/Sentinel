@@ -1,0 +1,2 @@
+Harmless educational detection fixture. Not malware or EICAR.
+SENTINEL_SYNTHETIC_TEST_ONLY_V1
