@@ -25,7 +25,7 @@ Invoke-Check 'TypeScript typecheck' { & $pnpm -r typecheck }
 Invoke-Check 'TypeScript tests' { & $pnpm -r test }
 Invoke-Check 'UI build' { & $pnpm -r build }
 Invoke-Check 'Extension syntax' { & node --check apps/extension/src/service-worker.js; if ($LASTEXITCODE -eq 0) { & node --check apps/extension/src/popup.js }; if ($LASTEXITCODE -eq 0) { & node --check apps/extension/src/status.js } }
-Invoke-Check 'Extension harness tests' { & node --test apps/extension/test/harness.test.mjs apps/extension/test/status.test.mjs apps/extension/test/worker.test.mjs apps/extension/test/parity.test.mjs apps/extension/test/local-checks.test.mjs apps/extension/test/password-generator.test.mjs }
+Invoke-Check 'Extension harness tests' { & node --test apps/extension/test/harness.test.mjs apps/extension/test/status.test.mjs apps/extension/test/worker.test.mjs apps/extension/test/parity.test.mjs apps/extension/test/local-checks.test.mjs apps/extension/test/password-generator.test.mjs apps/extension/test/omnibox.test.mjs apps/extension/test/navigation-policy.test.mjs apps/extension/test/whatsapp.test.mjs apps/extension/test/whatsapp-bootstrap.test.mjs }
 Invoke-Check 'Connected demo runtime, ClamAV and transport tests' { & node --test apps/demo-runtime/runtime.test.mjs apps/demo-runtime/clamav.test.mjs apps/extension/test/demo-transport.test.mjs }
 Invoke-Check 'Extension harness build' { & node apps/extension/scripts/build.mjs }
 Invoke-Check 'Extension harness smoke' { & node apps/extension/scripts/smoke.mjs }

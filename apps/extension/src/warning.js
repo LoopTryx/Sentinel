@@ -1,0 +1,6 @@
+import snapshot from '../data/badware-snapshot.js';import {listState} from './navigation-policy.js';
+const listed=location.hash==='#listed';document.body.dataset.risk=listed?'listed':'keywords';
+document.getElementById('classification').textContent=listed?'REPORTED BADWARE RISK':'SUSPICIOUS URL WORDING';
+document.getElementById('summary').textContent=listed?'A domain-list navigation rule raises this warning for sites reported as badware risks.':'A keyword rule raises this warning when the address combines reward bait with a payment request.';
+const li=document.createElement('li');li.textContent=listed?'The rule uses a limited, offline subset of uBlock Origin’s maintained Badware risks list. Listings can be stale or mistaken; this is not a fresh malware verdict.':'Unexpected prizes that require payment are a common scam pattern. Wording alone does not prove fraud. Verify the offer through an independently obtained official address.';document.getElementById('reasons').append(li);
+document.getElementById('list-status').textContent=snapshot.hosts.length+' supported domains · '+listState(snapshot)+' snapshot · '+snapshot.capturedAt.slice(0,10)+' · GPL-3.0 data attribution in the bundled third-party folder.';

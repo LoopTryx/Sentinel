@@ -30,7 +30,7 @@ function syntheticMatch(bytes) {
  }catch{}
  return false;
 }
-const allowedCodes=new Set(['http','credentials','ip','internationalized','port','shortened','reward_payment','pressure','payment','reward','link']);
+const allowedCodes=new Set(['http','credentials','ip','internationalized','port','shortened','reward_payment','risk_list','pressure','payment','reward','link']);
 function equal(a,b){return typeof a==='string'&&/^[a-f0-9]{64}$/.test(a)&&a.length===b.length&&timingSafeEqual(Buffer.from(a),Buffer.from(b));}
 function keys(body,list){return body&&typeof body==='object'&&!Array.isArray(body)&&Object.keys(body).every(k=>list.includes(k));}
 

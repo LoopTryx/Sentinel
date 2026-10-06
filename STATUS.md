@@ -74,3 +74,16 @@ The installable extension now has local bounded URL explanations and invented-me
 ### Local URL scam clues — 4 October 2026
 
 Actual installed Chrome manual-input flow showed the owner's HTTP warning plus three structural reasons; invented scam text showed existing clues. Added exact shortener-host and combined reward/payment path clues, with two failing-first tests then passing and full verifier (38 extension tests). These are partial heuristics, no reputation or automatic protection. Installed generated module was updated for testing, but owner interrupted reload; updated browser behavior remains unverified. Review/integration and GLM responsive layout remain pending. See docs/evidence/extension-url-clues.md.
+
+## 7 October 2026 — local extension candidate, not reviewed integration
+
+- Automatic navigation activation fixed: the original keyword regex exceeded Chromium's compiled 2 KB limit. Split non-capturing keyword rules passed actual Chromium registration, both word orders, uppercase and pause removal. Owner's installed Chrome was observed with automatic URL warnings enabled (500 sourced risk-listed domains).
+- WhatsApp local inline warning candidate implemented with explicit optional scripting/site opt-in, incoming-only supported DOM, bounded rendered-bubble/text coverage, red badge and reason panel. Pause/revocation and pending-bootstrap races addressed. No message/contact uploads or desktop raw-message logs.
+- 57 extension tests passed; controlled Chromium synthetic WhatsApp DOM passed badge/details, edited-message cleanup and pause. This is not live WhatsApp verification. Installed reload/live DOM acceptance and peer re-review remain pending. Code is still local on the owned issue branch; no whole issue closed.
+- Next: reload installed extension; owner-authorized WhatsApp opt-in; harmless URL Enter acceptance; verify live WhatsApp supported bubble structure without exposing private chats. Preserve other unpublished work and finish reviewed publication separately.
+
+### Installed Chrome follow-up — 7 October 2026
+
+Both navigation and WhatsApp opt-ins were observed enabled in the installed companion. Ordinary Enter on `https://harmless.test/prize-payment` redirected to `warning.html#keywords` before destination load. Extension suite 60/60 and real disposable Chromium navigation/synthetic WhatsApp checks passed. Independent review cleared the reported bootstrap/permission lifecycle findings (focused regressions 7/7). Live incoming WhatsApp badge remains pending owner-selected harmless incoming test; no chat was selected and outgoing self-chat is intentionally excluded. Desktop was disconnected. This is candidate evidence, not reviewed integration or whole S1 completion.
+
+Live WhatsApp follow-up: reproduced the missing badge against the current `msg-container`/`tail-in` layout. Failing-first Chromium fixture then passed after selector support; outgoing `tail-out` remains excluded. After installed extension/page reload, observed the red Potential scam badge and local reward-bait explanation on the owner's incoming invented test message. Other/tail-less layouts remain partial; whole issue/reviewed integration remains pending.

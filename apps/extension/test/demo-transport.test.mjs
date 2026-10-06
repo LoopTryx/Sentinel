@@ -13,6 +13,9 @@ test('actual extension transport shares edits and events, refuses content script
   let state=await demoRequest({method:'state'},sender);assert.equal(state.accounts[0].health,'Very weak');
   await demoRequest({method:'unlock'},sender);await demoRequest({method:'rotate',data:{id:'mail'}},sender);
   await demoRequest({method:'event',data:{risk:'suspicious',codes:['http']}},sender);
+  const reportSender={id,url:chrome.runtime.getURL('xray.html')};
+  await assert.rejects(demoRequest({method:'reveal',data:{id:'mail'}},reportSender),/forbidden/);
+  await demoRequest({method:'event',data:{risk:'suspicious',codes:['shortened']}},reportSender);
   state=await demoRequest({method:'state'},sender);assert.equal(state.revision,1);assert.equal(state.accounts[0].health,'Stronger');assert.equal(state.events[0].source,'browser');assert.equal(state.scan,null);
  }finally{delete globalThis.chrome;await runtime.close();}
 });

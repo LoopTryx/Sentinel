@@ -1,3 +1,6 @@
+import {navigationWarningStatus,setNavigationWarnings} from './navigation-policy.js';
+import {whatsAppStatus,setWhatsAppWarnings} from './whatsapp-control.js';
+import {installOmnibox} from './omnibox.js';
 import { FIXTURE_RULESET_ID, computeStatus } from './status.js';
 import {demoRequest} from './demo-transport.js';
 
@@ -88,6 +91,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) {
     return false;
   }
+  if(message?.kind==='whatsapp_content_status'){
+    if(sender.frameId!==0||!Number.isInteger(sender.tab?.id)||!sender.url?.startsWith('https://web.whatsapp.com/'))return false;
+    whatsAppStatus(chrome).then(sendResponse).catch(()=>sendResponse({enabled:false}));return true;
+  }
+  if(message?.kind==='whatsapp_status'||message?.kind==='whatsapp_toggle'){
+    if(sender.url?.split(/[?#]/)[0]!==chrome.runtime.getURL('popup.html'))return false;
+    if(message.kind==='whatsapp_toggle'&&typeof message.enabled!=='boolean')return false;
+    const pending=message.kind==='whatsapp_status'?whatsAppStatus(chrome):queueWhatsAppUpdate(message.enabled);
+    pending.then(sendResponse).catch(()=>sendResponse({error:'WhatsApp operation unavailable.'}));return true;
+  }
+  if(message?.kind==='navigation_status'||message?.kind==='navigation_toggle'){
+    if(sender.url?.split(/[?#]/)[0]!==chrome.runtime.getURL('popup.html'))return false;
+    if(message.kind==='navigation_toggle'&&typeof message.enabled!=='boolean')return false;
+    const pending=message.kind==='navigation_status'?navigationWarningStatus(chrome):queueNavigationUpdate(message.enabled);
+    pending.then(sendResponse).catch(error=>{warn('navigation rule update failed',error);sendResponse({error:'Navigation warning operation unavailable.'});});return true;
+  }
   if(message?.kind==='demo_call'){
     demoRequest(message,sender).then(data=>sendResponse({data})).catch(()=>sendResponse({error:'Desktop unavailable or request refused.'}));
     return true;
@@ -102,3 +121,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   return false;
 });
+
+if(chrome.omnibox)installOmnibox(chrome);
+
+let navigationUpdate=Promise.resolve();
+function queueNavigationUpdate(enabled){const run=navigationUpdate.then(()=>setNavigationWarnings(chrome,enabled));navigationUpdate=run.catch(()=>{});return run;}
+let whatsAppUpdate=Promise.resolve();
+function queueWhatsAppUpdate(enabled){const run=whatsAppUpdate.then(()=>setWhatsAppWarnings(chrome,enabled));whatsAppUpdate=run.catch(()=>{});return run;}
+chrome.permissions?.onRemoved?.addListener(()=>{chrome.permissions.contains({permissions:['scripting'],origins:['https://web.whatsapp.com/*']}).then(granted=>{if(!granted)return queueWhatsAppUpdate(false);}).catch(()=>{});});

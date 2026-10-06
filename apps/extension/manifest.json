@@ -2,8 +2,13 @@
   "manifest_version": 3,
   "name": "Sentinel Browser Companion",
   "version": "0.2.0",
-  "optional_host_permissions": ["http://127.0.0.1/*"],
-  "description": "Local on-demand URL and message clues, with transparent coverage and no uploads.",
+  "optional_permissions": ["scripting"],
+  "optional_host_permissions": [
+    "http://127.0.0.1/*",
+    "http://*/*",
+    "https://*/*"
+  ],
+  "description": "Address-bar Link X-Ray, local scam-message checks and paired desktop demo tools.",
   "permissions": [
     "declarativeNetRequest",
     "storage",
@@ -25,5 +30,28 @@
         "path": "rules/fixture-block.json"
       }
     ]
-  }
+  },
+  "omnibox": {
+    "keyword": "sentinel"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["src/whatsapp-inline.js"],
+      "matches": ["https://web.whatsapp.com/*"]
+    },
+    {
+      "resources": [
+        "warning.html",
+        "src/xray.css",
+        "src/warning.js",
+        "src/navigation-policy.js",
+        "src/local-checks.js",
+        "data/badware-snapshot.js"
+      ],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ]
+    }
+  ]
 }
