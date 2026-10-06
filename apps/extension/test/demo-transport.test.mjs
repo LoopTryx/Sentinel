@@ -16,6 +16,11 @@ test('actual extension transport shares edits and events, refuses content script
   const reportSender={id,url:chrome.runtime.getURL('xray.html')};
   await assert.rejects(demoRequest({method:'reveal',data:{id:'mail'}},reportSender),/forbidden/);
   await demoRequest({method:'event',data:{risk:'suspicious',codes:['shortened']}},reportSender);
-  state=await demoRequest({method:'state'},sender);assert.equal(state.revision,1);assert.equal(state.accounts[0].health,'Stronger');assert.equal(state.events[0].source,'browser');assert.equal(state.scan,null);
+  const warningSender={id,url:chrome.runtime.getURL('warning.html')+'#listed',frameId:0};
+  await assert.rejects(demoRequest({method:'event',data:{risk:'suspicious',codes:['risk_list']}},{...warningSender,frameId:1}),/forbidden/);
+  await assert.rejects(demoRequest({method:'event',data:{risk:'suspicious',codes:['risk_list']}},{...warningSender,frameId:undefined}),/forbidden/);
+  await assert.rejects(demoRequest({method:'reveal',data:{id:'mail'}},warningSender),/forbidden/);
+  await demoRequest({method:'event',data:{risk:'suspicious',codes:['risk_list']}},warningSender);
+  state=await demoRequest({method:'state'},sender);assert.deepEqual(state.events[0].codes,['risk_list']);assert.equal(state.revision,1);assert.equal(state.accounts[0].health,'Stronger');assert.equal(state.events[0].source,'browser');assert.equal(state.scan,null);
  }finally{delete globalThis.chrome;await runtime.close();}
 });

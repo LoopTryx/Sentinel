@@ -2,8 +2,9 @@ const KEY='sentinelDemoConnection';
 const actions=new Set(['state','unlock','lock','reveal','rotate','event']);
 export async function demoRequest(message,sender) {
  const page=sender.url?.split(/[?#]/)[0];
- if(sender.id!==chrome.runtime.id || ![chrome.runtime.getURL('popup.html'),chrome.runtime.getURL('xray.html')].includes(page))throw new Error('forbidden');
- if(page===chrome.runtime.getURL('xray.html')&&message.method!=='event')throw new Error('forbidden');
+ if(sender.id!==chrome.runtime.id || ![chrome.runtime.getURL('popup.html'),chrome.runtime.getURL('xray.html'),chrome.runtime.getURL('warning.html')].includes(page))throw new Error('forbidden');
+ if(page===chrome.runtime.getURL('warning.html')&&sender.frameId!==0)throw new Error('forbidden');
+ if(page!==chrome.runtime.getURL('popup.html')&&message.method!=='event')throw new Error('forbidden');
  if(!actions.has(message.method))throw new Error('unsupported');
  const data=message.data??{};
  if(JSON.stringify(data).length>4096)throw new Error('invalid_request');
