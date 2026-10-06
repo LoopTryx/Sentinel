@@ -40,8 +40,8 @@
   --text-faint: #4a587f;
 
   /* type */
-  --font-display: "Chakra Petch", "Segoe UI", sans-serif;
-  --font-body: "Space Grotesk", "Segoe UI", sans-serif;
+  --font-display: "Roboto", "Segoe UI", sans-serif;
+  --font-body: "Inter", "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", Consolas, monospace;
 
   --radius: 14px;
