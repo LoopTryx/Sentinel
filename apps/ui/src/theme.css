@@ -285,10 +285,15 @@ body::after {
   letter-spacing: 1.1px;
   text-transform: uppercase;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    background 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    color 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 160ms cubic-bezier(0.23, 1, 0.32, 1);
   text-align: left;
 }
 .nav-btn:hover { color: #ffffff; background: rgba(255, 255, 255, 0.12); }
+.nav-btn:active { transform: scale(0.98); }
 .nav-btn.active {
   color: #ffffff;
   background: linear-gradient(180deg, var(--blue-bright), var(--blue));
@@ -491,12 +496,15 @@ body[data-threat="danger"] .led { animation-duration: 0.7s; }
   background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.24), rgba(var(--accent-rgb), 0.08));
   color: var(--blue-bright);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 160ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 .btn:hover {
   box-shadow: 0 0 18px rgba(var(--accent-rgb), 0.4);
   transform: translateY(-1px);
 }
+.btn:active { transform: translateY(0) scale(0.97); }
 .btn:disabled { opacity: 0.45; cursor: wait; transform: none; }
 
 .btn.danger {
@@ -662,7 +670,11 @@ body[data-threat="danger"] .led { animation-duration: 0.7s; }
   border: 1px solid rgba(139, 151, 197, 0.18);
   color: var(--text-faint);
   background: rgba(139, 151, 197, 0.04);
-  transition: all 0.25s ease;
+  transition:
+    background 200ms cubic-bezier(0.23, 1, 0.32, 1),
+    color 200ms cubic-bezier(0.23, 1, 0.32, 1),
+    border-color 200ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 200ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 .pw-chip.on {
   color: var(--blue-bright);
@@ -762,3 +774,15 @@ body[data-threat="danger"] .led { animation-duration: 0.7s; }
   font-size: 12.5px;
   color: var(--text);
 }
+
+/* ---- focus visibility (a11y) + press polish ---- */
+.btn:focus-visible,
+.nav-btn:focus-visible,
+.section-link:focus-visible,
+.input:focus-visible,
+.swipe-row__toggle:focus-visible {
+  outline: 2px solid rgba(var(--accent-rgb), 0.65);
+  outline-offset: 2px;
+}
+.section-link:active { transform: scale(0.97); }
+.section-link { transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1); }
