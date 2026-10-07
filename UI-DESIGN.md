@@ -119,9 +119,14 @@ deliberately: the dither itself is the texture.
 
 ## 6. Typography
 
-| Font | Role |
+Two type systems exist across SENTINEL's surfaces:
+
+| Surface | Fonts |
 |---|---|
-| Chakra Petch | display — headings, nav, buttons, big numbers (techy Y2K) |
+| Monorepo console (`apps/ui`, sentinel-ui branch) | **Inter** — body/UI text, **Roboto** — display/headings (self-hosted via Fontsource) |
+| Windows demo app (`cyber-shield` Tauri build) | Chakra Petch — display, Space Grotesk — body, JetBrains Mono — logs |
+
+Both share the same conventions:
 | Space Grotesk | body copy |
 | JetBrains Mono | logs, hashes, readouts, footers |
 
@@ -158,3 +163,17 @@ src/state.tsx      threat level engine (telemetry listener, warn decay, body att
 src/views/*        Dashboard, ScanView, PasswordView, QuarantineView, ThreatLogView
 src/components/ui/ Dither (raw-WebGL), Grainient, MagicBento, LatticeLoader, HoldButton
 ```
+
+## 10. Interaction polish (emil-design-eng pass)
+
+- **Buttons press**: every `.btn` and `.nav-btn` scales to 0.97/0.98 on
+  `:active` (160ms ease-out) — the interface visibly "hears" the press.
+- **No `transition: all`** anywhere: each element lists exactly the
+  properties it animates, on the house curve
+  `cubic-bezier(0.23, 1, 0.32, 1)` (strong ease-out).
+- **Focus rings**: visible 2px accent outline on buttons, nav, inputs,
+  section links and swipe toggles (`:focus-visible` only).
+- **Reduced motion**: a global media query kills decorative animation.
+- The Apple liquid-glass sidebar and 360px cursor glow are tuned in
+  `theme.css`; the dither remains the single loud element — everything
+  else stays disciplined around it.
