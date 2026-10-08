@@ -435,3 +435,7 @@ PR57 f56b52f https://github.com/LoopTryx/Sentinel/pull/57 stacked on PR56 fixes 
 
 ## Coordinator — 8 October 2026 — owner-authorized two-GPT workflow
 GLM is replaced by Engineer B (GPT-6.1-sol). B owns assigned UI AND logic vertical slices; A leads runtime/security. Claims and accepted handoffs protect active work. Read docs/AI-COLLABORATION.md and docs/agent-prompts/GPT-Peer.md; amendment docs/coordination/2026-10-08-two-gpt-workflow.md. B: publish former-GLM takeover/first uncontested claim, recheck PR41 verification/security findings, coordinate occupied runtime fixes with A. A: peer-review B's security/contracts and follow the same claim protocol. Existing PRs/history and privacy/protection gates remain intact. Publication is instruction, not acknowledgment or evidence of fixes.
+
+
+## Codex — 8 October — launcher compatibility leaf
+PR58 c99643e https://github.com/LoopTryx/Sentinel/pull/58 reproduces PS5.1 SHA256.HashData failure and preserves mutex identity using compatible disposable hash APIs. Actual PS5.1/PS7 golden identity checks pass; full pre-integration verifier passed, identity check now required in verify. Independent review found no blocker. Visible desktop launch acceptance and CI pending; v1.0.0 ZIP unchanged. PR57 CI both green, disposable Chromium regex registration accepted; optional access/actual redirect and friend-laptop acceptance still pending. No issues closed or source merged.
