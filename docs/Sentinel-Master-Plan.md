@@ -1,5 +1,7 @@
 # Sentinel — Master Product Requirements and Implementation Plan
 
+Owner workflow amendment, 8 October 2026: GLM is replaced by Engineer B (GPT-6.1-sol). Both engineers may deliver UI and logic through claimed issues and accepted handoffs. A leads runtime/security; B leads UI/product integration. Current rules: [AI collaboration](AI-COLLABORATION.md), [Engineer B prompt](agent-prompts/GPT-Peer.md). This supersedes older exclusive-role wording. Product requirements, milestone gates and implementation evidence remain unchanged.
+
 Owner update, 2 October 2026: this document is the shared specification for both engineers. Section 19 resolves the latest owner request against earlier wording: GLM owns presentation, Codex owns logic, and Y2K Cyber Console begins during the functional preview. Existing privacy, trust-boundary and hardware evidence gates remain mandatory. Assignment prompts are in docs/agent-prompts/; the concrete issue queue and consolidation evidence are in docs/coordination/2026-10-02-integration.md. Local preparation is not proof of remote adoption.
 
 Version 4.0 owner-aligned consolidation · 2 October 2026 · Owner: Loop
@@ -960,7 +962,7 @@ The design is Y2K Cyber Console: a maximalist shell around a precise readable co
 
 ### 19.2 Roles, authoritative branch and contracts
 
-Codex owns engine/runtime logic, Rust contracts, authenticated IPC, restricted workers, scanning, remediation, observation and verified enforcement, native host, browser decision/adapter logic, vault authority, privacy and AI boundaries. GLM owns desktop/extension presentation, design system, accessible interactions, localization and awareness/academy presentation. The coordinator owns requirement arbitration, issue queue, integration review, shared-file serialization and branch retirement. Mixed extension files require a recorded handoff. Contract sources belong to Codex; GLM consumes generated bindings and requests contract amendments. Both review the peer's work for their discipline.
+Engineer A leads runtime/security architecture. Engineer B (GPT-6.1-sol replacing GLM) leads desktop/extension presentation and may own assigned backend/runtime/security features. Both engineers deliver complete vertical slices through issue/file claims and accepted handoffs. Shared contracts and security-critical changes require independent peer review. Coordinator owns arbitration, triage, shared-file serialization, integration and branch retirement. The 8 October amendment and docs/AI-COLLABORATION.md supersede older exclusive model-based assignments.
 
 main remains the single integration/master source and existing default. Use short-lived issue branches and reviewed PRs rather than two divergent long-running masters. Do not rewrite history or edit a peer's active branch. Retire obsolete branches only when their useful head is reachable from main, recoverable archive tags are verified remotely, active PR/work dependencies are resolved, and the peer is notified. Git/REST access was restored and issues #5–#15 were published; consolidation is PR #16. The GitHub plugin remains unable to access Sentinel. Branch retirement follows verified integration and archive tags, with outcomes recorded in the coordination record.
 

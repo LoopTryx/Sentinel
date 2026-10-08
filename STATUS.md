@@ -1,5 +1,7 @@
 # Implementation status
 
+Owner workflow amendment, 8 October 2026: GLM is replaced by Engineer B (GPT-6.1-sol). Both engineers may deliver UI and logic through claimed issues and accepted handoffs. A leads runtime/security; B leads UI/product integration. Current rules: [AI collaboration](docs/AI-COLLABORATION.md), [Engineer B prompt](docs/agent-prompts/GPT-Peer.md). This supersedes older exclusive-role wording. Product requirements, milestone gates and implementation evidence remain unchanged.
+
 Updated: 2026-10-01
 
 Owner deadline demo (6 October 2026): `codex/issue-9-today-demo` preserves the GLM glass desktop and adds a distinct invented-account runtime, computed weakness/reuse recommendations, cryptographic replacements, bounded read-only scan reports and paired extension events. Verified ClamAV 1.5.4 replaces the temporary Defender adapter; Defender remains enabled. Actual Chrome companion installation/pairing and URL X-Ray reason-code delivery to desktop were observed. Actual single-marker runtime scan completed with the ClamAV synthetic match. Initial three-file folder run exposed cold-start timeouts and stayed partial; the revised 30-second provider / 90-second folder budget rerun completed with all three files, both ClamAV synthetic matches and zero errors/skips, visible in the glass UI. See [connected demo route and evidence](docs/today-demo.md). This candidate is pushed for review, not merged and not completion of the expanded S1 vault, navigation, download, WhatsApp/cloud or rehearsal gates.

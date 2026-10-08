@@ -1,39 +1,31 @@
 # Shared Sentinel collaboration rules
 
-Owner-aligned baseline: 2 October 2026. The owner's latest instruction supersedes the old Codex-desktop/GLM-extension split. **GLM 5.3 owns presentation; Codex owns logic.** The version-control coordinator manages the common master plan, issue queue, integration review and branch retirement.
+Owner amendment: 8 October 2026. GLM is replaced by GPT-6.1-sol. Both engineers may implement UI and logic. Stable identities: **Engineer A (existing Codex)** and **Engineer B (replacement GPT, former GLM lane)**. Coordinator owns issue triage, integration and branch retirement. This supersedes older exclusive model-based assignments; product requirements and release gates remain unchanged.
 
-## Read before selecting work
+## Context and issue ownership
 
-Read AGENTS.md, docs/Sentinel-Master-Plan.md including section 19, docs/phase-1-70-30.md, STATUS.md, docs/coordination/2026-10-02-integration.md, and your specialized prompt:
+Read AGENTS.md, docs/Sentinel-Master-Plan.md including section 19, docs/phase-1-70-30.md, STATUS.md, chat.md and current scope amendments. Prompts: [Engineer A](agent-prompts/Codex-Logic.md), [Engineer B](agent-prompts/GPT-Peer.md). Fetch main and inspect issues/PRs/reviews before selecting work. Historical documents are not current capability or ownership evidence.
 
-- [Codex logic engineer](agent-prompts/Codex-Logic.md)
-- [GLM UI engineer](agent-prompts/GLM-UI.md)
+A leads runtime/security architecture and foundations. B leads UI/design/awareness and owns assigned complete features including backend logic, adapters and tests. Neither lane is exclusive. Existing claims remain reserved until accepted transfer. Replacement B records takeover of GLM's work and verifies no active peer edits before updating the legacy lane. Do not overwrite peer branches or unpublished files.
 
-The master plan is the single product specification. The phase split defines demonstration checkpoints, not measured engineering percentages or weaker protection gates. Y2K Cyber Console starts during the functional preview; no fixture or read-only observation is installed protection. Keep all full-product requirements tracked.
+Claim one ready issue with identity, objective, branch, base SHA, exact files, dependencies, contract changes, acceptance and reviewer. New branches: codex/engineer-a/issue-<number>-<topic> or codex/engineer-b/issue-<number>-<topic>. Preserve legacy names/history. Confirm the claim is uncontested before edits. Overlapping claims/files require an acknowledged handoff or coordinator arbitration; silence is not approval. While awaiting review, select independent unclaimed work.
 
-## Issue and file ownership
+Shared contracts, IPC/native host, vault authority, quarantine/restore, permissions, privileged actions, security decisions and shared dependencies/verifier files require an agreed editing owner and independent peer review before integration. Either engineer may implement them. Record caller/callee types, authorization, bounds, cancellation, error states, redaction and compatible migration before cross-boundary edits. Generate bindings from sources; never hand-edit generated contracts. Separate independent changes and security fixes from presentation polish.
 
-Before coding, fetch current main and inspect issues, PRs and chat.md. Claim one ready issue with owner, branch, exact files, dependencies and acceptance checks. Codex uses codex/issue-<number>-<topic>; GLM uses glm/issue-<number>-<topic>. Do not alter or push a peer's active branch. Codex owns contracts, runtime and security/decision logic, including browser background/native host. GLM owns React/desktop/extension presentation, design tokens, localization and awareness interactions. Coordinate mixed extension files and shared tools/dependencies through a recorded handoff. Never hand-edit generated contract bindings.
+## Delivery and independent review
 
-main is the one authoritative integration branch. Short-lived issue branches are review vehicles, not competing masters. Preserve useful work and history. Obsolete remote branches may be retired by the coordinator only after verified integration, recoverable archive tags and resolution of active work/PR dependencies. Never force-push. The local unification record is not proof that GitHub has been updated.
+Use isolated issue checkouts from current main or a documented reviewed stacked base. Preserve dirty/unpublished work. Implement small buildable increments with meaningful behavior/failure regressions. Run focused checks and tools/verify.ps1 plus applicable native-preview smoke/jobs checks. Record exact head, commands, results and unexecuted acceptance. Failed/skipped/blocked stages remain visible. Fixtures do not prove installed browser behavior, worker containment or hardware protection.
 
-## Continuous work and review
+Push the owned branch, open a linked PR and request the named peer's review. Each engineer reviews correctness, privacy, contracts, failure behavior and user journeys regardless of model/author. Security-critical changes require substantive independent authority/failure-path review. Coordinator integrates only after required review, CI and applicable acceptance gates; self-review is not peer approval. Resolve comments with evidence. Do not merge, retire branches or tag releases unless explicitly assigned that coordinator action. main remains the sole integration source. Never force-push. Retire only fully integrated branches with recoverable history and resolved active dependencies.
 
-Implement small buildable increments with meaningful behavior/failure tests. Run relevant checks and tools/verify.ps1; native preview changes also require apps/desktop/tests/smoke.ps1 and jobs.ps1. Record actual evidence, limitations, reproducible demos and status. Push your issue branch and open a linked PR. Cross-review: Codex checks GLM data/action/security correctness; GLM checks Codex contracts, failures and user journeys. Coordinator verifies integration and merges after required CI/review gates; it does not treat its own tests as peer approval.
+## Communication protocol
 
-Continue ready authorized work without repeated owner permission. Choose and document routine engineering decisions. When a peer/backend/lab task blocks one path, complete an independent ready increment. Ask the owner only for necessary missing access/hardware, consequential work outside scope or a genuine product ambiguity. Stop honestly when all ready work is blocked; no promise of endless execution or fabricated success.
+Issues/PRs are the durable record. chat.md is a lightweight coordination channel on main. Append small dated messages after fetching main; preserve peer messages and use fast-forward-only pushes. If main advances, fetch and reapply only your addition. Code stays on issue branches.
 
-## Direct coordination
+Message format: UTC timestamp | Engineer A/B/coordinator | issue/PR | CLAIM/HANDOFF/CONTRACT/REVIEW/BLOCKED/RESOLVED | exact head | concrete decision/question | evidence | requested reply/next action. Answer direct technical requests at the next session start before dependent edits. Handoffs name files, revision, current behavior, remaining checks and accepting engineer. Contract discussions end in issue/PR decisions. Avoid repetitive status messages. Never claim delivery without publication. If unavailable, prepare an explicitly undelivered owner relay and continue independent work. Cross-chat tool messages need user authorization for the destination; repository-channel authorization is not automatic cross-chat authorization.
 
-The owner authorizes direct messages in chat.md on main. Append small dated messages with sender, issue/PR, concrete decision/question, evidence and requested reply. Fetch fresh main, preserve all peer messages and use fast-forward pushes. Code stays on issue branches. Issues/PRs remain the durable decision record. If the shared channel is inaccessible, prepare this relay without pretending it was delivered:
+## Autonomy, safety and truthful claims
 
-RELAY TO <peer>
-From: <agent>
-Issue/PR: <links or clearly identified unpublished draft>
-Decision or question: <one concrete point>
-Evidence: <tests/files/observations>
-Requested reply: <specific answer/review>
+Continue ready authorized work and document routine choices. If one dependency blocks work, select another ready claim. Ask the owner only for essential access/hardware, an irreducible product choice or consequential work outside scope. If all ready work is blocked, state the exact prerequisite and stop honestly. No promise of endless/background execution.
 
-## Safety and honest claims
-
-Keep Defender enabled. No secret/password/token/message/file contents in AI prompts, logs or published diagnostics. Valuable vault credentials wait for security review. Unknown/unavailable/partial/stale/disabled/failed/fixture states remain distinct. No automatic destructive remediation from a heuristic. USB storage scans do not prove firmware/HID safety. No Windows USB/HID blocking on the daily-use machine. CRYPTIC (E:) remains untouched except explicitly selected read-only observations or harmless scans. Hardware protection claims require owned recoverable lab evidence.
+Keep Defender enabled. No live malware/EICAR files, USB/HID blocking on the daily-use machine or E: access except expressly selected harmless read-only observations. No secrets/passwords/raw chats/file contents in AI, logs or published evidence. Use synthetic credentials until vault review permits valuable ones. Unknown, unavailable, partial, stale, failed, disabled and fixture states remain distinct. Empty history or a successful connection never implies active protection. USB storage inspection does not prove HID/firmware safety. All privacy, real-device evidence, milestone and release gates remain binding.
