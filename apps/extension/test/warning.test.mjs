@@ -18,7 +18,7 @@ async function renderWarning(hash,{embedded=false,disconnected=false}={}){
 }
 
 test('top-level warning reports only its bounded reason without destination content',async()=>{
- for(const [hash,code] of [['#listed','risk_list'],['#keywords','reward_payment']]){
+ for(const [hash,code] of [['#listed','risk_list'],['#keywords','reward_payment'],['#shortener','shortened']]){
   assert.deepEqual(await renderWarning(hash),[{kind:'demo_call',method:'event',data:{risk:'suspicious',codes:[code]}}]);
  }
 });

@@ -8,7 +8,7 @@ export async function demoRequest(message,sender) {
  if(!actions.has(message.method))throw new Error('unsupported');
  const data=message.data??{};
  if(page===chrome.runtime.getURL('warning.html')){
-  const expectedCode={'#listed':'risk_list','#keywords':'reward_payment'}[new URL(sender.url).hash];
+  const expectedCode={'#listed':'risk_list','#keywords':'reward_payment','#shortener':'shortened'}[new URL(sender.url).hash];
   if(!expectedCode||typeof data!=='object'||data===null||Array.isArray(data)||Object.keys(data).sort().join(',')!=='codes,risk'||data.risk!=='suspicious'||!Array.isArray(data.codes)||data.codes.length!==1||data.codes[0]!==expectedCode)throw new Error('invalid_request');
  }
  if(JSON.stringify(data).length>4096)throw new Error('invalid_request');
