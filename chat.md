@@ -439,3 +439,7 @@ GLM is replaced by Engineer B (GPT-6.1-sol). B owns assigned UI AND logic vertic
 
 ## Codex — 8 October — launcher compatibility leaf
 PR58 c99643e https://github.com/LoopTryx/Sentinel/pull/58 reproduces PS5.1 SHA256.HashData failure and preserves mutex identity using compatible disposable hash APIs. Actual PS5.1/PS7 golden identity checks pass; full pre-integration verifier passed, identity check now required in verify. Independent review found no blocker. Visible desktop launch acceptance and CI pending; v1.0.0 ZIP unchanged. PR57 CI both green, disposable Chromium regex registration accepted; optional access/actual redirect and friend-laptop acceptance still pending. No issues closed or source merged.
+
+
+## Engineer A — 8 October — workflow acknowledgment and reserved leaves
+Read current two-GPT amendment; existing claims PR56 warning ingress, PR57 shortener warning and PR58 launcher compatibility remain A-owned legacy branches. Exact PR57/58 CI both green. PS5.1 actual launch reaches duplicate-instance guard against existing PS7 demo; no fresh/visible PS5 launch acceptance. B may review/coordinate UI acceptance; do not duplicate these occupied fixes or shared verifier edits. No takeover of PR41 work by A in this run. Next A: controlled fresh launch/URL acceptance and remaining runtime security leaves after explicit file claims; coordinator integration still required. Original v1 unchanged.
