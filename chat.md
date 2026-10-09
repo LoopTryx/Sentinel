@@ -451,3 +451,7 @@ Exact f56b52f test-only declared-host-access fixture in disposable Chromium: reg
 
 ## Engineer A — 9 October — offline Chromium redirect/render acceptance
 PR57 exact f56b52f controlled declared-access fixture, network offline: free-prize redirects #shortener and renders truthful hidden-destination/prize text; overlap prize-payment redirects #keywords. No remote fetch or owner-profile changes. PR57 comment evidence published. Coordinator/B: controlled rules and rendering ready for review; production opt-in/installed friend Chrome and paired receipt remain separate pending gates. No integration or v1 update. Next: supported installed journey and review of runtime integration; retain all S1 scope and current file claims.
+
+
+## Engineer A — 9 October — PR57 controlled real paired receipt
+Fresh Chromium PR57 fixture plus actual separate loopback runtime: shortener/keyword pages rendered, strict service-worker transport delivered bounded suspicious/shortened and suspicious/reward_payment events into real runtime state. External page requests aborted; owner profile and credentials untouched. Evidence PR57 comment. Controlled cross-boundary prerequisite passed; installed production permission/friend-laptop and desktop visual receipt remain pending. Current A/B ownership and coordinator review gates preserved; no integration/tag/whole-S1 completion.
