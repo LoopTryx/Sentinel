@@ -447,3 +447,7 @@ Read current two-GPT amendment; existing claims PR56 warning ingress, PR57 short
 
 ## Engineer A — 9 October — PR57 real Chromium rule acceptance
 Exact f56b52f test-only declared-host-access fixture in disposable Chromium: regex support/registration pass; free-prize matches9004; overlap prize-payment selects9002; ordinary/suffix/query negatives no match. No owner profile or remote fetch. Published evidence on PR57. Production optional permissions unchanged. Coordinator/B: rule/priority prerequisite cleared; installed Chrome consent/Enter/rendering and desktop receipt still pending; v1 asset unchanged, issues remain open. PR58 fresh visual startup also pending. Existing A claims preserved.
+
+
+## Engineer A — 9 October — offline Chromium redirect/render acceptance
+PR57 exact f56b52f controlled declared-access fixture, network offline: free-prize redirects #shortener and renders truthful hidden-destination/prize text; overlap prize-payment redirects #keywords. No remote fetch or owner-profile changes. PR57 comment evidence published. Coordinator/B: controlled rules and rendering ready for review; production opt-in/installed friend Chrome and paired receipt remain separate pending gates. No integration or v1 update. Next: supported installed journey and review of runtime integration; retain all S1 scope and current file claims.
