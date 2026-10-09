@@ -125,7 +125,14 @@ pub fn insert_threat(conn: &Connection, t: &ThreatRecord) -> Result<i64, rusqlit
     conn.execute(
         "INSERT INTO threats (detected_at, path, sha256, verdict, detections, action)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![t.detected_at, t.path, t.sha256, t.verdict, t.detections, t.action],
+        params![
+            t.detected_at,
+            t.path,
+            t.sha256,
+            t.verdict,
+            t.detections,
+            t.action
+        ],
     )?;
     Ok(conn.last_insert_rowid())
 }
@@ -236,5 +243,6 @@ pub fn quarantine_get(conn: &Connection, id: i64) -> Option<QuarantineRecord> {
 }
 
 pub fn quarantine_delete(conn: &Connection, id: i64) {
-    conn.execute("DELETE FROM quarantine WHERE id = ?1", params![id]).ok();
+    conn.execute("DELETE FROM quarantine WHERE id = ?1", params![id])
+        .ok();
 }

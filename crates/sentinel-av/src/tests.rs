@@ -2,8 +2,8 @@ use crate::engine::{entropy, scan_directory, Engine};
 use crate::vault::Vault;
 use std::path::{Path, PathBuf};
 
-const EICAR: &str = "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*";
-const SIM_EICAR: &str = "CS-EICAR-SIMULATION :: Cyber Shield live demo payload :: detected by YARA rule CS_Sim_Eicar";
+const SIM_EICAR: &str =
+    "CS-EICAR-SIMULATION :: Cyber Shield live demo payload :: detected by YARA rule CS_Sim_Eicar";
 
 fn hash_lookup(h: &str) -> Option<(String, String)> {
     // EICAR's well-known SHA-256, as seeded into the signature DB
@@ -15,20 +15,11 @@ fn hash_lookup(h: &str) -> Option<(String, String)> {
     }
 }
 
-/// Write a malicious payload that survives Windows Defender real-time
-/// scanning. The real EICAR string is blocked from disk (OS error 225) on
-/// machines with Defender active, so we detect that and use the CS
-/// simulation marker, which our YARA engine also flags as malicious.
-fn write_malicious(file: &Path) -> String {
-    if std::fs::write(file, EICAR).is_ok()
-        && std::fs::read(file).map(|b| b == EICAR.as_bytes()).unwrap_or(false)
-    {
-        return "eicar".into();
-    }
+/// Use only the harmless built-in simulation marker on disk. Never create an
+/// EICAR file or depend on Defender removing a test payload.
+fn write_simulation(file: &Path) {
     std::fs::write(file, SIM_EICAR).expect("sim marker must be writable");
-    "sim".into()
 }
-
 fn tmpdir(name: &str) -> PathBuf {
     let d = std::env::temp_dir().join(format!("cs-test-{}-{}", name, std::process::id()));
     std::fs::create_dir_all(&d).unwrap();
@@ -36,23 +27,20 @@ fn tmpdir(name: &str) -> PathBuf {
 }
 
 #[test]
-fn detects_eicar_file() {
-    let dir = tmpdir("eicar");
-    let file = dir.join("eicar_test.com");
-    let flavor = write_malicious(&file);
+fn detects_harmless_simulation_file() {
+    let dir = tmpdir("simulation");
+    let file = dir.join("simulation.txt");
+    write_simulation(&file);
 
     let engine = Engine::new();
     let report = engine.scan_file(&file, &hash_lookup);
     assert_eq!(
         report.verdict, "malicious",
-        "EICAR (or its sim marker) must be malicious"
+        "built-in harmless simulation must exercise detection"
     );
-    let det_name = if flavor == "eicar" { "EICAR" } else { "CS_Sim" };
+    let det_name = "CS_Sim";
     assert!(
-        report
-            .detections
-            .iter()
-            .any(|d| d.name.contains(det_name)),
+        report.detections.iter().any(|d| d.name.contains(det_name)),
         "detection must be named (wanted {}), got: {:?}",
         det_name,
         report.detections
@@ -61,6 +49,27 @@ fn detects_eicar_file() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
+#[test]
+fn detects_synthetic_hash_without_eicar_file() {
+    use sha2::{Digest, Sha256};
+
+    let dir = tmpdir("synthetic-hash");
+    let file = dir.join("notes.txt");
+    let payload = b"Sentinel harmless hash-path regression";
+    std::fs::write(&file, payload).unwrap();
+    let expected_hash = hex::encode(Sha256::digest(payload));
+    let lookup = |hash: &str| {
+        (hash == expected_hash).then(|| ("Synthetic-Hash-Fixture".into(), "malicious".into()))
+    };
+    let report = Engine::new().scan_file(&file, &lookup);
+    assert_eq!(report.sha256, expected_hash);
+    assert_eq!(report.verdict, "malicious");
+    assert!(report
+        .detections
+        .iter()
+        .any(|d| { d.source == "hash-db" && d.name == "Synthetic-Hash-Fixture" }));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
 #[test]
 fn clean_file_passes() {
     let dir = tmpdir("clean");
@@ -98,7 +107,11 @@ fn catches_double_extension_trick() {
 fn yara_flags_encoded_powershell() {
     let dir = tmpdir("ps");
     let file = dir.join("dropper.bat");
-    std::fs::write(&file, "powershell -enc SQBFAFQAUgBZAFQATwBOAC0AVABFAFMAVA==").unwrap();
+    std::fs::write(
+        &file,
+        "powershell -enc SQBFAFQAUgBZAFQATwBOAC0AVABFAFMAVA==",
+    )
+    .unwrap();
 
     let engine = Engine::new();
     let report = engine.scan_file(&file, &hash_lookup);
@@ -117,7 +130,7 @@ fn yara_flags_encoded_powershell() {
 fn scan_directory_reports_all_files() {
     let dir = tmpdir("dirscan");
     std::fs::write(dir.join("a.txt"), "normal").unwrap();
-    write_malicious(&dir.join("b.com"));
+    write_simulation(&dir.join("b.txt"));
     std::fs::create_dir_all(dir.join("sub")).unwrap();
     std::fs::write(dir.join("sub").join("c.txt"), "more normal").unwrap();
 
@@ -146,10 +159,15 @@ fn vault_roundtrip_encrypts_and_restores() {
     std::fs::write(&secret_file, payload).unwrap();
 
     let vault = Vault::new(&app_data);
-    let outcome = vault.quarantine(&secret_file).expect("quarantine must succeed");
+    let outcome = vault
+        .quarantine(&secret_file)
+        .expect("quarantine must succeed");
 
     // original gone
-    assert!(!secret_file.exists(), "original must be removed after quarantine");
+    assert!(
+        !secret_file.exists(),
+        "original must be removed after quarantine"
+    );
     // blob exists and is NOT plaintext (encrypted)
     let blob_path = app_data.join("vault").join(&outcome.vault_file);
     assert!(blob_path.exists());
@@ -187,13 +205,23 @@ fn entropy_function_bounds() {
 fn detects_sim_ransomware_marker() {
     let dir = tmpdir("ransom");
     let file = dir.join("note.txt");
-    std::fs::write(&file, "SIM-RANSOM-DEMO :: all documents locked :: send bitcoin for recovery key").unwrap();
+    std::fs::write(
+        &file,
+        "SIM-RANSOM-DEMO :: all documents locked :: send bitcoin for recovery key",
+    )
+    .unwrap();
 
     let engine = Engine::new();
     let report = engine.scan_file(&file, &hash_lookup);
-    assert_eq!(report.verdict, "malicious", "ransom demo marker must be malicious");
+    assert_eq!(
+        report.verdict, "malicious",
+        "ransom demo marker must be malicious"
+    );
     assert!(
-        report.detections.iter().any(|d| d.name == "Sim_Ransomware_Demo"),
+        report
+            .detections
+            .iter()
+            .any(|d| d.name == "Sim_Ransomware_Demo"),
         "Sim_Ransomware_Demo rule must fire"
     );
     std::fs::remove_dir_all(&dir).ok();
@@ -211,9 +239,15 @@ fn flags_ransom_note_indicators() {
 
     let engine = Engine::new();
     let report = engine.scan_file(&file, &hash_lookup);
-    assert_eq!(report.verdict, "suspicious", "ransom-note wording must be suspicious");
+    assert_eq!(
+        report.verdict, "suspicious",
+        "ransom-note wording must be suspicious"
+    );
     assert!(
-        report.detections.iter().any(|d| d.name == "Ransomware_Note_Indicators"),
+        report
+            .detections
+            .iter()
+            .any(|d| d.name == "Ransomware_Note_Indicators"),
         "ransom-note rule must fire"
     );
     std::fs::remove_dir_all(&dir).ok();
@@ -227,7 +261,10 @@ fn flags_usb_autorun_launcher() {
 
     let engine = Engine::new();
     let report = engine.scan_file(&file, &hash_lookup);
-    assert_eq!(report.verdict, "suspicious", "autorun launcher must be suspicious");
+    assert_eq!(
+        report.verdict, "suspicious",
+        "autorun launcher must be suspicious"
+    );
     assert!(
         report
             .detections
@@ -251,7 +288,10 @@ fn flags_document_macro_lure() {
 
     let engine = Engine::new();
     let report = engine.scan_file(&file, &hash_lookup);
-    assert_eq!(report.verdict, "suspicious", "macro lure must be suspicious");
+    assert_eq!(
+        report.verdict, "suspicious",
+        "macro lure must be suspicious"
+    );
     assert!(
         report
             .detections
@@ -269,7 +309,8 @@ fn flags_encoded_payload_blob() {
     // deterministic ~1-of-each-position filler: valid base64 charset, 300 chars
     let blob: String = (0..300)
         .map(|i| {
-            const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+            const CHARS: &[u8] =
+                b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
             CHARS[(i * 7 + i / 62) % 64] as char
         })
         .collect();
@@ -281,7 +322,10 @@ fn flags_encoded_payload_blob() {
 
     let engine = Engine::new();
     let report = engine.scan_file(&file, &hash_lookup);
-    assert_eq!(report.verdict, "suspicious", "encoded blob must be suspicious");
+    assert_eq!(
+        report.verdict, "suspicious",
+        "encoded blob must be suspicious"
+    );
     assert!(
         report
             .detections
@@ -302,7 +346,10 @@ fn flags_high_entropy_packed_sample() {
 
     let engine = Engine::new();
     let report = engine.scan_file(&file, &hash_lookup);
-    assert_eq!(report.verdict, "suspicious", "packed sample must be suspicious");
+    assert_eq!(
+        report.verdict, "suspicious",
+        "packed sample must be suspicious"
+    );
     assert!(
         report
             .detections
@@ -349,7 +396,11 @@ fn demo_corpus_end_to_end() {
     .copied()
     .filter(|n| present(n))
     .collect();
-    let expect_clean: Vec<&str> = ["README.md"].iter().copied().filter(|n| present(n)).collect();
+    let expect_clean: Vec<&str> = ["README.md"]
+        .iter()
+        .copied()
+        .filter(|n| present(n))
+        .collect();
     assert!(
         expect_malicious.len() + expect_suspicious.len() >= 5,
         "corpus is nearly empty — fixtures missing?"
@@ -358,12 +409,22 @@ fn demo_corpus_end_to_end() {
     for name in expect_malicious {
         let r = reports.iter().find(|r| r.path.ends_with(name));
         assert!(r.is_some(), "{} must exist in the corpus", name);
-        assert_eq!(r.unwrap().verdict, "malicious", "{} must be malicious", name);
+        assert_eq!(
+            r.unwrap().verdict,
+            "malicious",
+            "{} must be malicious",
+            name
+        );
     }
     for name in expect_suspicious {
         let r = reports.iter().find(|r| r.path.ends_with(name));
         assert!(r.is_some(), "{} must exist in the corpus", name);
-        assert_eq!(r.unwrap().verdict, "suspicious", "{} must be suspicious", name);
+        assert_eq!(
+            r.unwrap().verdict,
+            "suspicious",
+            "{} must be suspicious",
+            name
+        );
     }
     for name in expect_clean {
         let r = reports.iter().find(|r| r.path.ends_with(name));

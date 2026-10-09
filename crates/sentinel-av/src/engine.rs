@@ -136,7 +136,11 @@ impl Engine {
         }
     }
 
-    pub fn scan_file(&self, path: &Path, hash_lookup: &dyn Fn(&str) -> Option<(String, String)>) -> ScanReport {
+    pub fn scan_file(
+        &self,
+        path: &Path,
+        hash_lookup: &dyn Fn(&str) -> Option<(String, String)>,
+    ) -> ScanReport {
         let start = std::time::Instant::now();
         let mut report = ScanReport {
             path: path.display().to_string(),
@@ -255,7 +259,9 @@ fn heuristic_checks(path: &Path, buf: &[u8], size: u64) -> Option<Detection> {
     let name = path.file_name()?.to_string_lossy().to_lowercase();
 
     // Double-extension trick: invoice.pdf.exe, photo.jpg.scr
-    const EXEC_EXT: &[&str] = &["exe", "scr", "com", "pif", "bat", "cmd", "vbs", "js", "jar", "lnk"];
+    const EXEC_EXT: &[&str] = &[
+        "exe", "scr", "com", "pif", "bat", "cmd", "vbs", "js", "jar", "lnk",
+    ];
     let parts: Vec<&str> = name.split('.').collect();
 
     // USB auto-execution config: autorun.inf that launches a payload on mount
@@ -265,7 +271,8 @@ fn heuristic_checks(path: &Path, buf: &[u8], size: u64) -> Option<Detection> {
             return Some(Detection {
                 source: "heuristic".into(),
                 name: "AutoRunLauncher".into(),
-                detail: "USB autorun config that launches a program when the drive is mounted".into(),
+                detail: "USB autorun config that launches a program when the drive is mounted"
+                    .into(),
             });
         }
     }
@@ -273,7 +280,9 @@ fn heuristic_checks(path: &Path, buf: &[u8], size: u64) -> Option<Detection> {
     if parts.len() >= 3 {
         let ext = *parts.last().unwrap();
         let inner = *parts.get(parts.len() - 2).unwrap();
-        const DOC_EXT: &[&str] = &["pdf", "doc", "docx", "jpg", "png", "mp4", "txt", "xlsx", "ppt"];
+        const DOC_EXT: &[&str] = &[
+            "pdf", "doc", "docx", "jpg", "png", "mp4", "txt", "xlsx", "ppt",
+        ];
         if EXEC_EXT.contains(&ext) && DOC_EXT.contains(&inner) {
             return Some(Detection {
                 source: "heuristic".into(),

@@ -54,7 +54,13 @@ impl Vault {
         let nonce = Nonce::from_slice(&nonce_bytes);
 
         let sealed = cipher
-            .encrypt(nonce, Payload { msg: &plaintext, aad: &[] })
+            .encrypt(
+                nonce,
+                Payload {
+                    msg: &plaintext,
+                    aad: &[],
+                },
+            )
             .map_err(|_| "encryption failed".to_string())?;
 
         let id = uuid::Uuid::new_v4().simple().to_string();
@@ -102,7 +108,13 @@ impl Vault {
         let key = Key::<Aes256Gcm>::from_slice(key_bytes);
         let cipher = Aes256Gcm::new(key);
         cipher
-            .decrypt(Nonce::from_slice(nonce_bytes), Payload { msg: sealed, aad: &[] })
+            .decrypt(
+                Nonce::from_slice(nonce_bytes),
+                Payload {
+                    msg: sealed,
+                    aad: &[],
+                },
+            )
             .map_err(|_| "decryption failed".into())
     }
 }
