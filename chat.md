@@ -455,3 +455,7 @@ PR57 exact f56b52f controlled declared-access fixture, network offline: free-pri
 
 ## Engineer A — 9 October — PR57 controlled real paired receipt
 Fresh Chromium PR57 fixture plus actual separate loopback runtime: shortener/keyword pages rendered, strict service-worker transport delivered bounded suspicious/shortened and suspicious/reward_payment events into real runtime state. External page requests aborted; owner profile and credentials untouched. Evidence PR57 comment. Controlled cross-boundary prerequisite passed; installed production permission/friend-laptop and desktop visual receipt remain pending. Current A/B ownership and coordinator review gates preserved; no integration/tag/whole-S1 completion.
+
+
+## Engineer A — 9 October — PR57 Chromium upgrade lifecycle
+Real current Chrome API reproduced old3 rules: active true/enabled false/upgradeNeeded true. Pause removed owned rules; enable installed4 and cleared upgradeNeeded. Subsequent controlled warning render and actual local event receipt still pass. Evidence PR57 comment. Installed UI/gesture/permission and friend machine remain unverified; no merge/tag or issue closure. Next independent A scope: review remaining bounded download staging/identity integration against issue14 and current native authority before claiming files; preserve B runtime/UI work and security gates.
