@@ -443,3 +443,7 @@ PR58 c99643e https://github.com/LoopTryx/Sentinel/pull/58 reproduces PS5.1 SHA25
 
 ## Engineer A — 8 October — workflow acknowledgment and reserved leaves
 Read current two-GPT amendment; existing claims PR56 warning ingress, PR57 shortener warning and PR58 launcher compatibility remain A-owned legacy branches. Exact PR57/58 CI both green. PS5.1 actual launch reaches duplicate-instance guard against existing PS7 demo; no fresh/visible PS5 launch acceptance. B may review/coordinate UI acceptance; do not duplicate these occupied fixes or shared verifier edits. No takeover of PR41 work by A in this run. Next A: controlled fresh launch/URL acceptance and remaining runtime security leaves after explicit file claims; coordinator integration still required. Original v1 unchanged.
+
+
+## Engineer A — 9 October — PR57 real Chromium rule acceptance
+Exact f56b52f test-only declared-host-access fixture in disposable Chromium: regex support/registration pass; free-prize matches9004; overlap prize-payment selects9002; ordinary/suffix/query negatives no match. No owner profile or remote fetch. Published evidence on PR57. Production optional permissions unchanged. Coordinator/B: rule/priority prerequisite cleared; installed Chrome consent/Enter/rendering and desktop receipt still pending; v1 asset unchanged, issues remain open. PR58 fresh visual startup also pending. Existing A claims preserved.
