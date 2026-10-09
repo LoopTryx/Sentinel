@@ -125,6 +125,12 @@ pub struct Engine {
     rules: yara_x::Rules,
 }
 
+impl Default for Engine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Engine {
     pub fn new() -> Self {
         let mut compiler = yara_x::Compiler::new();
@@ -136,7 +142,11 @@ impl Engine {
         }
     }
 
-    pub fn scan_file(&self, path: &Path, hash_lookup: &dyn Fn(&str) -> Option<(String, String)>) -> ScanReport {
+    pub fn scan_file(
+        &self,
+        path: &Path,
+        hash_lookup: &dyn Fn(&str) -> Option<(String, String)>,
+    ) -> ScanReport {
         let start = std::time::Instant::now();
         let mut report = ScanReport {
             path: path.display().to_string(),
@@ -184,15 +194,16 @@ impl Engine {
         }
 
         // 2. EICAR plain-string check (in case hash DB is missing it)
-        if !buf.is_empty() && window_contains(&buf, b"EICAR-STANDARD-ANTIVIRUS-TEST-FILE") {
-            if !report.detections.iter().any(|d| d.name.contains("EICAR")) {
-                report.detections.push(Detection {
-                    source: "heuristic".into(),
-                    name: "EICAR-Test-File".into(),
-                    detail: "EICAR antivirus test marker found in file content".into(),
-                });
-                report.verdict = "malicious".into();
-            }
+        if !buf.is_empty()
+            && window_contains(&buf, b"EICAR-STANDARD-ANTIVIRUS-TEST-FILE")
+            && !report.detections.iter().any(|d| d.name.contains("EICAR"))
+        {
+            report.detections.push(Detection {
+                source: "heuristic".into(),
+                name: "EICAR-Test-File".into(),
+                detail: "EICAR antivirus test marker found in file content".into(),
+            });
+            report.verdict = "malicious".into();
         }
 
         // 3. YARA rule scan
@@ -255,7 +266,9 @@ fn heuristic_checks(path: &Path, buf: &[u8], size: u64) -> Option<Detection> {
     let name = path.file_name()?.to_string_lossy().to_lowercase();
 
     // Double-extension trick: invoice.pdf.exe, photo.jpg.scr
-    const EXEC_EXT: &[&str] = &["exe", "scr", "com", "pif", "bat", "cmd", "vbs", "js", "jar", "lnk"];
+    const EXEC_EXT: &[&str] = &[
+        "exe", "scr", "com", "pif", "bat", "cmd", "vbs", "js", "jar", "lnk",
+    ];
     let parts: Vec<&str> = name.split('.').collect();
 
     // USB auto-execution config: autorun.inf that launches a payload on mount
@@ -265,7 +278,8 @@ fn heuristic_checks(path: &Path, buf: &[u8], size: u64) -> Option<Detection> {
             return Some(Detection {
                 source: "heuristic".into(),
                 name: "AutoRunLauncher".into(),
-                detail: "USB autorun config that launches a program when the drive is mounted".into(),
+                detail: "USB autorun config that launches a program when the drive is mounted"
+                    .into(),
             });
         }
     }
@@ -273,7 +287,9 @@ fn heuristic_checks(path: &Path, buf: &[u8], size: u64) -> Option<Detection> {
     if parts.len() >= 3 {
         let ext = *parts.last().unwrap();
         let inner = *parts.get(parts.len() - 2).unwrap();
-        const DOC_EXT: &[&str] = &["pdf", "doc", "docx", "jpg", "png", "mp4", "txt", "xlsx", "ppt"];
+        const DOC_EXT: &[&str] = &[
+            "pdf", "doc", "docx", "jpg", "png", "mp4", "txt", "xlsx", "ppt",
+        ];
         if EXEC_EXT.contains(&ext) && DOC_EXT.contains(&inner) {
             return Some(Detection {
                 source: "heuristic".into(),
@@ -288,7 +304,7 @@ fn heuristic_checks(path: &Path, buf: &[u8], size: u64) -> Option<Detection> {
 
     // Executable dropped with no version info / tiny size in a script wrapper — keep simple:
     // high-entropy executable or script referencing IPs/encoded blobs
-    if EXEC_EXT.contains(&parts.last().unwrap_or(&"")) && !buf.is_empty() {
+    if EXEC_EXT.contains(parts.last().unwrap_or(&"")) && !buf.is_empty() {
         let e = entropy(buf);
         let tiny_and_weird = size < 4096 && buf.iter().any(|&b| b < 9);
         if e > 7.2 || tiny_and_weird {

@@ -1,5 +1,5 @@
 use rusqlite::{params, Connection, OptionalExtension};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 pub struct Db(pub Mutex<Connection>);
@@ -39,11 +39,11 @@ const SEED_SIGNATURES: &[(&str, &str, &str)] = &[
     ),
 ];
 
-pub fn db_path(app_data: &PathBuf) -> PathBuf {
+pub fn db_path(app_data: &Path) -> PathBuf {
     app_data.join("cyber-shield.db")
 }
 
-pub fn init(app_data: &PathBuf) -> Result<Connection, rusqlite::Error> {
+pub fn init(app_data: &Path) -> Result<Connection, rusqlite::Error> {
     std::fs::create_dir_all(app_data).ok();
     let conn = Connection::open(db_path(app_data))?;
     conn.execute_batch(
@@ -87,7 +87,7 @@ fn seed_signatures(conn: &Connection) -> Result<(), rusqlite::Error> {
 
 /// Allows the team to add corpus hashes without code changes:
 /// place a `extra-signatures.csv` (hash,name,severity per line) in app data.
-pub fn load_extra_signatures(conn: &Connection, app_data: &PathBuf) -> usize {
+pub fn load_extra_signatures(conn: &Connection, app_data: &Path) -> usize {
     let csv_path = app_data.join("extra-signatures.csv");
     let Ok(content) = std::fs::read_to_string(&csv_path) else {
         return 0;
@@ -95,16 +95,16 @@ pub fn load_extra_signatures(conn: &Connection, app_data: &PathBuf) -> usize {
     let mut n = 0;
     for line in content.lines() {
         let parts: Vec<&str> = line.split(',').map(str::trim).collect();
-        if parts.len() == 3 && parts[0].len() == 64 {
-            if conn
+        if parts.len() == 3
+            && parts[0].len() == 64
+            && conn
                 .execute(
                     "INSERT OR IGNORE INTO signatures (hash, name, severity) VALUES (?1, ?2, ?3)",
                     params![parts[0], parts[1], parts[2]],
                 )
                 .is_ok()
-            {
-                n += 1;
-            }
+        {
+            n += 1;
         }
     }
     n
@@ -125,7 +125,14 @@ pub fn insert_threat(conn: &Connection, t: &ThreatRecord) -> Result<i64, rusqlit
     conn.execute(
         "INSERT INTO threats (detected_at, path, sha256, verdict, detections, action)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![t.detected_at, t.path, t.sha256, t.verdict, t.detections, t.action],
+        params![
+            t.detected_at,
+            t.path,
+            t.sha256,
+            t.verdict,
+            t.detections,
+            t.action
+        ],
     )?;
     Ok(conn.last_insert_rowid())
 }
@@ -236,5 +243,6 @@ pub fn quarantine_get(conn: &Connection, id: i64) -> Option<QuarantineRecord> {
 }
 
 pub fn quarantine_delete(conn: &Connection, id: i64) {
-    conn.execute("DELETE FROM quarantine WHERE id = ?1", params![id]).ok();
+    conn.execute("DELETE FROM quarantine WHERE id = ?1", params![id])
+        .ok();
 }
