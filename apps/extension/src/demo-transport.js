@@ -2,10 +2,15 @@ const KEY='sentinelDemoConnection';
 const actions=new Set(['state','unlock','lock','reveal','rotate','event']);
 export async function demoRequest(message,sender) {
  const page=sender.url?.split(/[?#]/)[0];
- if(sender.id!==chrome.runtime.id || ![chrome.runtime.getURL('popup.html'),chrome.runtime.getURL('xray.html')].includes(page))throw new Error('forbidden');
- if(page===chrome.runtime.getURL('xray.html')&&message.method!=='event')throw new Error('forbidden');
+ if(sender.id!==chrome.runtime.id || ![chrome.runtime.getURL('popup.html'),chrome.runtime.getURL('xray.html'),chrome.runtime.getURL('warning.html')].includes(page))throw new Error('forbidden');
+ if(page===chrome.runtime.getURL('warning.html')&&sender.frameId!==0)throw new Error('forbidden');
+ if(page!==chrome.runtime.getURL('popup.html')&&message.method!=='event')throw new Error('forbidden');
  if(!actions.has(message.method))throw new Error('unsupported');
  const data=message.data??{};
+ if(page===chrome.runtime.getURL('warning.html')){
+  const expectedCode={'#listed':'risk_list','#keywords':'reward_payment'}[new URL(sender.url).hash];
+  if(!expectedCode||typeof data!=='object'||data===null||Array.isArray(data)||Object.keys(data).sort().join(',')!=='codes,risk'||data.risk!=='suspicious'||!Array.isArray(data.codes)||data.codes.length!==1||data.codes[0]!==expectedCode)throw new Error('invalid_request');
+ }
  if(JSON.stringify(data).length>4096)throw new Error('invalid_request');
  const config=(await chrome.storage.session.get(KEY))[KEY];
  if(!config||!Number.isInteger(config.port)||config.port<1024||config.port>65535||!/^[a-f0-9]{64}$/.test(config.token))throw new Error('Desktop disconnected. Pair in Connection & test controls.');
