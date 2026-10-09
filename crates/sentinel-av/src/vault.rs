@@ -37,7 +37,7 @@ impl Vault {
         }
         let mut key = [0u8; 32];
         rand::thread_rng().fill_bytes(&mut key);
-        std::fs::write(&self.key_path, &key).map_err(|e| e.to_string())?;
+        std::fs::write(&self.key_path, key).map_err(|e| e.to_string())?;
         Ok(key)
     }
 

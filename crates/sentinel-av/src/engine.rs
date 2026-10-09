@@ -125,6 +125,12 @@ pub struct Engine {
     rules: yara_x::Rules,
 }
 
+impl Default for Engine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Engine {
     pub fn new() -> Self {
         let mut compiler = yara_x::Compiler::new();
@@ -188,15 +194,16 @@ impl Engine {
         }
 
         // 2. EICAR plain-string check (in case hash DB is missing it)
-        if !buf.is_empty() && window_contains(&buf, b"EICAR-STANDARD-ANTIVIRUS-TEST-FILE") {
-            if !report.detections.iter().any(|d| d.name.contains("EICAR")) {
-                report.detections.push(Detection {
-                    source: "heuristic".into(),
-                    name: "EICAR-Test-File".into(),
-                    detail: "EICAR antivirus test marker found in file content".into(),
-                });
-                report.verdict = "malicious".into();
-            }
+        if !buf.is_empty()
+            && window_contains(&buf, b"EICAR-STANDARD-ANTIVIRUS-TEST-FILE")
+            && !report.detections.iter().any(|d| d.name.contains("EICAR"))
+        {
+            report.detections.push(Detection {
+                source: "heuristic".into(),
+                name: "EICAR-Test-File".into(),
+                detail: "EICAR antivirus test marker found in file content".into(),
+            });
+            report.verdict = "malicious".into();
         }
 
         // 3. YARA rule scan
@@ -297,7 +304,7 @@ fn heuristic_checks(path: &Path, buf: &[u8], size: u64) -> Option<Detection> {
 
     // Executable dropped with no version info / tiny size in a script wrapper — keep simple:
     // high-entropy executable or script referencing IPs/encoded blobs
-    if EXEC_EXT.contains(&parts.last().unwrap_or(&"")) && !buf.is_empty() {
+    if EXEC_EXT.contains(parts.last().unwrap_or(&"")) && !buf.is_empty() {
         let e = entropy(buf);
         let tiny_and_weird = size < 4096 && buf.iter().any(|&b| b < 9);
         if e > 7.2 || tiny_and_weird {
