@@ -506,17 +506,40 @@ impl Vault {
     pub fn quarantine(&self, source: &Path) -> Result<QuarantineOutcome, String> {
         #[cfg(test)]
         {
-            self.quarantine_inner(source, None)
+            self.quarantine_inner(source, None, None)
         }
         #[cfg(not(test))]
         {
-            self.quarantine_inner(source)
+            self.quarantine_inner(source, None)
+        }
+    }
+
+    /// Native-only checked action: verify original inspected object/content
+    /// against the exclusive deletion handle before key/blob/journal writes.
+    /// Caller consent, current-job binding and action expiry remain adapter duties.
+    /// This never authorizes automatic quarantine from a report or heuristic.
+    pub fn quarantine_inspected(
+        &self,
+        source: &Path,
+        subject: &crate::InspectedSubject,
+    ) -> Result<QuarantineOutcome, String> {
+        if !crate::engine::local_selection_path(source) {
+            return Err("inspected subject path unsupported".into());
+        }
+        #[cfg(test)]
+        {
+            self.quarantine_inner(source, Some(subject), None)
+        }
+        #[cfg(not(test))]
+        {
+            self.quarantine_inner(source, Some(subject))
         }
     }
 
     fn quarantine_inner(
         &self,
         source: &Path,
+        inspected: Option<&crate::InspectedSubject>,
         #[cfg(test)] interruption: Option<ControlledInterruption>,
     ) -> Result<QuarantineOutcome, String> {
         let storage = self.storage_guard()?;
@@ -524,6 +547,9 @@ impl Vault {
         let source_parent = crate::storage_path::retain_file_parent(source, false)?;
         let (source_handle, plaintext) =
             read_bounded_handle(&source_parent.path, MAX_PLAINTEXT_BYTES, true)?;
+        if let Some(subject) = inspected {
+            subject.matches(&source_handle, &plaintext)?;
+        }
         let _admission = vault.admit_storage(plaintext.len() as u64 + 28 + 2 * 8192, 3, None)?;
         let key_bytes = vault.load_or_create_key()?;
 
@@ -1063,7 +1089,9 @@ mod retained_source_tests {
             std::fs::write(&source, plaintext).unwrap();
             let vault = Vault::new(&root.join("app"));
             let before_remove = interruption == ControlledInterruption::JournalCommitted;
-            assert!(vault.quarantine_inner(&source, Some(interruption)).is_err());
+            assert!(vault
+                .quarantine_inner(&source, None, Some(interruption))
+                .is_err());
             assert_eq!(source.exists(), before_remove);
             let reference = std::fs::read_dir(&vault.dir)
                 .unwrap()

@@ -125,6 +125,16 @@ pub struct ScanReport {
     pub bytes_inspected: u64,
     pub content_complete: bool,
     pub content_evidence: Option<crate::inspection::ContentEvidence>,
+    #[serde(skip)]
+    subject: Option<crate::InspectedSubject>,
+}
+
+impl ScanReport {
+    /// Private object/content association, not authorization or a wire DTO.
+    /// Only a complete successful inspection can produce this association.
+    pub fn inspected_subject(&self) -> Option<&crate::InspectedSubject> {
+        self.subject.as_ref()
+    }
 }
 
 struct Acquisition<'a> {
@@ -497,6 +507,9 @@ impl Engine {
             report.verdict = "unknown".into();
         }
         report.scan_ms = start.elapsed().as_millis();
+        if report.state == "completed" && report.content_complete {
+            report.subject = crate::InspectedSubject::capture(&file, &report.sha256, report.size);
+        }
         report
     }
 }
@@ -513,6 +526,7 @@ fn terminal_report(path: &Path, state: &str) -> ScanReport {
         bytes_inspected: 0,
         content_complete: false,
         content_evidence: None,
+        subject: None,
     }
 }
 

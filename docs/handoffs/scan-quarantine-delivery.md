@@ -832,6 +832,54 @@ timer/thread for each selection. Browser/client clocks must never be accepted as
 the maintenance clock. Directory subject binding, caller/action authorization,
 canonical wire/native integration and real download-byte journeys remain open.
 
+## Inspected-object quarantine binding
+
+Native-only signatures:
+
+```rust
+ScanReport::inspected_subject(&self) -> Option<&sentinel_av::InspectedSubject>
+Vault::quarantine_inspected(&self, source: &Path, subject: &InspectedSubject)
+    -> Result<QuarantineOutcome, String>
+```
+
+The engine creates this opaque association only after complete successful
+inspection, from its still-held Windows file handle, full SHA-256 and exact byte
+count. It records the volume serial and128-bit file ID privately. No public
+constructor/deserializer exists, report serialization skips the association,
+and Debug renders only `InspectedSubject { private }`. Unsupported identity
+providers, partial/cancelled/timed-out/failed scans have no action subject.
+Inspection remains available without an object ID; the checked action does not
+fall back to a digest/path-only match.
+
+The checked vault operation refuses unsupported/protected source paths before
+source filesystem access, retains bounded fixed-disk ancestry, acquires the
+exclusive nofollow single-link deletion handle and reads bounded stable bytes.
+It verifies object ID, volume, length and SHA-256 before storage admission,
+key creation or blob/journal writes. Identity/content mismatch returns a closed
+local error and preserves the source. A match uses the existing verified encrypted
+copy, journal-before-removal and retained-handle disposition path; restore keeps
+its existing explicit destination/recovery rules.
+
+The association is evidence, not caller consent, a single-use approval, current
+job binding or an IPC capability. Native must derive an authenticated caller,
+resolve the current private job/selection/report association, preview the action,
+record explicit subject-bound approval with expiry/replay handling, and obtain
+the source only from trusted state. Never accept the path or opaque association
+from a browser request. Do not call legacy `quarantine(source)` on reopened
+inspection-report paths or automatically quarantine heuristic findings. No new
+native command or browser/UI capability is enabled by this increment.
+
+Harmless Windows regressions cover same-path/same-content replacement by a
+different object, same-object/same-length changed contents, and checked
+quarantine/restore with exact original bytes. Both refusal cases preserve files
+and create no key/blob; restored bytes cannot reuse the original object's
+association. Serialization/Debug privacy is checked. Initial tests failed because
+the new API did not exist, then passed after implementation. Existing partial,
+cancelled-before-access/chunk and timed-out checks assert no action subject.
+These are actual owned file/vault operations, not installed action-authorization
+or valuable-file safety approval. Independent security review, native wiring,
+actual download handoff/same-report journeys and reviewed main integration remain.
+
 Unchanged tools/verify.ps1 on this final source completes exit0 / All available
 T01 checks passed, including strict workspace lint, seven actual job tests,
 engine/vault checks, generated parity and UI/extension checks. Root verification

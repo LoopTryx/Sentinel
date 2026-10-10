@@ -7,6 +7,8 @@
 
 pub mod db;
 pub mod engine;
+mod file_subject;
+pub use file_subject::InspectedSubject;
 pub mod inspection;
 pub mod inspection_wire;
 pub mod quarantine_journal;
@@ -17,3 +19,6 @@ pub mod vault;
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(all(test, windows))]
+mod inspected_quarantine_tests;

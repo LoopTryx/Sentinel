@@ -15,6 +15,10 @@ fn huge_zero_file_is_inspected_with_visible_partial_padding_evidence() {
         "sampled bytes must not claim a full-file digest"
     );
     assert_ne!(report.verdict, "clean");
+    assert!(
+        report.inspected_subject().is_none(),
+        "partial inspection cannot supply an action subject"
+    );
     assert!(report
         .detections
         .iter()
@@ -75,6 +79,7 @@ fn cancellation_before_access_and_expired_deadline_are_not_clean() {
     );
     assert_eq!(report.state, "cancelled");
     assert_eq!(report.verdict, "unknown");
+    assert!(report.inspected_subject().is_none());
     let report = engine.scan_file_with_control(
         &missing,
         &|_| None,
@@ -84,6 +89,7 @@ fn cancellation_before_access_and_expired_deadline_are_not_clean() {
     );
     assert_eq!(report.state, "timed_out");
     assert!(report.sha256.is_empty());
+    assert!(report.inspected_subject().is_none());
 }
 
 #[test]
@@ -109,6 +115,7 @@ fn chunk_progress_can_cancel_and_closed_handle_allows_replacement() {
     assert_eq!(report.state, "cancelled");
     assert_eq!(snapshots, [65536]);
     assert!(report.sha256.is_empty());
+    assert!(report.inspected_subject().is_none());
     std::fs::write(&path, b"replacement after cancellation").unwrap();
     std::fs::remove_dir_all(root).unwrap();
 }
