@@ -7,6 +7,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+#[path = "sentinel-inspect/session.rs"]
+mod session;
+
 fn run() -> Result<(), ()> {
     let mut args = std::env::args_os().skip(1);
     let kind = match args
@@ -19,6 +22,11 @@ fn run() -> Result<(), ()> {
         _ => return Err(()),
     };
     let path = args.next().ok_or(())?;
+    let session_root = match args.next() {
+        None => None,
+        Some(flag) if flag == "--session" => Some(std::path::PathBuf::from(args.next().ok_or(())?)),
+        _ => return Err(()),
+    };
     if args.next().is_some() {
         return Err(());
     }
@@ -31,6 +39,9 @@ fn run() -> Result<(), ()> {
     let job = jobs
         .start(owner, &selection, Instant::now())
         .map_err(|_| ())?;
+    if let Some(root) = session_root {
+        return session::run(jobs, owner, job, root);
+    }
     let cancelled = Arc::new(AtomicBool::new(false));
     let input_cancelled = cancelled.clone();
     std::thread::spawn(move || {

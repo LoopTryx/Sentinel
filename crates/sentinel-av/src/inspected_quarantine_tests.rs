@@ -26,6 +26,185 @@ fn completed_job(jobs: &mut crate::scan_jobs::SelectedJobs, source: &std::path::
 }
 
 #[test]
+fn receipt_bound_restore_requires_fresh_native_confirmation_and_preserves_occupied_target() {
+    use sentinel_proto::quarantine_action::{
+        QuarantineActionReference, QuarantineErrorCode, QuarantinePrepareRequest,
+    };
+    use sentinel_proto::restore_action::{RestoreActionReference, RestorePrepareRequest};
+    let root = root();
+    let source = root.join("ordinary.txt");
+    let bytes = b"harmless retained restore bytes";
+    std::fs::write(&source, bytes).unwrap();
+    let mut jobs = crate::scan_jobs::SelectedJobs::default();
+    let job_ref = completed_job(&mut jobs, &source);
+    let vault = Vault::new(&root.join("app"));
+    let quarantine = jobs
+        .prepare_quarantine(
+            "trusted-main",
+            &QuarantinePrepareRequest {
+                job_ref,
+                report_ref: "report_0".into(),
+            },
+            Instant::now(),
+        )
+        .unwrap();
+    let receipt = jobs
+        .quarantine_after_native_confirmation(
+            "trusted-main",
+            &QuarantineActionReference {
+                action_ref: quarantine.action_ref,
+            },
+            Instant::now(),
+            &vault,
+            true,
+        )
+        .unwrap();
+    let request = RestorePrepareRequest {
+        quarantine_action_ref: receipt.action_ref.clone(),
+    };
+    assert!(jobs
+        .prepare_restore("foreign", &request, Instant::now())
+        .is_err());
+    let revoked = jobs
+        .prepare_restore("trusted-main", &request, Instant::now())
+        .unwrap();
+    jobs.cancel("trusted-main", &receipt.job_ref).unwrap();
+    assert!(
+        jobs.restore_after_native_confirmation(
+            "trusted-main",
+            &RestoreActionReference {
+                restore_ref: revoked.restore_ref
+            },
+            Instant::now(),
+            &vault,
+            true
+        )
+        .is_err(),
+        "cancel must revoke pending native action"
+    );
+    let now = Instant::now();
+    let superseded = jobs.prepare_restore("trusted-main", &request, now).unwrap();
+    let expired = jobs.prepare_restore("trusted-main", &request, now).unwrap();
+    assert!(jobs
+        .restore_after_native_confirmation(
+            "trusted-main",
+            &RestoreActionReference {
+                restore_ref: superseded.restore_ref
+            },
+            now,
+            &vault,
+            true
+        )
+        .is_err());
+    assert_eq!(
+        jobs.restore_after_native_confirmation(
+            "trusted-main",
+            &RestoreActionReference {
+                restore_ref: expired.restore_ref
+            },
+            now + Duration::from_secs(30),
+            &vault,
+            true
+        )
+        .unwrap_err()
+        .code,
+        QuarantineErrorCode::ActionUnavailable
+    );
+    let preview = jobs
+        .prepare_restore("trusted-main", &request, Instant::now())
+        .unwrap();
+    let action = RestoreActionReference {
+        restore_ref: preview.restore_ref,
+    };
+    assert_eq!(
+        jobs.restore_after_native_confirmation(
+            "trusted-main",
+            &action,
+            Instant::now(),
+            &vault,
+            false
+        )
+        .unwrap_err()
+        .code,
+        QuarantineErrorCode::Declined
+    );
+    assert!(jobs
+        .restore_after_native_confirmation("trusted-main", &action, Instant::now(), &vault, true)
+        .is_err());
+    let changed = jobs
+        .prepare_restore("trusted-main", &request, Instant::now())
+        .unwrap();
+    let next = root.join("next.txt");
+    std::fs::write(&next, b"harmless next selection").unwrap();
+    jobs.select(
+        "trusted-main",
+        next,
+        crate::scan_jobs::SelectionKind::File,
+        Instant::now(),
+    )
+    .unwrap();
+    assert!(jobs
+        .restore_after_native_confirmation(
+            "trusted-main",
+            &RestoreActionReference {
+                restore_ref: changed.restore_ref
+            },
+            Instant::now(),
+            &vault,
+            true
+        )
+        .is_err());
+    std::fs::write(&source, b"occupied destination").unwrap();
+    let preview = jobs
+        .prepare_restore("trusted-main", &request, Instant::now())
+        .unwrap();
+    let occupied_action = RestoreActionReference {
+        restore_ref: preview.restore_ref,
+    };
+    assert_eq!(
+        jobs.restore_after_native_confirmation(
+            "trusted-main",
+            &occupied_action,
+            Instant::now(),
+            &vault,
+            true
+        )
+        .unwrap_err()
+        .code,
+        QuarantineErrorCode::ActionFailed
+    );
+    assert_eq!(std::fs::read(&source).unwrap(), b"occupied destination");
+    assert!(root.join("app/vault").join(&receipt.vault_file).exists());
+    std::fs::remove_file(&source).unwrap();
+    let preview = jobs
+        .prepare_restore("trusted-main", &request, Instant::now())
+        .unwrap();
+    preview.validate().unwrap();
+    assert!(!serde_json::to_string(&preview)
+        .unwrap()
+        .contains("ordinary.txt"));
+    let action = RestoreActionReference {
+        restore_ref: preview.restore_ref,
+    };
+    assert!(jobs
+        .restore_after_native_confirmation("foreign", &action, Instant::now(), &vault, true)
+        .is_err());
+    let restored = jobs
+        .restore_after_native_confirmation("trusted-main", &action, Instant::now(), &vault, true)
+        .unwrap();
+    restored.validate().unwrap();
+    assert_eq!(std::fs::read(&source).unwrap(), bytes);
+    assert!(jobs
+        .restore_after_native_confirmation("trusted-main", &action, Instant::now(), &vault, true)
+        .is_err());
+    assert!(jobs
+        .prepare_restore("trusted-main", &request, Instant::now())
+        .is_err());
+    drop(jobs);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn job_bound_quarantine_requires_native_confirmation_and_consumes_once() {
     use sentinel_proto::quarantine_action::{
         QuarantineActionReference, QuarantineErrorCode, QuarantinePrepareRequest,
