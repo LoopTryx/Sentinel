@@ -131,6 +131,24 @@ retains admission until the joined worker exits. Seven selected-job checks pass.
 Initial test failed missing controls; no Tauri dispatch, permission policy or
 installed acceptance is proved by these library functions.
 
+Directory-selection root retention is now implemented in the internal controller:
+picker-supplied native paths must be absolute supported local paths; missing,
+nondirectory and reparse leaves refuse. Windows opens a read-only directory with
+backup semantics plus open-reparse-point and read sharing only. The selection
+transfers that root handle into the worker lifetime, preventing root rename while
+selected/scanning and releasing it at worker exit or selection expiry/drop.
+Actual harmless root-rename regression failed first, then eight job tests pass,
+including real directory bytes in a validated canonical report and successful
+rename after completion. No device policy or E: operation is involved.
+
+This root-handle retention does not bind every ancestor/descendant lookup: current
+directory traversal still enumerates the private path and opens bounded children.
+Parent alias/junction/rename races and descendant identity across each acquisition
+need further retained-ancestry/handle-bound traversal evidence. Do not treat this
+increment as full directory subject authorization or installed protection. Native
+bootstrap/lock files remain part of active PR41 ownership, pending exact transfer;
+PR59 is verifier-only and PR62 does not edit those native files.
+
 Use one controller and a bounded idle maintenance timer, trusted native clocks,
 actual picker authorization and held subject identity. File handles are retained
 already; directory root/descendant and picker-to-open ancestry binding remain

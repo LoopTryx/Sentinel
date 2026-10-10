@@ -3,6 +3,71 @@ use std::time::{Duration, Instant};
 
 #[cfg(windows)]
 #[test]
+fn selected_directory_root_is_retained_until_actual_scan_exit() {
+    use std::sync::{mpsc, Arc, Mutex};
+    let root = std::env::temp_dir().join(format!("sentinel-job-dir-held-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(&root).unwrap();
+    let selected_path = root.join("selected");
+    std::fs::create_dir(&selected_path).unwrap();
+    std::fs::write(
+        selected_path.join("ordinary.txt"),
+        b"harmless directory report",
+    )
+    .unwrap();
+    let (entered_tx, entered_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let release_rx = Mutex::new(release_rx);
+    let mut jobs = SelectedJobs::with_hash_lookup(Arc::new(move |_| {
+        entered_tx.send(()).unwrap();
+        let _ = release_rx
+            .lock()
+            .unwrap()
+            .recv_timeout(Duration::from_secs(10));
+        None
+    }));
+    let selected = jobs
+        .select(
+            "trusted-main",
+            selected_path.clone(),
+            SelectionKind::Directory,
+            Instant::now(),
+        )
+        .unwrap();
+    let refused = std::fs::rename(&selected_path, root.join("renamed")).is_err();
+    assert!(
+        refused,
+        "directory selection must retain its root before start"
+    );
+    let job = jobs
+        .start("trusted-main", &selected, Instant::now())
+        .unwrap();
+    entered_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+    let running_refused = std::fs::rename(&selected_path, root.join("renamed")).is_err();
+    release_tx.send(()).unwrap();
+    assert!(
+        running_refused,
+        "directory root must remain retained while the worker runs"
+    );
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let snapshot = jobs.poll_wire("trusted-main", &job).unwrap();
+        if snapshot.state == sentinel_proto::selected_scan::ScanWorkerState::Finished {
+            assert_eq!(snapshot.selection_ref, selected);
+            assert_eq!(snapshot.reports.len(), 1);
+            assert_eq!(snapshot.reports[0].inspected_bytes, "25");
+            break;
+        }
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    std::fs::rename(&selected_path, root.join("renamed")).unwrap();
+    std::fs::remove_file(root.join("renamed/ordinary.txt")).unwrap();
+    std::fs::remove_dir(root.join("renamed")).unwrap();
+    std::fs::remove_dir(root).unwrap();
+}
+
+#[cfg(windows)]
+#[test]
 fn native_maintenance_releases_idle_selection_at_exact_expiry() {
     let root =
         std::env::temp_dir().join(format!("sentinel-job-idle-expiry-{}", uuid::Uuid::new_v4()));

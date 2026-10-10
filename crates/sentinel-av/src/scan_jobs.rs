@@ -109,7 +109,35 @@ impl SelectedJobs {
                 }
                 Some(file)
             }
-            SelectionKind::Directory => None,
+            SelectionKind::Directory => {
+                if !crate::engine::local_selection_path(&path) {
+                    return Err("selected directory unsupported");
+                }
+                let selected = std::fs::symlink_metadata(&path)
+                    .map_err(|_| "selected directory unavailable")?;
+                if !selected.is_dir() || crate::engine::is_reparse(&selected) {
+                    return Err("selected directory unsupported");
+                }
+                let mut options = std::fs::OpenOptions::new();
+                options.read(true);
+                #[cfg(windows)]
+                {
+                    use std::os::windows::fs::OpenOptionsExt;
+                    // Read-only directory handle: retain root, deny rename,
+                    // do not follow a replacement leaf reparse point.
+                    options.share_mode(1).custom_flags(0x0220_0000);
+                }
+                let directory = options
+                    .open(&path)
+                    .map_err(|_| "selected directory unavailable")?;
+                let metadata = directory
+                    .metadata()
+                    .map_err(|_| "selected directory unavailable")?;
+                if !metadata.is_dir() || crate::engine::is_reparse(&metadata) {
+                    return Err("selected directory unsupported");
+                }
+                Some(directory)
+            }
         };
         let reference = uuid::Uuid::new_v4().simple().to_string();
         self.selection = Some(Selection {
