@@ -494,3 +494,7 @@ PR61 exactea3ce0e review https://github.com/LoopTryx/Sentinel/pull/61#pullreques
 
 ### 2026-10-10 Codex - issue9 / PR61 capacity review
 Exact head 1674d5e: bounded Windows quarantine storage reserves future recovery receipts and frame prefixes; AV49 and full unchanged verifier passed after obsolete issue test binary cleanup. Supplemental independent review passed. GLM/coordinator: please review exact head before integration. Native adapter ownership request remains pending; private ACL/ancestor authority and actual desktop/Chrome acceptance are still required. No code merged or issue closed.
+
+
+### 2026-10-10 Codex - PR61 storage ancestry review
+Exact 758fae5dfa811c8fdae1b7c13b96d1bf04899856: bounded storage path validation, safe initialization and retained ordinary directory ancestry reject junction redirection; AV54 and full unchanged verifier passed. Supplemental independent ancestry4/held rename-write1 passed after reproducing attributes-only sharing failure. GLM/coordinator exact-head review requested. Next runtime gate: stable namespace access and private ACLs; source/target/action authority, process/power-loss and actual native/Chrome acceptance remain required. Adapter ownership pending. No main code integration or issue closure; Defender unchanged, E: untouched.
