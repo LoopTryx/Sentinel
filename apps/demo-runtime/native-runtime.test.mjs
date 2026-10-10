@@ -8,7 +8,7 @@ import {startRuntime} from './server.mjs';
 
 test('desktop runtime uses actual Rust bytes and keeps browser filesystem access forbidden',async()=>{
  const root=await mkdtemp(join(tmpdir(),'sentinel-native-runtime-'));const path=join(root,'owned.txt');const bytes=Buffer.from('harmless real runtime bytes');await writeFile(path,bytes);
- const runtime=await startRuntime({nativeExecutable:process.env.SENTINEL_TEST_INSPECT});
+ const runtime=await startRuntime({nativeExecutable:process.env.SENTINEL_TEST_INSPECT,nativeAppDir:join(root,'app')});
  const call=(route,body={},token=runtime.desktopToken,extra={})=>fetch(runtime.url+route,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',...extra},body:JSON.stringify(body)});
  try{
   assert.equal((await call('/scan',{path})).status,200);
