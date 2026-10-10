@@ -1,5 +1,10 @@
 $ErrorActionPreference='Stop'
 $repo=Split-Path -Parent $PSScriptRoot
+$inspectionEngine=Join-Path $repo 'apps\desktop\console-build\sentinel-inspect.exe'
+$inspectionReceipt=Join-Path $repo 'apps\desktop\console-build\inspection-engine.json'
+if(-not(Test-Path -LiteralPath $inspectionEngine -PathType Leaf) -or -not(Test-Path -LiteralPath $inspectionReceipt -PathType Leaf)){throw 'Stage and verify the native inspection engine before packaging.'}
+$engineReceipt=Get-Content -LiteralPath $inspectionReceipt -Raw | ConvertFrom-Json
+if($engineReceipt.executable -ne 'sentinel-inspect.exe' -or $engineReceipt.sha256 -ne (Get-FileHash -LiteralPath $inspectionEngine -Algorithm SHA256).Hash.ToLowerInvariant()){throw 'Staged inspection engine differs from its build receipt.'}
 $stage=Join-Path $repo ('artifacts\Sentinel-Demo-'+[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'))
 New-Item -ItemType Directory -Path $stage -Force | Out-Null
 function Copy-DemoFile([string]$Source,[string]$Relative){
@@ -15,6 +20,7 @@ foreach($entry in @('apps\ui\dist','apps\extension\dist','apps\demo-runtime')){
 foreach($file in Get-ChildItem -LiteralPath (Join-Path $repo 'apps\desktop\console-build') -File){
  if($file.Extension -in @('.exe','.dll')){Copy-DemoFile $file.FullName ('apps\desktop\console-build\'+$file.Name)}
 }
+Copy-DemoFile $inspectionReceipt 'apps\desktop\console-build\inspection-engine.json'
 $clam=Join-Path $repo '.local-handoff\clamav-1.5.4\portable\clamav-1.5.4.win.x64'
 New-Item -ItemType Directory -Path (Join-Path $stage '.local-handoff\clamav-1.5.4\portable\clamav-1.5.4.win.x64') -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $clam 'certs') -Destination (Join-Path $stage '.local-handoff\clamav-1.5.4\portable\clamav-1.5.4.win.x64\certs') -Recurse
