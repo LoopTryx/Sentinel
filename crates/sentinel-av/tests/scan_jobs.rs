@@ -3,6 +3,56 @@ use std::time::{Duration, Instant};
 
 #[cfg(windows)]
 #[test]
+fn selection_refuses_junction_ancestors_without_reading_outside_subject() {
+    let root = std::env::temp_dir().join(format!("sentinel-job-junction-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(&root).unwrap();
+    let target = root.join("target");
+    std::fs::create_dir(&target).unwrap();
+    std::fs::write(target.join("ordinary.txt"), b"harmless outside subject").unwrap();
+    let link = root.join("link");
+    let result = std::process::Command::new("cmd")
+        .args(["/C", "mklink", "/J"])
+        .arg(&link)
+        .arg(&target)
+        .output()
+        .unwrap();
+    assert!(result.status.success());
+    let mut jobs = SelectedJobs::default();
+    let file_refused = jobs
+        .select(
+            "trusted-main",
+            link.join("ordinary.txt"),
+            SelectionKind::File,
+            Instant::now(),
+        )
+        .is_err();
+    std::fs::create_dir(target.join("nested")).unwrap();
+    let directory_refused = jobs
+        .select(
+            "trusted-main",
+            link.join("nested"),
+            SelectionKind::Directory,
+            Instant::now(),
+        )
+        .is_err();
+    drop(jobs);
+    std::fs::remove_dir(link).unwrap();
+    assert_eq!(
+        std::fs::read(target.join("ordinary.txt")).unwrap(),
+        b"harmless outside subject"
+    );
+    std::fs::remove_file(target.join("ordinary.txt")).unwrap();
+    std::fs::remove_dir(target.join("nested")).unwrap();
+    std::fs::remove_dir(target).unwrap();
+    std::fs::remove_dir(root).unwrap();
+    assert!(
+        file_refused && directory_refused,
+        "junction ancestors must not grant selected-file/folder references"
+    );
+}
+
+#[cfg(windows)]
+#[test]
 fn selected_directory_root_is_retained_until_actual_scan_exit() {
     use std::sync::{mpsc, Arc, Mutex};
     let root = std::env::temp_dir().join(format!("sentinel-job-dir-held-{}", uuid::Uuid::new_v4()));

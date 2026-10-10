@@ -61,6 +61,7 @@ pub(crate) fn retain_file_parent(path: &Path, create: bool) -> Result<FileParent
             false,
             Some(name),
             false,
+            false,
         )?;
         let resolved = parent.path.join(name);
         if resolved.as_os_str().encode_wide().count() > 1024 {
@@ -75,21 +76,38 @@ pub(crate) fn retain_file_parent(path: &Path, create: bool) -> Result<FileParent
 
 #[cfg(all(test, windows))]
 pub(crate) fn retain_directory(path: &Path, create: bool) -> Result<DirectoryGuard, String> {
-    retain_directory_inner(path, create, false, None, false)
+    retain_directory_inner(path, create, false, None, false, false)
 }
 
 pub(crate) fn retain_pinned_directory(path: &Path) -> Result<DirectoryGuard, String> {
-    retain_directory_inner(path, false, true, None, false)
+    retain_directory_inner(path, false, true, None, false, false)
 }
 
 pub(crate) fn retain_private_directory(
     path: &Path,
     reserved_child: Option<&std::ffi::OsStr>,
 ) -> Result<DirectoryGuard, String> {
-    retain_directory_inner(path, true, false, reserved_child, true)
+    retain_directory_inner(path, true, false, reserved_child, true, false)
 }
 pub(crate) fn retain_private_child_directory(path: &Path) -> Result<DirectoryGuard, String> {
-    retain_directory_inner(path, true, true, None, true)
+    retain_directory_inner(path, true, true, None, true, false)
+}
+
+/// Read-only scanner ancestry. Removable roots are permitted only here;
+/// quarantine storage policy remains fixed-disk-only. Caller rejects E: first.
+#[cfg(windows)]
+pub(crate) fn retain_scan_ancestry(path: &Path, directory: bool) -> Result<DirectoryGuard, String> {
+    let (parent, name) = if directory {
+        (path, None)
+    } else {
+        let name = path.file_name().ok_or("selected filename unavailable")?;
+        validate_name(name)?;
+        (
+            path.parent().ok_or("selected parent unavailable")?,
+            Some(name),
+        )
+    };
+    retain_directory_inner(parent, false, false, name, false, true)
 }
 
 fn retain_directory_inner(
@@ -98,10 +116,18 @@ fn retain_directory_inner(
     pinned: bool,
     selected_name: Option<&std::ffi::OsStr>,
     private_creation: bool,
+    scan_read_only: bool,
 ) -> Result<DirectoryGuard, String> {
     #[cfg(not(windows))]
     {
-        let _ = (path, create, pinned, selected_name, private_creation);
+        let _ = (
+            path,
+            create,
+            pinned,
+            selected_name,
+            private_creation,
+            scan_read_only,
+        );
         Err("quarantine storage ancestry unsupported".into())
     }
     #[cfg(windows)]
@@ -212,7 +238,10 @@ fn retain_directory_inner(
                         if pinned { 1 } else { 0 },
                     )
                 } as usize;
-                if drive_type != 3 || length == 0 || length >= resolved.len() {
+                if !(drive_type == 3 || (scan_read_only && drive_type == 2))
+                    || length == 0
+                    || length >= resolved.len()
+                {
                     return Err("quarantine storage volume unsupported".into());
                 }
                 let final_name = String::from_utf16(&resolved[..length])

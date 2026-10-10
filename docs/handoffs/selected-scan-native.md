@@ -149,6 +149,24 @@ increment as full directory subject authorization or installed protection. Nativ
 bootstrap/lock files remain part of active PR41 ownership, pending exact transfer;
 PR59 is verifier-only and PR62 does not edit those native files.
 
+Windows selection now retains bounded nofollow ancestry from the local volume
+root through selected file parent/directory. Intermediate reparse points, aliases,
+traversal and path/component limits refuse before issuing selection references.
+The leaf is opened through the resolved volume address; file engine acquisition
+continues from its retained leaf handle. Ancestor handles transfer into the worker
+lifetime and release with expiry/drop/worker exit. The original path is private
+label/traversal context, never quarantine authority or wire output.
+
+Read-only scanner ancestry permits fixed/removable volume types; all existing
+vault/storage wrappers keep their original fixed-disk restriction and never create
+scanner ancestry directories. No removable hardware journey was executed, and
+the existing E: refusal happens before ancestry access. Actual owned intermediate
+junction regression failed first for both file/folder selection; nine job checks
+now pass and harmless target bytes remain unchanged. Directory traversal still
+uses private paths: drive-map changes and descendant ancestry/acquisition binding
+need further evidence. Do not infer full tree identity, privileged device holds,
+quarantine authorization, native IPC or installed protection from this increment.
+
 Use one controller and a bounded idle maintenance timer, trusted native clocks,
 actual picker authorization and held subject identity. File handles are retained
 already; directory root/descendant and picker-to-open ancestry binding remain

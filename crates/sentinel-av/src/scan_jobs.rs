@@ -21,6 +21,8 @@ struct Selection {
     kind: SelectionKind,
     expires: Instant,
     file: Option<std::fs::File>,
+    #[cfg(windows)]
+    ancestry: crate::storage_path::DirectoryGuard,
 }
 
 #[derive(Clone, Default)]
@@ -83,13 +85,34 @@ impl SelectedJobs {
             return Err("invalid native selection");
         }
         self.maintain(now);
+        #[cfg(windows)]
+        let ancestry = {
+            if !crate::engine::local_selection_path(&path) {
+                return Err("selected subject unsupported");
+            }
+            crate::storage_path::retain_scan_ancestry(
+                &path,
+                matches!(kind, SelectionKind::Directory),
+            )
+            .map_err(|_| "selected subject ancestry unavailable")?
+        };
+        #[cfg(windows)]
+        let open_path = if matches!(kind, SelectionKind::Directory) {
+            ancestry.path.clone()
+        } else {
+            ancestry
+                .path
+                .join(path.file_name().ok_or("selected filename unavailable")?)
+        };
+        #[cfg(not(windows))]
+        let open_path = path.clone();
         let file = match kind {
             SelectionKind::File => {
                 if !crate::engine::local_selection_path(&path) {
                     return Err("selected file unsupported");
                 }
-                let selected =
-                    std::fs::symlink_metadata(&path).map_err(|_| "selected file unavailable")?;
+                let selected = std::fs::symlink_metadata(&open_path)
+                    .map_err(|_| "selected file unavailable")?;
                 if !selected.is_file() || crate::engine::is_reparse(&selected) {
                     return Err("selected file unsupported");
                 }
@@ -101,7 +124,7 @@ impl SelectedJobs {
                     options.share_mode(1).custom_flags(0x0020_0000);
                 }
                 let file = options
-                    .open(&path)
+                    .open(&open_path)
                     .map_err(|_| "selected file unavailable")?;
                 let metadata = file.metadata().map_err(|_| "selected file unavailable")?;
                 if !metadata.is_file() || crate::engine::is_reparse(&metadata) {
@@ -113,7 +136,7 @@ impl SelectedJobs {
                 if !crate::engine::local_selection_path(&path) {
                     return Err("selected directory unsupported");
                 }
-                let selected = std::fs::symlink_metadata(&path)
+                let selected = std::fs::symlink_metadata(&open_path)
                     .map_err(|_| "selected directory unavailable")?;
                 if !selected.is_dir() || crate::engine::is_reparse(&selected) {
                     return Err("selected directory unsupported");
@@ -128,7 +151,7 @@ impl SelectedJobs {
                     options.share_mode(1).custom_flags(0x0220_0000);
                 }
                 let directory = options
-                    .open(&path)
+                    .open(&open_path)
                     .map_err(|_| "selected directory unavailable")?;
                 let metadata = directory
                     .metadata()
@@ -147,6 +170,8 @@ impl SelectedJobs {
             kind,
             expires: now + Duration::from_secs(60),
             file,
+            #[cfg(windows)]
+            ancestry,
         });
         Ok(reference)
     }
@@ -205,6 +230,8 @@ impl SelectedJobs {
         let worker = std::thread::Builder::new()
             .name("sentinel-selected-scan".into())
             .spawn(move || {
+                #[cfg(windows)]
+                let _ancestry = selected.ancestry;
                 let deadline = Instant::now() + Duration::from_secs(30);
                 let mut cancelled = || worker_cancel.load(Ordering::Acquire);
                 let mut progress = |count| {
