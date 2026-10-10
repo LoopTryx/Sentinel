@@ -153,6 +153,15 @@ file with a disguised filename (a filename clue still applies without content). 
 identified eager ancestor collection, entry257 and final-check omissions; corrected
 before publication. Full final verifier/CI and B review must be recorded separately.
 
+Scanner publication evidence: unchanged full `tools/verify.ps1` passed at
+`d00b455` with two compiler workers, including native Rust tests, generated parity,
+UI checks/build and extension checks/build. Supplemental review ran eight focused
+AV cases and found no additional traversal/admission defect. Its remaining report
+finding (impossible PE-header evidence below 68 bytes) was reproduced failing first
+and corrected; four protocol cases, actual report conversion and strict protocol
+lint pass after that correction. Named B security review, native UI acceptance and
+installed-browser download acceptance remain pending. No issue is complete.
+
 ## Remaining concrete delivery work
 
 1. Retained source identity, bounded encrypted staging, verified on-disk bytes,

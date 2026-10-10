@@ -120,6 +120,7 @@ impl FileInspectionSnapshot {
                     || evidence.zero_permille > 1000
                     || evidence.zero_permille != ratio
                     || evidence.range_complete != (inspected == logical)
+                    || (evidence.pe_header_present && inspected < 68)
                     || self.coverage != Coverage::Partial
                 {
                     return Err(InvalidFileInspection);

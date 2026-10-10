@@ -85,3 +85,17 @@ fn content_findings_require_their_measured_evidence() {
     bad.state = FileInspectionState::AccessError;
     assert!(bad.validate().is_err());
 }
+
+#[test]
+fn pe_header_evidence_requires_the_minimum_inspected_layout() {
+    let mut report = completed();
+    report.logical_bytes = "1".into();
+    report.inspected_bytes = "1".into();
+    report.evidence.as_mut().unwrap().pe_header_present = true;
+    report.verdict = FileInspectionVerdict::Suspicious;
+    report.findings = vec![FileInspectionFinding::DisguisedExecutableHeader];
+    assert!(report.validate().is_err());
+    report.logical_bytes = "68".into();
+    report.inspected_bytes = "68".into();
+    assert!(report.validate().is_ok());
+}
