@@ -2060,6 +2060,7 @@ dependencies = [
  "hex",
  "rand",
  "rusqlite",
+ "sentinel-proto",
  "serde",
  "sha2",
  "uuid",

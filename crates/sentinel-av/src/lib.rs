@@ -7,6 +7,8 @@
 
 pub mod db;
 pub mod engine;
+pub mod inspection;
+pub mod inspection_wire;
 pub mod vault;
 
 #[cfg(test)]
