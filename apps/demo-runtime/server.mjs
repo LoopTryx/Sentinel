@@ -5,6 +5,8 @@ import {basename, resolve, join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {generatePassword} from '../extension/src/password-generator.js';
 import {inspectWithClamAV} from './clamav.mjs';
+import {inspectNative} from './native-inspection.mjs';
+import {fileURLToPath} from 'node:url';
 
 const MARKER='SENTINEL_SYNTHETIC_TEST_ONLY_V1';
 const LIMIT=8*1024*1024;
@@ -34,7 +36,7 @@ const allowedCodes=new Set(['http','credentials','ip','internationalized','port'
 function equal(a,b){return typeof a==='string'&&/^[a-f0-9]{64}$/.test(a)&&a.length===b.length&&timingSafeEqual(Buffer.from(a),Buffer.from(b));}
 function keys(body,list){return body&&typeof body==='object'&&!Array.isArray(body)&&Object.keys(body).every(k=>list.includes(k));}
 
-export async function startRuntime({port=0,onShutdown=()=>{}}={}) {
+export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=null}={}) {
  const desktopToken=randomBytes(32).toString('hex');
  let browserToken='',extensionId='',unlocked=false,scan=null,closed=false,revision=0,activeScan=Promise.resolve(),closing;
  const events=[];
@@ -46,6 +48,27 @@ export async function startRuntime({port=0,onShutdown=()=>{}}={}) {
  ];
  function event(source,kind,codes=[]){events.unshift({id:randomBytes(8).toString('hex'),at:new Date().toISOString(),source,kind,codes});events.splice(64);}
  function state(){return {revision,mode:'synthetic_demo',connected:true,unlocked,extensionId,accounts:accounts.map(({password,...a})=>({...a,...auditPassword(password),reused:accounts.filter(b=>b.password===password).length>1})),events,scan:scan?Object.fromEntries(Object.entries(scan).filter(([k])=>k!=='cancel')):null};}
+ let nativeSnapshot=null;
+ async function runNativeScan(path,current){
+  try{
+   const stat=await lstat(path);
+   if(stat.isSymbolicLink()||(!stat.isFile()&&!stat.isDirectory()))throw new Error();
+   const result=await inspectNative({executable:nativeExecutable,path,kind:stat.isDirectory()?'folder':'file',cancelled:()=>closed||current.cancel,onSnapshot:next=>{
+    nativeSnapshot=next;
+    current.visited=next.reports.length;
+    current.checked=next.reports.filter(r=>r.state==='completed').length;
+    current.skipped=next.reports.filter(r=>r.state!=='completed').length;
+    current.bytes=next.reports.reduce((n,r)=>n+Number(r.inspectedBytes),0);
+    current.files=next.reports.filter(r=>r.state==='completed').map(r=>({name:r.reportRef,sha256:r.sha256,bytes:Number(r.inspectedBytes)}));
+    // Legacy UI requires a complete digest. Partial-byte evidence stays in the
+    // canonical /inspection response until the shared UI contract is adopted.
+    current.findings=next.reports.filter(r=>r.state==='completed').flatMap(r=>r.findings.map(kind=>({name:r.reportRef,kind,reason:'Bounded local indicator; review the inspection report. This does not prove malware.',sha256:r.sha256}))).slice(0,128);
+   }});
+   current.status=result.status==='cancelled'||result.status==='timed_out'?result.status:result.status==='finished'?'partial':'failed';
+   if(current.status==='failed')current.errors++;
+   event('desktop',current.status==='failed'?'scan_failed':'scan_completed');
+  }catch{current.errors++;current.status='failed';event('desktop','scan_failed');}
+ }
  async function runScan(path,current) {
   const start=Date.now(); const queue=[{path,depth:0}];
   try {
@@ -113,6 +136,7 @@ export async function startRuntime({port=0,onShutdown=()=>{}}={}) {
   try{let size=0;const chunks=[];for await(const c of req){size+=c.length;if(size>4096)return respond(413,{error:'request_too_large'});chunks.push(c);}body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{return respond(400,{error:'invalid_request'});}
   if(!keys(body,['id','path','extensionId','risk','codes']))return respond(400,{error:'invalid_request'});
   if(req.url==='/state'&&keys(body,[])){const snapshot=state();if(browser)snapshot.scan=null;return respond(200,snapshot);}
+  if(req.url==='/inspection'&&desktop&&keys(body,[]))return respond(200,{snapshot:nativeSnapshot});
   if(req.url==='/shutdown'&&desktop&&keys(body,[])){res.once('finish',()=>{void close().then(onShutdown);});return respond(200,{ok:true});}
   if(req.url==='/event'&&browser&&keys(body,['risk','codes'])&&['suspicious','unknown'].includes(body.risk)&&Array.isArray(body.codes)&&body.codes.length<=16&&body.codes.every(c=>allowedCodes.has(c))){event('browser',body.risk,Array.from(new Set(body.codes)));return respond(200,{ok:true});}
   if(req.url==='/pair'&&desktop&&keys(body,['extensionId'])&&typeof body.extensionId==='string'&&/^[a-p]{32}$/.test(body.extensionId)){extensionId=body.extensionId;browserToken=randomBytes(32).toString('hex');return respond(200,{token:browserToken,port:server.address().port,extensionId});}
@@ -135,7 +159,10 @@ export async function startRuntime({port=0,onShutdown=()=>{}}={}) {
    const ordinaryPath=typeof body.path==='string'&&(process.platform==='win32'?/^[a-df-z]:[\\/]/i.test(body.path):/^\/(?!\/)/.test(body.path));
    if(!ordinaryPath||body.path.length>1024||/^E:/i.test(body.path)||body.path.includes('\0'))return respond(400,{error:'selection_unsupported'});
    scan={id:randomBytes(12).toString('hex'),status:'running',coverage:'partial',engine:'Bounded read-only SHA-256 and harmless synthetic signatures',visited:0,checked:0,skipped:0,errors:0,bytes:0,files:[],findings:[],cancel:false};
-   activeScan=runScan(resolve(body.path),scan);return respond(200,{id:scan.id});
+   nativeSnapshot=null;
+   if(nativeExecutable){scan.engine='Rust bounded byte inspection; partial coverage';activeScan=runNativeScan(resolve(body.path),scan);}
+   else activeScan=runScan(resolve(body.path),scan);
+   return respond(200,{id:scan.id});
   }
   return respond(desktop?400:403,{error:desktop?'invalid_request':'forbidden'});
  });
@@ -145,7 +172,8 @@ export async function startRuntime({port=0,onShutdown=()=>{}}={}) {
  return {desktopToken,url:'http://127.0.0.1:'+server.address().port,port:server.address().port,close};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
- const runtime=await startRuntime({onShutdown:()=>process.exit(0)});
+ const nativeExecutable=fileURLToPath(new URL('../desktop/console-build/sentinel-inspect.exe',import.meta.url));
+ const runtime=await startRuntime({onShutdown:()=>process.exit(0),nativeExecutable});
  await writeFile(new URL('../desktop/console-build/demo-runtime.json',import.meta.url),JSON.stringify({url:runtime.url,token:runtime.desktopToken}),{mode:0o600});
  process.on('SIGTERM',async()=>{await runtime.close();process.exit(0);});
 }
