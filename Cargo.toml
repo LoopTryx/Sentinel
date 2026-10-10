@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/sentinel-proto", "crates/sentinel-cli", "crates/sentinel-core", "crates/sentinel-agent", "crates/sentinel-recovery", "crates/sentinel-intel", "crates/sentinel-svc", "crates/sentinel-scan", "crates/sentinel-worker"]
+members = ["crates/sentinel-proto", "crates/sentinel-cli", "crates/sentinel-core", "crates/sentinel-agent", "crates/sentinel-recovery", "crates/sentinel-intel", "crates/sentinel-svc", "crates/sentinel-scan", "crates/sentinel-worker", "crates/sentinel-usb"]
 resolver = "3"
 
 [workspace.package]

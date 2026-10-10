@@ -4,12 +4,12 @@ This is broker-internal Rust logic, not active Windows USB protection. It instal
 
 ## Check it
 
-This crate is temporarily an isolated workspace to avoid editing peer-owned root manifest/lock/bootstrap files. Root `tools/verify.ps1` does **not** test it. Run all three explicit checks as well as the unchanged root verifier:
+This crate is a root workspace member. `tools/verify.ps1` and existing Windows CI include its formatting, lint and tests through workspace-wide commands. Focused checks are:
 
 ```powershell
-cargo fmt --manifest-path crates/sentinel-usb/Cargo.toml -- --check
-cargo clippy --manifest-path crates/sentinel-usb/Cargo.toml --all-targets -- -D warnings
-cargo test --manifest-path crates/sentinel-usb/Cargo.toml
+cargo fmt --all -- --check
+cargo clippy -p sentinel-usb --all-targets -- -D warnings
+cargo test -p sentinel-usb
 ```
 
 ## Decision contract
@@ -32,4 +32,4 @@ An independent watchdog must call `recover_due` even after UI/service failure; t
 
 ## Integration dependencies
 
-Engineer B owns this slice under issue12 handoff6099690602 and claim6100413399. Engineer A retains AV/commands.rs/generated selected-scan integration. Published scanner contract and typed actual job controls are on PR61; picker/authenticated native wiring remain pending. Shared root registration and native wiring require an explicit editing-owner agreement. The physical matrix must prove clean/suspicious/partial storage handling, pre-input benign RP2040 denial, composite separation, reconnection/reboot, drift and independent recovery. No daily-machine policy/HID tests, live malware or E: access.
+Engineer B owns this slice under issue12 handoff6099690602 and claim6100413399. Engineer A retains AV/commands.rs/generated selected-scan integration. Published scanner contract and typed actual job controls are on PR61; picker/authenticated native wiring remain pending. Shared root registration was accepted in issue12 comment6100535864 and implemented under claim6100874585. Native wiring needs its separate editing-owner agreement. The physical matrix must prove clean/suspicious/partial storage handling, pre-input benign RP2040 denial, composite separation, reconnection/reboot, drift and independent recovery. No daily-machine policy/HID tests, live malware or E: access.
