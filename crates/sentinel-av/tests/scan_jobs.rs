@@ -35,6 +35,17 @@ fn selection_refuses_junction_ancestors_without_reading_outside_subject() {
             Instant::now(),
         )
         .is_err();
+    let report =
+        sentinel_av::engine::Engine::default().scan_file(&link.join("ordinary.txt"), &|_| None);
+    let engine_refused = report.bytes_inspected == 0 && report.verdict == "unknown";
+    let directory_reports = sentinel_av::engine::scan_directory(
+        &sentinel_av::engine::Engine::default(),
+        &link.join("nested"),
+        &|_| None,
+    );
+    let directory_engine_refused = directory_reports.len() == 1
+        && directory_reports[0].bytes_inspected == 0
+        && directory_reports[0].state == "access_error";
     drop(jobs);
     std::fs::remove_dir(link).unwrap();
     assert_eq!(
@@ -46,7 +57,7 @@ fn selection_refuses_junction_ancestors_without_reading_outside_subject() {
     std::fs::remove_dir(target).unwrap();
     std::fs::remove_dir(root).unwrap();
     assert!(
-        file_refused && directory_refused,
+        file_refused && directory_refused && engine_refused && directory_engine_refused,
         "junction ancestors must not grant selected-file/folder references"
     );
 }

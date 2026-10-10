@@ -245,10 +245,31 @@ impl Engine {
             report.state = "unsupported".into();
             return report;
         }
+        #[cfg(windows)]
+        let ancestry = if acquisition.retained.is_none() {
+            match crate::storage_path::retain_scan_ancestry(path, false) {
+                Ok(guard) => Some(guard),
+                Err(_) => return report,
+            }
+        } else {
+            None
+        };
+        #[cfg(windows)]
+        let read_path = if let Some(parent) = &ancestry {
+            let Some(name) = path.file_name() else {
+                report.state = "unsupported".into();
+                return report;
+            };
+            parent.path.join(name)
+        } else {
+            path.to_path_buf()
+        };
+        #[cfg(not(windows))]
+        let read_path = path.to_path_buf();
         let opened = if let Some(retained) = acquisition.retained {
             retained.try_clone()
         } else {
-            let Ok(selected) = std::fs::symlink_metadata(path) else {
+            let Ok(selected) = std::fs::symlink_metadata(&read_path) else {
                 return report;
             };
             if !selected.is_file() || is_reparse(&selected) {
@@ -262,7 +283,7 @@ impl Engine {
                 use std::os::windows::fs::OpenOptionsExt;
                 options.share_mode(1).custom_flags(0x0020_0000);
             }
-            options.open(path)
+            options.open(&read_path)
         };
         let Ok(mut file) = opened else {
             return report;
@@ -639,6 +660,14 @@ pub fn scan_directory_with_control(
     }
     let Ok(_permit) = engine.admission.try_lock() else {
         return vec![terminal_report(root, "busy")];
+    };
+    if Instant::now() >= deadline {
+        return vec![terminal_report(root, "timed_out")];
+    }
+    #[cfg(windows)]
+    let _ancestry = match crate::storage_path::retain_scan_ancestry(root, true) {
+        Ok(guard) => guard,
+        Err(_) => return vec![terminal_report(root, "access_error")],
     };
     let mut reports = Vec::new();
     let deadline = deadline.min(Instant::now() + Duration::from_secs(30));

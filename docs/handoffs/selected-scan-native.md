@@ -187,3 +187,24 @@ locked-file error, timeout/partial/skipped traversal and original subject identi
 check both clients receive the same supported download-byte report. Record fresh
 native launches and browser/desktop evidence; do not use this document or DTO tests
 as proof those journeys happened. Keep Defender enabled and CRYPTIC(E:) untouched.
+
+Direct engine acquisition now also retains nofollow Windows ancestry before
+opening a file, including files visited by directory scans. It opens the leaf
+through the retained parent's resolved volume address; selected-file jobs keep
+using their original retained leaf handle. Directory entry points retain root
+ancestry before enumeration and return an explicit access_error report when that
+acquisition refuses. An already-expired deadline returns timed_out before this
+new filesystem access. These guards live through the operation.
+
+The harmless junction regression reproduces refusal for both direct file reads
+and an empty directory beneath a junction, alongside selection refusal. Nine job
+checks and seven bounds checks pass, including actual byte-budget, padding/header
+inspection and cancellation controls. An initial bounds run failed creating large
+fixtures because C: was full; after removing only this task's reproducible build
+executables, the same unchanged tests passed. No valuable data was removed.
+
+Enumeration still uses the private original directory path. Retained acquisition
+does not establish a complete immutable tree snapshot or eliminate drive mapping
+and descendant enumeration races. Mapped-drive refusal before root metadata,
+native registration/authorization, isolated execution, explicit action binding
+and installed download-byte/same-report journeys remain acceptance requirements.
