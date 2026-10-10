@@ -24,3 +24,22 @@ li{background:#afaea212;border-color:#afaea24a;color:#fff5e9}body[data-risk=keyw
 .vault-card p{color:#3a4055}.vault-card button{background:#1b1e4a;color:#fff5e9;border-color:#546181}.notice{background:#afaea218;border-left:3px solid #ed2530}.connection-bar{border-color:#afaea242}nav{box-shadow:0 8px 22px #0002}header{padding-bottom:4px}.vault-card strong{font-size:16px}body:not(.dashboard){min-height:100vh}
 
 @media(prefers-reduced-transparency:reduce){.vault-card{background:#e5e1d5;color:#1b1e4a}}
+
+/* Minimal companion: navy primary, beige secondary, red reserved for warnings. */
+body{background:linear-gradient(160deg,#1b1e4a,#11172c 85%)}
+.logo{background:linear-gradient(135deg,#405988,#1b1e4a);border-color:#afaea2;box-shadow:none}
+nav button[aria-pressed=true],button.primary{background:linear-gradient(135deg,#d9d6c9,#afaea2);color:#1b1e4a;border-color:#e6e0cf;box-shadow:none}
+nav{gap:5px}nav button{min-width:0;white-space:normal;font-weight:600}
+button{background:#263657;border-color:#afaea26b}
+.vault-card{box-shadow:none}.notice{border-color:#afaea2}
+.settings-intro{font-size:12px;margin-bottom:18px}.settings-panel{display:grid;gap:12px}
+.settings-panel h2{margin:0}.settings-panel h3{margin:0 0 5px;font-size:15px}.settings-panel p{font-size:12px;line-height:1.55;margin:6px 0 10px}
+.setting-card,.settings-group{background:#1b2341;border:1px solid #afaea247;border-radius:13px;padding:15px}
+.setting-card>button{width:100%;margin:4px 0;background:#afaea2;color:#1b1e4a;font-weight:650;border-color:#d9d6c9}
+.settings-group>summary{font-weight:650;color:#e7e2d5;cursor:pointer;list-style-position:inside}.settings-group[open]>summary{margin-bottom:14px}
+.setting-help{margin-top:12px;padding-top:10px;border-top:1px solid #afaea230}.setting-help summary{color:#c9c6ba;font-size:11px;cursor:pointer}
+.extension-id{display:block;padding:10px;background:#11172c;border-radius:8px;font-size:11px;user-select:all}
+body:has([data-view=settings][aria-pressed=true]) main>.notice{display:none}
+body:has([data-view=settings][aria-pressed=true]) footer{margin-top:16px}
+.settings-panel [role=status]:not(:empty){padding:9px;font-size:11px;background:#11172c}
+@media(forced-colors:active){nav button[aria-pressed=true],button.primary,.setting-card>button{background:Highlight;color:HighlightText}.setting-card,.settings-group{border-color:CanvasText}}
