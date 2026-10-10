@@ -33,6 +33,8 @@ test('desktop runtime uses actual Rust bytes and keeps browser filesystem access
   assert.equal(preview.type,'quarantine_preview');
   const receipt=await(await call('/quarantine-confirm',{actionRef:preview.data.actionRef},runtime.desktopToken,native)).json();
   assert.equal(receipt.data.state,'quarantined');await assert.rejects(readFile(path));
+  assert.equal((await call('/scan',{path})).status,409);
+  assert.equal((await(await call('/scan',{path})).json()).error,'restore_required_before_new_scan');
   const restore=await(await call('/restore-prepare',{actionRef:receipt.data.actionRef},runtime.desktopToken,native)).json();assert.equal(restore.type,'restore_preview');
   assert.equal((await(await call('/restore-confirm',{restoreRef:restore.data.restoreRef},runtime.desktopToken,native)).json()).data.state,'restored');
   assert.deepEqual(await readFile(path),bytes);

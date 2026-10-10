@@ -39,6 +39,8 @@ Copy-DemoFile (Join-Path $repo '.local-handoff\clamav-1.5.4\databases\daily.cvd'
 Copy-DemoFile (Join-Path $repo 'tools\launch-demo.ps1') 'tools\launch-demo.ps1'
 Copy-DemoFile (Join-Path $repo 'apps\extension\src\password-generator.js') 'apps\extension\src\password-generator.js'
 Copy-DemoFile (Join-Path $repo 'docs\today-demo.md') 'DEMO-GUIDE.md'
+New-Item -ItemType Directory -Path (Join-Path $stage 'samples') -Force | Out-Null
+'Harmless Sentinel demo file. Select this file to rehearse quarantine and exact-byte restore.' | Set-Content -LiteralPath (Join-Path $stage 'samples\Safe-Rehearsal.txt') -Encoding utf8
 $node=(Get-Command node.exe).Source
 Copy-DemoFile $node 'tools\runtime\node.exe'
 Copy-DemoFile $nodeLicense 'tools\runtime\NODE-LICENSE.txt'
@@ -53,7 +55,7 @@ Run Start-Sentinel-Demo.ps1 in PowerShell. Load apps/extension/dist in Chrome.
 Pair through the demo connection controls. Dummy accounts reset on restart.
 Automatic URL warnings require explicit Chrome site-access opt-in.
 The launched desktop uses bounded Rust byte inspection; reports remain partial coverage.
-No malware or EICAR is included. Native quarantine requests are disabled pending exact subject-label binding and UI/review acceptance.
+No malware or EICAR is included. Quarantine requests are disabled pending recovery beyond native worker expiry. Visible consent and designated peer acceptance are still pending.
 Legacy ClamAV is optional and is not used by the launched Rust inspection path.
 Persistent encrypted vault, native messaging, cloud explanations,
 download scanning and automatic desktop redirect logging remain incomplete. Opted-in WhatsApp Web wording warnings are supported for bounded rendered messages. See DEMO-GUIDE.md.
