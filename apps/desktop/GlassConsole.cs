@@ -37,7 +37,8 @@ public sealed class SentinelGlassConsole : Window
     readonly HttpClient runtimeClient = new HttpClient { Timeout = TimeSpan.FromSeconds(8), MaxResponseContentBufferSize = 131072 };
     string runtimeUrl, runtimeToken, runtimeActionToken;
     bool actionDialog;
-    string nativeSelectedPath;
+    bool selectionRequest;
+    readonly NativeSelectionBinding nativeSelection = new NativeSelectionBinding();
     readonly Dictionary<string, string> quarantinedPaths = new Dictionary<string, string>();
     int requests;
 
@@ -141,6 +142,9 @@ public sealed class SentinelGlassConsole : Window
     {
         if (closing || !demo || e.Source != "https://sentinel.example/index.html?desktop=glass") return;
         string id = null;
+        bool selectionLease = false;
+        string selectedPath = null;
+        bool selectedFile = false;
         try {
             string raw = e.TryGetWebMessageAsString();
             if (raw.Length > 4096 || requests >= 4) return;
@@ -152,13 +156,10 @@ public sealed class SentinelGlassConsole : Window
             string route = null;
             object data = request["data"];
             if (method == "quarantine.request" || method == "restore.request") {
-                if (actionDialog) { Reply(id, new { error = "action_busy" }); return; }
+                if (actionDialog || selectionRequest) { Reply(id, new { error = "action_busy" }); return; }
                 var action = data as Dictionary<string, object>;
                 bool restore = method == "restore.request";
-                // Fail closed until the native display identity is bound to the
-                // exact accepted report. Folder labels and rejected selections
-                // cannot authorize removal of a private Rust subject.
-                if (!restore) { Reply(id, new { error = "native_subject_binding_unavailable" }); return; }
+                if (!restore) { Reply(id, new { error = "quarantine_recovery_lifetime_unavailable" }); return; }
                 string key = restore ? "actionRef" : "reportRef";
                 if (action == null || action.Count != 1 || !action.ContainsKey(key)) throw new InvalidOperationException();
                 string reference = action[key] as string;
@@ -168,11 +169,14 @@ public sealed class SentinelGlassConsole : Window
                 finally { actionDialog = false; requests--; }
                 return;
             } else if (method == "scan.select") {
-                if (actionDialog) { Reply(id, new { error = "action_busy" }); return; }
+                if (quarantinedPaths.Count != 0) { Reply(id, new { error = "restore_required_before_new_scan" }); return; }
+                if (actionDialog || selectionRequest) { Reply(id, new { error = "action_busy" }); return; }
+                selectionRequest = true; selectionLease = true;
                 var selection = data as Dictionary<string, object>;
                 if (selection == null || selection.Count != 1 || !selection.ContainsKey("kind")) throw new InvalidOperationException();
                 string path = null;
                 if ((selection["kind"] as string) == "file") {
+                    selectedFile = true;
                     var picker = new Microsoft.Win32.OpenFileDialog { Title = "Select a file for bounded read-only inspection" };
                     if (picker.ShowDialog(this) == true) path = picker.FileName;
                 } else if ((selection["kind"] as string) == "folder") {
@@ -181,7 +185,9 @@ public sealed class SentinelGlassConsole : Window
                     }
                 } else throw new InvalidOperationException();
                 if (path == null) { Reply(id, new { cancelled = true }); return; }
-                nativeSelectedPath = path;
+                selectedPath = path;
+                // A rejected/ambiguous replacement loses action authority.
+                nativeSelection.Clear();
                 route = "scan"; data = new { path = path };
             } else if (method == "inspection.read") {
                 var empty = data as Dictionary<string, object>;
@@ -205,10 +211,14 @@ public sealed class SentinelGlassConsole : Window
                         }
                         text = Encoding.UTF8.GetString(bytes.ToArray());
                     }
-                    Reply(id, json.DeserializeObject(text));
+                    var result = json.Deserialize<Dictionary<string, object>>(text);
+                    if (route == "scan" && response.IsSuccessStatusCode && result.Count == 1 && result.ContainsKey("id"))
+                        nativeSelection.Accept(result["id"] as string, selectedPath, selectedFile);
+                    Reply(id, result);
                 }
             } finally { requests--; }
         } catch { if (id != null) Reply(id, new { error = "runtime_unavailable" }); }
+        finally { if (selectionLease) selectionRequest = false; }
     }
 
     void Reply(string id, object data)
@@ -238,6 +248,16 @@ public sealed class SentinelGlassConsole : Window
 
     async Task<object> NativeDisposition(bool restore, string reference)
     {
+        string displayPath = null;
+        if (!restore) {
+            var state = await NativeActionCall("state", new { });
+            var scan = state.ContainsKey("scan") ? state["scan"] as Dictionary<string, object> : null;
+            var evidence = await NativeActionCall("inspection", new { });
+            var snapshot = evidence.ContainsKey("snapshot") ? evidence["snapshot"] as Dictionary<string, object> : null;
+            var reports = snapshot == null || !snapshot.ContainsKey("reports") ? null : snapshot["reports"] as System.Collections.ICollection;
+            displayPath = nativeSelection.Resolve(scan == null || !scan.ContainsKey("id") ? null : scan["id"] as string,
+                reference, reports == null ? 0 : reports.Count);
+        } else if (!quarantinedPaths.TryGetValue(reference, out displayPath)) throw new InvalidOperationException();
         string prefix = restore ? "restore" : "quarantine";
         object input = restore ? (object)new { actionRef = reference } : new { reportRef = reference };
         var preview = await NativeActionCall(prefix + "-prepare", input);
@@ -249,8 +269,6 @@ public sealed class SentinelGlassConsole : Window
         string explanation = restore
             ? "Restore the retained quarantined bytes to their original location? Existing files will not be overwritten."
             : "Encrypt and quarantine this completed selected-file report, then remove the original? This is a file operation, not a malware verdict. Only proceed for your intended selected file.";
-        string displayPath = nativeSelectedPath;
-        if (restore && !quarantinedPaths.TryGetValue(reference, out displayPath)) throw new InvalidOperationException();
         string evidenceText = "";
         if (!restore) {
             var inspection = payload.ContainsKey("inspection") ? payload["inspection"] as Dictionary<string, object> : null;
@@ -269,6 +287,15 @@ public sealed class SentinelGlassConsole : Window
             if (restore && (receipt["state"] as string) == "restored") quarantinedPaths.Remove(reference);
         }
         return result;
+    }
+
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        if (quarantinedPaths.Count != 0 || actionDialog) {
+            e.Cancel = true;
+            MessageBox.Show(this, "Finish the native action and restore quarantined files before closing. This demo retains restore authority only for the current session.", "Sentinel recovery", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        base.OnClosing(e);
     }
 
     void Fail(string reason)
