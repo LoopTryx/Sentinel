@@ -1,36 +1,13 @@
 // @vitest-environment jsdom
-import {act} from 'react';
-import {createRoot} from 'react-dom/client';
-import {afterEach, beforeEach, expect, it, vi} from 'vitest';
-import UsbGuardView from './UsbGuardView';
-const bridge=vi.hoisted(()=>({state:null as unknown,error:'',call:vi.fn()}));
-vi.mock('../../demo-bridge',()=>({useDemoState:()=>({state:bridge.state,error:bridge.error}),demoCall:bridge.call}));
-beforeEach(()=>{bridge.state=null;bridge.error='';bridge.call.mockReset();bridge.call.mockResolvedValue({});});
-(globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT=true;
-let root: ReturnType<typeof createRoot>;
-afterEach(async()=>{if(root) await act(()=>root.unmount()); document.body.innerHTML=''; vi.restoreAllMocks();});
+import {act} from 'react';import {createRoot} from 'react-dom/client';import {afterEach,beforeEach,expect,it,vi} from 'vitest';import UsbGuardView from './UsbGuardView';
+const bridge=vi.hoisted(()=>({state:null as unknown,error:'',call:vi.fn()}));vi.mock('../../demo-bridge',()=>({useDemoState:()=>({state:bridge.state,error:bridge.error}),demoCall:bridge.call}));
+(globalThis as Record<string,unknown>).IS_REACT_ACT_ENVIRONMENT=true;
+let root:ReturnType<typeof createRoot>;beforeEach(()=>{bridge.state=null;bridge.error='';bridge.call.mockReset();bridge.call.mockResolvedValue({});});afterEach(async()=>{if(root)await act(()=>root.unmount());document.body.innerHTML='';});
 async function mount(){const host=document.createElement('div');document.body.append(host);root=createRoot(host);await act(()=>root.render(<UsbGuardView/>));return host;}
-const snapshot=()=>JSON.stringify({schemaVersion:1,mode:'observation_only',state:'observed',observedAt:new Date().toISOString(),omitted:0,devices:[{ref:'device-1',usbEvidence:'os_reported',interfaces:['storage','hid_keyboard']}]});
-async function load(host:HTMLElement,text:()=>Promise<string>,size=200){const input=host.querySelector('input')!;Object.defineProperty(input,'files',{configurable:true,value:[{size,text}]});await act(async()=>input.dispatchEvent(new Event('change',{bubbles:true})));}
-it('does not claim USB prevention or scans without an adapter',async()=>{const host=await mount();expect(host.textContent).toContain('HID input blocking unavailable');expect(host.textContent).toContain('USB folder scanning unavailable');expect(host.textContent).toContain('No inventory loaded');expect(host.querySelector('[role="status"]')).not.toBeNull();});
-it('shows a composite device as separate storage/input exposure, then clears it',async()=>{const host=await mount();await load(host,async()=>snapshot());expect(host.textContent).toContain('Composite device');expect(host.textContent).toContain('Keyboard input');expect(host.textContent).toContain('Storage approval cannot approve HID');await act(()=>Array.from(host.querySelectorAll('button')).find(b=>b.textContent==='Clear snapshot')!.click());expect(host.textContent).not.toContain('Composite device');});
-it('rejects oversized files without reading their contents',async()=>{const host=await mount();const read=vi.fn();await load(host,read,32769);expect(read).not.toHaveBeenCalled();expect(host.textContent).toContain('Invalid or oversized inventory');});
-it('suppresses a late import after clear',async()=>{const host=await mount();let finish!:(text:string)=>void;await load(host,()=>new Promise(resolve=>{finish=resolve;}));await act(()=>Array.from(host.querySelectorAll('button')).find(b=>b.textContent==='Clear snapshot')!.click());await act(async()=>finish(snapshot()));expect(host.textContent).toContain('No inventory loaded');expect(host.textContent).not.toContain('Composite device');});
-
-it('opens the existing native folder selector without sending a device ID or path',async()=>{
- bridge.state={scan:null};const host=await mount();const choose=Array.from(host.querySelectorAll('button')).find(b=>b.textContent==='Choose folder')!;
- expect(choose).toBeTruthy();expect(choose.disabled).toBe(false);
- await act(async()=>choose.click());expect(bridge.call).toHaveBeenCalledWith('scan.select',{kind:'folder'});
- expect(host.textContent).toContain('Known harmless samples only');expect(host.textContent).toContain('No storage hold or HID gate');
-});
-it('shows the shared incomplete scan and cancels its existing job',async()=>{
- bridge.state={scan:{status:'running',coverage:'partial',engine:'Existing engine',checked:1,skipped:2,errors:0,bytes:10,visited:3,findings:[],files:[]}};
- const host=await mount();expect(host.textContent).toContain('Existing engine');expect(host.textContent).toContain('partial coverage');
- const choose=Array.from(host.querySelectorAll('button')).find(b=>b.textContent==='Choose folder')!;expect(choose.disabled).toBe(true);
- await act(async()=>Array.from(host.querySelectorAll('button')).find(b=>b.textContent==='Cancel inspection')!.click());expect(bridge.call).toHaveBeenCalledWith('cancel');
-});
-it('preserves selector failure and leaves HID controls unavailable',async()=>{
- bridge.state={scan:null};bridge.call.mockRejectedValue(new Error('Selection unavailable'));
- const host=await mount();await act(async()=>Array.from(host.querySelectorAll('button')).find(b=>b.textContent==='Choose folder')!.click());
- expect(host.textContent).toContain('Selection unavailable');expect(host.textContent).toContain('HID input blocking unavailable');
-});
+const button=(host:HTMLElement,label:string)=>Array.from(host.querySelectorAll('button')).find(b=>b.textContent===label)!;
+it('shows only the two requested sections without inventing attack history or protection',async()=>{const host=await mount();expect(Array.from(host.querySelectorAll('h3')).map(x=>x.textContent)).toEqual(['Recent attacks','USB file / folder checker']);expect(host.textContent).toContain('Feed unavailable');expect(host.textContent).toContain('HID blocking unavailable');expect(button(host,'Choose file').disabled).toBe(true);expect(button(host,'Choose folder').disabled).toBe(true);expect(host.textContent).not.toContain('Why a virtual test');expect(host.querySelector('input[type=file]')).toBeNull();});
+it('uses existing native file and folder selection without sending paths or device IDs',async()=>{bridge.state={scan:null};const host=await mount();await act(()=>button(host,'Choose file').click());expect(bridge.call).toHaveBeenLastCalledWith('scan.select',{kind:'file'});await act(()=>button(host,'Choose folder').click());expect(bridge.call).toHaveBeenLastCalledWith('scan.select',{kind:'folder'});});
+it('preserves shared running-job scope and cancellation',async()=>{bridge.state={scan:{status:'running',coverage:'partial',engine:'Existing engine',checked:1,skipped:2,errors:0,bytes:10,visited:3,findings:[],files:[]}};const host=await mount();expect(host.textContent).toContain('Shared desktop scan');expect(host.textContent).toContain('partial coverage');expect(button(host,'Choose folder').disabled).toBe(true);await act(()=>button(host,'Cancel inspection').click());expect(bridge.call).toHaveBeenCalledWith('cancel');});
+it('keeps selector failures visible',async()=>{bridge.state={scan:null};bridge.call.mockRejectedValue(new Error('Selection unavailable'));const host=await mount();await act(()=>button(host,'Choose folder').click());expect(host.querySelector('[role=status]')?.textContent).toBe('Selection unavailable');});
+it('reports picker cancellation rather than starting another scan',async()=>{bridge.state={scan:null};bridge.call.mockResolvedValue({cancelled:true});const host=await mount();await act(()=>button(host,'Choose file').click());expect(host.textContent).toContain('Selection cancelled.');expect(bridge.call).toHaveBeenCalledTimes(1);});
+it('does not relabel shared scan findings as USB attacks',async()=>{bridge.state={scan:{status:'partial',coverage:'partial',engine:'Existing engine',checked:1,skipped:1,errors:0,bytes:10,visited:2,findings:[{kind:'synthetic_test',name:'Harmless marker',reason:'Test bytes'}],files:[]},events:[{source:'browser',kind:'blocked',codes:[]}]};const host=await mount();expect(host.textContent).toContain('Incomplete check');expect(host.textContent).toContain('Test finding');expect(host.querySelector('.usb-recent')?.textContent).not.toContain('Harmless marker');expect(host.querySelector('.usb-recent')?.textContent).toContain('No USB attack history available.');});

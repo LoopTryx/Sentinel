@@ -213,7 +213,7 @@ function Shell() {
           {view === "dashboard" && <Dashboard onViewAll={() => setView("log")} onOpenUsb={() => setView("usb")} />}
           {view === "scan" && <ScanView />}
           {view === "watchtower" && <WatchtowerView />}
-          {view === "usb" && <UsbGuardView onOpenScan={() => setView("scan")} />}
+          {view === "usb" && <UsbGuardView />}
           {view === "password" && <PasswordManagerView />}
           {view === "quarantine" && <QuarantineView />}
           {view === "log" && <ThreatLogView />}

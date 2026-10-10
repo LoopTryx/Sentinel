@@ -1,32 +1,30 @@
-import {useEffect,useRef,useState,type ChangeEvent} from 'react';
-import {interfaceLabels,MAX_REPORT_BYTES,parseUsbInventory,usbFreshness,type UsbInventory} from './inventory';
+import {useState} from 'react';
+import {demoCall,useDemoState} from '../../demo-bridge';
 import './usb-guard.css';
-import UsbCapabilityCard from './UsbCapabilityCard';
-import ScanView from '../../views/ScanView';
-import {useDemoState} from '../../demo-bridge';
-export default function UsbGuardView({onOpenScan}:{onOpenScan?:()=>void}){
-  const {state}=useDemoState();
-  const [report,setReport]=useState<UsbInventory|null>(null);
-  const [feedback,setFeedback]=useState('No inventory loaded');
-  const [now,setNow]=useState(Date.now());
-  const epoch=useRef(0);const input=useRef<HTMLInputElement>(null);
-  useEffect(()=>{const timer=window.setInterval(()=>{if(!document.hidden)setNow(Date.now());},5000);const visible=()=>setNow(Date.now());document.addEventListener('visibilitychange',visible);return()=>{epoch.current++;window.clearInterval(timer);document.removeEventListener('visibilitychange',visible);};},[]);
-  function clear(){epoch.current++;setReport(null);setFeedback('No inventory loaded');if(input.current)input.current.value='';}
-  function importReport(event:ChangeEvent<HTMLInputElement>){
-    const token=++epoch.current;const file=event.currentTarget.files?.[0];setReport(null);
-    if(!file){setFeedback('No inventory loaded');return;}
-    if(file.size>MAX_REPORT_BYTES){setFeedback('Invalid or oversized inventory');event.currentTarget.value='';return;}
-    setFeedback('Reading inventory snapshot…');
-    void file.text().then(text=>{if(token!==epoch.current)return;const value=parseUsbInventory(text);setNow(Date.now());setReport(value);setFeedback(value?'Inventory snapshot loaded':'Invalid or oversized inventory');}).catch(()=>{if(token===epoch.current)setFeedback('Inventory could not be read');});
-    event.currentTarget.value='';
-  }
-  const freshness=report?usbFreshness(report,now):'No snapshot';
-  return <section className="usb-guard" aria-labelledby="usb-heading">
-    <div className="panel usb-intro"><span className="usb-eyebrow">USB GUARD · OBSERVATION MODE</span><h2 id="usb-heading">Inspect storage. Treat input separately.</h2><p>A USB can expose a drive, a keyboard, a network adapter, or several interfaces at once. Device descriptions cannot prove it harmless.</p><div className="usb-capabilities"><div><strong>Risk</strong><span>Unknown · descriptors only</span></div><div><strong>Coverage</strong><span>{report?.state==='partial'?'Partial device inventory':state?'Device inventory · scan scope below':'Inventory only · no byte inspection'}</span></div><div><strong>Freshness</strong><span>{freshness}</span></div><div><strong>Operating mode</strong><span>Read-only snapshot · no enforcement</span></div></div></div>
-    <UsbCapabilityCard connected={state!==null}/><section className="panel"><h3>Why a virtual test is not an input gate</h3><p>Storage files can be inspected in an isolated worker. A keyboard-like USB sends input to the host, so it must be held before input reaches applications. A device may delay its payload or expose several interfaces; a clean file scan or quiet observation period must never automatically approve HID.</p><p>Isolated execution and automatic arrival scanning are unavailable. Windows policy activation requires a reviewed native broker, independent crash recovery and pre-input testing on a spare machine. The current app does not block payload keystrokes.</p></section><div className="usb-grid"><section className="panel"><h3>{state?'USB folder inspection · partial coverage':'USB folder scanning unavailable'}</h3><p id="usb-scan-limit">{state?'Use Choose folder below to select a mounted USB folder in the native dialog. This reuses the existing desktop scanner and its current job; it does not verify USB identity or enforce a storage hold.':'The desktop scan adapter is unavailable. Connect the installed desktop runtime before selecting a USB folder.'}</p><p>Known harmless samples only reach the current ClamAV adapter. Other files receive bounded byte inspection, not a completed antivirus verdict. No storage hold or HID gate is active. A finished scan cannot authorize USB release.</p>{!state&&<button className="btn" disabled aria-describedby="usb-scan-limit">Scan selected USB folder</button>}{onOpenScan&&<button className="btn" onClick={onOpenScan}>Review scanner capability</button>}</section><section className="panel"><h3>HID input blocking unavailable</h3><p id="usb-hid-limit">No verified pre-input gate is active. A keyboard-like device may already send input before a notification appears. Blocking needs a reviewed recovery path and a tested Windows configuration.</p><button className="btn" disabled aria-describedby="usb-hid-limit">Approve input device</button></section></div>
-    {state&&<section aria-label="Shared desktop folder inspection"><p>This is the shared desktop scan job, which may have been started in Scan &amp; Detect. A report is not bound to the inventory snapshot or a device connection. Do not use it to approve a reconnected or replacement USB.</p><ScanView/></section>}
-    <section className="panel"><div className="usb-toolbar"><h3>Connected-device observations</h3><button className="btn" onClick={clear}>Clear snapshot</button></div><p>Load a local snapshot from Sentinel's read-only Windows collector. Loading reports changes no device permissions. References last only for that snapshot.</p><label className="usb-file">Load device snapshot (.json)<input ref={input} type="file" accept="application/json,.json" onChange={importReport}/></label><p role="status" aria-live="polite">{feedback}</p>
-    {report&&<><p>Observed at {new Date(report.observedAt).toLocaleString()} · {report.state==='unavailable'?'Inventory unavailable':report.state==='partial'?'Partial inventory':'Devices observed'} · {freshness}</p>{report.omitted>0&&<p>At least {report.omitted} entries omitted. Coverage is incomplete.</p>}{report.state==='unavailable'?<p>Discovery failed or timed out. No device-safety conclusion is available.</p>:report.devices.length===0?<p>No devices reported in this snapshot. This does not establish USB prevention or a safe ecosystem.</p>:<ul className="usb-devices">{report.devices.map(device=>{const hasStorage=device.interfaces.includes('storage');const hasInput=device.interfaces.some(kind=>kind.startsWith('hid_'));return <li key={device.ref}><h4>{hasStorage&&hasInput?'Composite device':'Device observation'} · {device.ref}</h4><p>{device.usbEvidence==='unresolved'?'USB ancestry unresolved · incomplete evidence':'USB connection reported by Windows · identity is spoofable'}</p><ul>{device.interfaces.map(kind=><li key={kind}>{interfaceLabels[kind]}</li>)}</ul>{hasInput&&<p className="usb-exposure">Input exposure: prevention unverified. Storage approval cannot approve HID.</p>}{device.interfaces.includes('network')&&<p>Network-interface containment is unverified; a file scan cannot establish coverage.</p>}</li>;})}</ul>}</>}
-    </section><aside className="panel"><h3>If a USB is suspicious</h3><p>Disconnect it. Do not open its files or approve new input interfaces. Keep Defender enabled. Use a spare recoverable lab machine for enforcement tests; a completed storage scan cannot establish firmware or HID safety.</p></aside>
-  </section>;
+export default function UsbGuardView(){
+ const {state,error}=useDemoState();const [busy,setBusy]=useState(false);const [notice,setNotice]=useState('');
+ const scan=state?.scan;const running=scan?.status==='running';
+ async function choose(kind:'file'|'folder'){
+  setBusy(true);setNotice('');
+  try{const result=await demoCall('scan.select',{kind});if(result.cancelled)setNotice('Selection cancelled.');}
+  catch(e){setNotice(e instanceof Error?e.message:'Checker unavailable.');}finally{setBusy(false);}
+ }
+ async function cancel(){try{await demoCall('cancel');}catch(e){setNotice(e instanceof Error?e.message:'Cancel unavailable.');}}
+ return <section className="usb-guard usb-minimal" aria-labelledby="usb-heading">
+  <div className="usb-page-heading"><h2 id="usb-heading">USB Guard</h2><span className="usb-mode">File checks only · HID blocking unavailable</span></div>
+  <section className="panel usb-recent" aria-labelledby="usb-recent-heading"><div className="usb-toolbar"><h3 id="usb-recent-heading">Recent attacks</h3><span className="usb-chip">Feed unavailable</span></div><div className="usb-empty"><span aria-hidden="true">—</span><p>No USB attack history available.</p></div></section>
+  <section className="panel usb-checker" aria-labelledby="usb-checker-heading"><div className="usb-toolbar"><h3 id="usb-checker-heading">USB file / folder checker</h3><span className="usb-chip">{state?'Connected':'Desktop disconnected'}</span></div>
+   <p className="usb-check-note">Select a file or folder from your USB. Checks have partial coverage.</p>
+   <div className="usb-check-actions"><button className="btn" disabled={!state||busy||running} onClick={()=>void choose('file')}>Choose file</button><button className="btn ghost" disabled={!state||busy||running} onClick={()=>void choose('folder')}>Choose folder</button>{running&&<button className="btn ghost" onClick={()=>void cancel()}>Cancel inspection</button>}</div>
+   {(notice||error)&&<p role="status">{notice||error}</p>}
+   {!state&&<p className="usb-check-note">Connect the desktop app to check files.</p>}
+   {scan&&<div className="usb-check-result" aria-live="polite"><div className="usb-toolbar"><strong>{scan.status.replaceAll('_',' ')} · {scan.coverage} coverage</strong><span>{scan.checked} inspected · {scan.skipped} skipped · {scan.errors} errors</span></div>
+    <p className="usb-check-note">Shared desktop scan · {scan.bytes.toLocaleString()} bytes read</p>
+    {['failed','cancelled','timed_out','partial'].includes(scan.status)&&<p>Incomplete check. Uninspected files remain unknown.</p>}
+    {scan.status==='completed'&&!scan.findings.length&&<p>No test marker found. Safety remains unknown.</p>}
+    {scan.findings.length>0&&<ul>{scan.findings.map((finding,i)=><li key={i}><strong>{finding.kind==='synthetic_test'||finding.kind==='provider_synthetic_match'?'Test finding':'Finding'} · {finding.name}</strong><p>{finding.reason}</p></li>)}</ul>}
+    <details><summary>Scan details</summary><p>{scan.engine}</p><p>Demo antivirus signatures cover known harmless samples; other files receive bounded byte checks. This scan does not approve USB input.</p>{scan.files.map((file,i)=><p key={i}>{file.name} · {file.bytes} bytes<br/><code>{file.sha256}</code></p>)}</details>
+   </div>}
+  </section>
+ </section>;
 }
