@@ -11,6 +11,7 @@ pub mod inspection;
 pub mod inspection_wire;
 pub mod quarantine_journal;
 mod storage_path;
+mod storage_privacy;
 pub mod vault;
 
 #[cfg(test)]

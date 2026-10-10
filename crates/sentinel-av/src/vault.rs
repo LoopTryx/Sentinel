@@ -349,6 +349,20 @@ impl Vault {
             Err("recovery cleanup unsupported on this platform".into())
         }
     }
+    /// Read-only current-process private-directory policy check. This does not
+    /// authorize an action or enforce child-file ACLs; valuable-file use is gated.
+    pub fn validate_private_storage(&self) -> Result<(), String> {
+        let storage = self.storage_guard()?;
+        crate::storage_privacy::validate(
+            storage
+                .vault
+                .key_path
+                .parent()
+                .ok_or("quarantine key parent unsupported")?,
+        )?;
+        crate::storage_privacy::validate(&storage.vault.dir)
+    }
+
     pub fn recovery_summary(
         &self,
         vault_file: &str,

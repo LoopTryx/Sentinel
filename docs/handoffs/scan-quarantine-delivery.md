@@ -548,3 +548,41 @@ process/power-loss recovery evidence. Native adapter ownership handoff remains
 pending; actual supported desktop/Chrome scan/download/same-report journeys,
 designated review and coordinator main integration remain required. This leaf
 is a runtime correction, not shipment or whole-issue completion.
+
+## Read-only private-directory policy candidate
+
+Codex issue9 claim6097112129 adds `Vault::validate_private_storage(&self) ->
+Result<(), String>`. This is a read-only current-process directory policy probe,
+not permission repair or authorization. The existing retained volume ancestry
+must succeed. Inspect both the key's parent and nested vault directory using
+nofollow read-control handles. Query a bounded aligned self-relative descriptor
+and current process TokenUser (each <=64KiB). Require current-user ownership,
+protected present nonnull DACL, <=256-byte ACL and one or two ordinary explicit
+allow ACEs: current owner full-control with object/container inheritance is
+required; SYSTEM with the same flags/rights is optional. Refuse inherited grants,
+foreign principals, unsupported ACE types/flags/masks, duplicate grants, null or
+empty ACL, missing owner grant, unavailable metadata and unsupported platforms.
+No SID or raw descriptor is returned, logged or sent to AI. Result example:
+`vault.validate_private_storage()?` verifies these two directory snapshots;
+Err is unavailable/unsupported and must never become a clean/protected verdict.
+Microsoft handle-query contract (read-control required):
+https://learn.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-getkernelobjectsecurity
+
+Actual Windows owned-temp directories test private owner+SYSTEM acceptance,
+owner-only acceptance, broad read on vault refusal, broad read on key-parent
+refusal despite a private vault, and inherited directory refusal with no key
+creation. A failing-first unavailable stub rejected the positive descriptor.
+The first setup protected only app_data, so its nested inherited vault correctly
+refused; the fixture now explicitly protects both actual directories rather
+than weakening the policy. Focused4 pass. Static supplemental security review
+found no unsafe buffer/lifetime or permission-write issue. Full verifier/CI and
+any independent executed evidence are recorded separately in PR61.
+
+Existing operations do not yet enforce this gate. A directory snapshot alone
+cannot validate key/blob/journal/admission-file ACLs or prevent later DACL changes
+by the owner or privileged processes. Private creation and child-handle policy,
+enforcement before every sensitive operation, subject/job/action authority and
+installed native/browser acceptance remain required before valuable-file use.
+The production probe never changes any permissions. Only fresh owned temporary
+fixture directories receive explicit test descriptors through .NET creation;
+no existing path ACL, account privilege, Defender or E: was changed.
