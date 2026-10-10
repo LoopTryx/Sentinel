@@ -1,0 +1,13 @@
+# Native demo transport verification
+
+Verified implementation head:4514421 on codex/engineer-a/issue-9-tomorrow-demo, PR64. The unchanged tools/verify.ps1 completed with exit0 and All available T01 checks passed using Rust1.98.1 GNU, MinGW and the shared task target directory. No GitHub CI result is required under the owner's waiver; independent security review and real journey acceptance remain separate.
+
+Twelve focused native inspection/session/parent/wire tests passed against the actual compiler-output executable. Ten native-runtime/parent/inspection tests passed against the staged copy, SHA256 f7b8f9b4c8fa0c9cb2e32aed5baaa93c4599efa044c0b07094b60bd9a3e55435. The source compiler output was preserved. Tests used owned harmless temporary C: data. They cover actual byte digest/count, bounded8MiB inspection of a64MiB zero-filled file, harmless disguised PE header, cancel/deadline source preservation, exact-byte encrypted quarantine/restore, occupied destination refusal at the library layer, decline/replay, malformed-frame refusal, closed reply validation, missing-engine failure and HTTP desktop/browser authorization.
+
+Packaging missing-engine preflight was executed in an owned temporary tree and refused before creating an artifacts directory. PowerShell parser checks passed for stage-inspection-engine.ps1 and package-demo.ps1. Complete portable packaging was not executed.
+
+Reproduce: run tools/verify.ps1 with the pinned GNU toolchain; set SENTINEL_TEST_INSPECT to the actual compiler output or staged executable; run node --test apps/demo-runtime/native-inspection.test.mjs apps/demo-runtime/native-session.test.mjs apps/demo-runtime/native-session-wire.test.mjs apps/demo-runtime/native-session-parent.test.mjs apps/demo-runtime/native-runtime.test.mjs. The tests require an actual executable and do not supply mocked scan results.
+
+Outstanding acceptance: independent exact-head security review; visible native OS confirmation wired to retained session; accepted shared UI/proto handoff for canonical partial evidence; supported browser download identity/staging/byte inspection and same report; installed fresh/offline desktop/browser launches; pinned event package, route and rehearsal. None of these are proved by the process or HTTP tests. Existing shared UI contracts are preserved: legacy full-digest reports are projected to state while partial-byte evidence remains at the desktop-only inspection endpoint. Main integration of this PR has not occurred.
+
+Durable handoff: PR64 comment6101353960 and issue11 comment6101354113 request exact-head review and the shared UI editing handoff. No silence-based ownership transfer is assumed.
