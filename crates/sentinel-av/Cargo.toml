@@ -10,6 +10,13 @@ publish = false
 # ordinal limit because yara-x drags in wasmtime's symbol table.
 crate-type = ["rlib"]
 
+[[bin]]
+name = "sentinel-inspect"
+path = "src/bin/sentinel-inspect.rs"
+# Real executable acceptance is in tests/inspect_process.rs.
+test = false
+bench = false
+
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
