@@ -127,3 +127,68 @@ fn overlong_resolved_target_refuses_before_creating_missing_parents() {
         "resolved limit must precede parent creation"
     );
 }
+
+#[test]
+fn hardlinked_source_refuses_before_key_or_blob_and_preserves_both_names() {
+    let root =
+        std::env::temp_dir().join(format!("sentinel-hardlink-source-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(&root).unwrap();
+    let source = root.join("source.txt");
+    let alias = root.join("alias.txt");
+    std::fs::write(&source, b"harmless linked bytes").unwrap();
+    std::fs::hard_link(&source, &alias).unwrap();
+    let vault = Vault::new(&root.join("app"));
+    let refused = vault.quarantine(&source).is_err();
+    let preserved = std::fs::read(&source).ok().as_deref() == Some(b"harmless linked bytes")
+        && std::fs::read(&alias).ok().as_deref() == Some(b"harmless linked bytes");
+    let no_key = !root.join("app/vault.key").exists();
+    let no_blob = std::fs::read_dir(&vault.dir).unwrap().all(|entry| {
+        entry
+            .unwrap()
+            .path()
+            .extension()
+            .is_none_or(|ext| ext != "qtn")
+    });
+    std::fs::remove_dir_all(root).unwrap();
+    assert!(
+        refused && preserved && no_key && no_blob,
+        "hardlink selection must refuse before mutation"
+    );
+}
+
+#[test]
+fn hardlinked_private_inputs_refuse_without_source_or_recovery_disposition() {
+    for kind in ["key", "blob", "journal"] {
+        let root = std::env::temp_dir().join(format!(
+            "sentinel-hardlink-private-{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir(&root).unwrap();
+        let vault = Vault::new(&root.join("app"));
+        let source = root.join("source.txt");
+        std::fs::write(&source, b"harmless retained bytes").unwrap();
+        let reference = vault.quarantine(&source).unwrap().vault_file;
+        let blob = vault.dir.join(&reference);
+        let before = std::fs::read(&blob).unwrap();
+        let selected = match kind {
+            "key" => root.join("app/vault.key"),
+            "blob" => blob.clone(),
+            _ => vault
+                .dir
+                .join(format!("{}.qjr", reference.trim_end_matches(".qtn"))),
+        };
+        std::fs::hard_link(&selected, root.join("retained-alias")).unwrap();
+        let target = root.join("restored.txt");
+        let refused = if kind == "journal" {
+            vault.recovery_summary(&reference).is_err()
+        } else {
+            vault.restore(&reference, &target).is_err()
+        };
+        let preserved = !target.exists() && std::fs::read(&blob).unwrap() == before;
+        std::fs::remove_dir_all(root).unwrap();
+        assert!(
+            refused && preserved,
+            "hardlinked private {kind} must refuse"
+        );
+    }
+}

@@ -87,6 +87,10 @@ fn read_bounded_file(
     if private {
         crate::storage_privacy::validate_file(&file)?;
     }
+    #[cfg(windows)]
+    if private || delete_access {
+        require_single_link(&file)?;
+    }
     let opened = file
         .metadata()
         .map_err(|_| "quarantine input metadata failed".to_string())?;
@@ -116,6 +120,26 @@ fn read_bounded_file(
         return Err("quarantine input changed or exceeds byte limit".into());
     }
     Ok((file, bytes))
+}
+
+#[cfg(windows)]
+fn require_single_link(file: &std::fs::File) -> Result<(), String> {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Storage::FileSystem::{
+        GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
+    };
+    let mut information = std::mem::MaybeUninit::<BY_HANDLE_FILE_INFORMATION>::uninit();
+    // SAFETY: the borrowed file owns a live handle. The synchronous Win32 call
+    // writes this correctly sized structure; it is read only on success.
+    if unsafe { GetFileInformationByHandle(file.as_raw_handle(), information.as_mut_ptr()) } == 0 {
+        return Err("quarantine file identity unavailable".into());
+    }
+    // SAFETY: the successful call initialized the complete information structure.
+    let information = unsafe { information.assume_init() };
+    if information.nNumberOfLinks != 1 {
+        return Err("quarantine multi-link file unsupported".into());
+    }
+    Ok(())
 }
 
 #[cfg(windows)]

@@ -635,3 +635,27 @@ storage boundary, not the same owner/privileged actor changing DACLs, hardlink o
 volume identity across requests, or real process/power-loss durability. Explicit
 subject/job/action authorization, native ownership handoff and supported browser
 byte/download/same-report acceptance remain required before shipment/main.
+
+
+## Existing hardlink refusal candidate
+
+Actual harmless Windows hardlink regression reproduced quarantine deleting its
+selected name while another name retained the bytes. The retained opened input
+now queries GetFileInformationByHandle before reading private storage or any
+input opened for deletion. Unknown identity or nNumberOfLinks other than one
+refuses before source bytes, key creation or source disposition. Key/blob/journal
+hardlink refusal tests preserve recovery blobs and create no restore target.
+Ordinary file/ancestry/recovery cases remain supported. This is refusal of
+existing multi-link inputs at the held-handle boundary, not authorization across
+requests or protection against a privileged/same-owner concurrent namespace
+change. No global hardlink discovery, alias removal or automatic remediation.
+
+Reproduction: cargo test -p sentinel-av --test vault_subject_ancestry (7 cases);
+cargo test -p sentinel-av and strict clippy passed. Full committed-head verifier
+and designated peer review evidence must be recorded separately. Supplemental
+review attempt failed due reviewer account usage limit, so no independent review
+is claimed for this leaf. Native ownership is now accepted by B (issue9#6097899046),
+and owner-directed acceptance/handoff of B requests is recorded in issue9#6099690474
+and issue12#6099690602. Next A work is the authoritative bounded native scanner
+selection/start/poll/cancel contract and implementation; B owns the handed-off
+independent USB foundation, with original hardware/privileged safety gates.
