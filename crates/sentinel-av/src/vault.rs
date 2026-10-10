@@ -140,6 +140,16 @@ pub struct QuarantineOutcome {
 }
 
 impl Vault {
+    fn storage_guard(&self) -> Result<crate::storage_path::DirectoryGuard, String> {
+        let parent = self
+            .key_path
+            .parent()
+            .ok_or("quarantine key parent unsupported")?;
+        if self.dir != parent.join("vault") {
+            return Err("quarantine storage directory association changed".into());
+        }
+        crate::storage_path::retain_directory(&self.dir, false)
+    }
     fn admit_storage(
         &self,
         additional_bytes: u64,
@@ -253,6 +263,7 @@ impl Vault {
     /// Explicit reconciliation of a previously flushed restore intent. This
     /// does not grant selection/action authority or overwrite any destination.
     pub fn resume_restore(&self, reference: &str, target: &Path) -> Result<(), String> {
+        let _storage = self.storage_guard()?;
         let blob_path = self.blob_path(reference)?;
         let _admission = self.admit_storage(2052, 0, Some(reference))?;
         let key = self.load_key()?;
@@ -290,6 +301,7 @@ impl Vault {
     /// Resume only while the selected encrypted blob remains authenticatable.
     /// Missing bytes cannot establish deletion or secure-erasure evidence.
     pub fn resume_destroy(&self, reference: &str) -> Result<(), String> {
+        let _storage = self.storage_guard()?;
         let path = self.blob_path(reference)?;
         let _admission = self.admit_storage(2052, 0, Some(reference))?;
         let key = self.load_key()?;
@@ -317,13 +329,14 @@ impl Vault {
         &self,
         vault_file: &str,
     ) -> Result<crate::quarantine_journal::RecoverySummary, String> {
+        let _storage = self.storage_guard()?;
         self.blob_path(vault_file)?;
         crate::quarantine_journal::read_summary(&self.dir, vault_file, &self.load_key()?)
     }
 
     pub fn new(app_data: &Path) -> Self {
         let dir = app_data.join("vault");
-        std::fs::create_dir_all(&dir).ok();
+        let _ = crate::storage_path::retain_directory(&dir, true);
         Vault {
             dir,
             key_path: app_data.join("vault.key"),
@@ -404,6 +417,7 @@ impl Vault {
         source: &Path,
         #[cfg(test)] interruption: Option<ControlledInterruption>,
     ) -> Result<QuarantineOutcome, String> {
+        let _storage = self.storage_guard()?;
         let (source_handle, plaintext) = read_bounded_handle(source, MAX_PLAINTEXT_BYTES, true)?;
         let _admission = self.admit_storage(plaintext.len() as u64 + 28 + 2 * 8192, 3, None)?;
         let key_bytes = self.load_or_create_key()?;
@@ -511,6 +525,7 @@ impl Vault {
         to_path: &Path,
         #[cfg(test)] interruption: Option<ControlledLifecycleInterruption>,
     ) -> Result<(), String> {
+        let _storage = self.storage_guard()?;
         let vault_path = self.blob_path(vault_file)?;
         let key_bytes = self.load_key()?;
         let (blob_handle, blob) = read_bounded_handle(&vault_path, MAX_BLOB_BYTES, true)?;
@@ -591,6 +606,7 @@ impl Vault {
         vault_file: &str,
         #[cfg(test)] interruption: Option<ControlledLifecycleInterruption>,
     ) -> Result<(), String> {
+        let _storage = self.storage_guard()?;
         let path = self.blob_path(vault_file)?;
         let key_bytes = self.load_key()?;
         let (handle, bytes) = read_bounded_handle(&path, MAX_BLOB_BYTES, true)?;

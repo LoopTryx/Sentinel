@@ -426,3 +426,47 @@ results must be recorded independently.
 
 Defender remains enabled; E: untouched; no live malware, EICAR, real secrets,
 automatic cloud upload or daily-machine device enforcement.
+
+## Windows storage ancestry candidate
+
+Codex issue9 claim6096815593 covers vault.rs, internal storage_path.rs, lib.rs
+module declaration and tests/vault_ancestry.rs. Storage initialization now validates
+all lexical components before creating any directory. Supported input is an
+absolute ordinary local fixed-drive path, at most1024 UTF16 units/32 components;
+relative, device/remote/verbatim prefixes, traversal, ADS, reserved DOS basenames,
+trailing dot/space and excess bounds refuse. The retained root's final DOS path
+must match the supplied drive root. Missing directories are created individually
+under previously retained parents. Constructor signature remains `new(&Path) ->
+Vault`; failed initialization leaves operations unavailable rather than silently
+falling back to redirected storage.
+
+Every storage ancestor is opened with nofollow/backup semantics, directory-list
+and attribute read access, and read sharing only. Metadata from each held handle
+must show an ordinary directory without reparse attributes before its next child
+is accessed. Guards remain live throughout quarantine, restore, destroy, both
+resume APIs and historical recovery_summary, before key/blob/journal reads or
+writes. A changed public dir/key-parent association refuses. These handles block
+ordinary directory rename and write-handle acquisition during the operation.
+The first attributes-only handle attempt failed the real leaf-rename test;
+requesting directory-list read access corrected that observed Windows behavior.
+See Microsoft CreateFileW sharing/directory semantics:
+https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew
+
+Two initial integration regressions failed before implementation: intermediate
+or leaf junctions redirected initialization/mutation, and traversal/reassigned
+dir was accepted. They now pass without modifying redirected storage or original
+bytes. Four integration tests cover those cases, post-initialization ancestor
+replacement refusing every vault operational API, and unsupported names/depth
+before creation. The held-ancestor unit refuses ancestor/leaf rename and writable
+open while retained; after drop, write open and rename succeed. AV54, strict lint
+and formatting passed. Supplemental final review and committed-head full verifier
+are separately recorded; all junctions and bytes belong to harmless tempfixtures.
+
+This closes ordinary storage junction traversal and retained directory rename
+checks, not the full storage authority gate. Child/file opens still use DOS drive
+paths: drive-letter namespace remapping is an untested boundary requiring stable
+volume-pinned or handle-relative access before stronger authority claims. Private
+ACLs, source and restore destination ancestors, explicit subject/action binding,
+actual process/power-loss evidence and native/Chrome acceptance remain required.
+No permission changes, peer adapter/UI edits, enabled remediation or main code
+integration accompany this candidate. Defender unchanged; E: untouched.
