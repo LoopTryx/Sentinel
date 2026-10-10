@@ -4,6 +4,7 @@
 #[cfg(not(windows))]
 use crate::engine::scan_directory_with_control;
 use crate::engine::{Engine, ScanReport};
+use sentinel_proto::quarantine_action as quarantine;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -46,6 +47,16 @@ struct ActiveJob {
     reports: Arc<Mutex<Option<Vec<ScanReport>>>>,
     worker: Option<JoinHandle<()>>,
     failed: bool,
+    quarantine_attempted: [bool; 65],
+}
+
+struct PendingQuarantine {
+    reference: String,
+    owner: String,
+    job_ref: String,
+    selection_ref: String,
+    report_ref: String,
+    expires: Instant,
 }
 
 /// One selection and one retained job; no growing history or event queue.
@@ -54,6 +65,7 @@ pub struct SelectedJobs {
     hash_lookup: Arc<NativeHashLookup>,
     selection: Option<Selection>,
     job: Option<ActiveJob>,
+    pending_quarantine: Option<PendingQuarantine>,
 }
 
 /// Trusted native callback; it must be bounded and must not perform remote fetches.
@@ -66,6 +78,7 @@ impl Default for SelectedJobs {
             hash_lookup: Arc::new(|_| None),
             selection: None,
             job: None,
+            pending_quarantine: None,
         }
     }
 }
@@ -175,6 +188,7 @@ impl SelectedJobs {
             #[cfg(windows)]
             ancestry,
         });
+        self.pending_quarantine = None;
         Ok(reference)
     }
 
@@ -196,6 +210,13 @@ impl SelectedJobs {
             .is_some_and(|selection| now >= selection.expires);
         if expired {
             self.selection = None;
+        }
+        if self
+            .pending_quarantine
+            .as_ref()
+            .is_some_and(|action| now >= action.expires)
+        {
+            self.pending_quarantine = None;
         }
         self.reap();
         expired
@@ -288,7 +309,9 @@ impl SelectedJobs {
             reports,
             worker: Some(worker),
             failed: false,
+            quarantine_attempted: [false; 65],
         });
+        self.pending_quarantine = None;
         Ok(job_ref)
     }
 
@@ -317,7 +340,189 @@ impl SelectedJobs {
             .filter(|job| job.owner == owner && job.reference == reference)
             .ok_or("job unavailable")?;
         job.cancel.store(true, Ordering::Release);
+        self.pending_quarantine = None;
         Ok(())
+    }
+
+    /// Native-owned preview, not consent or action authority. Adapter derives
+    /// owner/time and obtains separate explicit native confirmation.
+    pub fn prepare_quarantine(
+        &mut self,
+        owner: &str,
+        request: &quarantine::QuarantinePrepareRequest,
+        now: Instant,
+    ) -> Result<quarantine::QuarantinePreview, quarantine::QuarantineError> {
+        use quarantine::{QuarantineError, QuarantineErrorCode as Code};
+        request.validate().map_err(|_| QuarantineError {
+            code: Code::InvalidRequest,
+        })?;
+        self.maintain(now);
+        let job = self
+            .job
+            .as_ref()
+            .filter(|job| job.owner == owner && job.reference == request.job_ref)
+            .ok_or(QuarantineError {
+                code: Code::JobUnavailable,
+            })?;
+        if job.worker.is_some() {
+            return Err(QuarantineError { code: Code::Busy });
+        }
+        if job.failed || job.cancel.load(Ordering::Acquire) || self.selection.is_some() {
+            return Err(QuarantineError {
+                code: Code::ReportUnavailable,
+            });
+        }
+        let index = quarantine::report_index(&request.report_ref).map_err(|_| QuarantineError {
+            code: Code::InvalidRequest,
+        })?;
+        if job.quarantine_attempted[index] {
+            return Err(QuarantineError {
+                code: Code::ReportUnavailable,
+            });
+        }
+        let reports = job.reports.lock().map_err(|_| QuarantineError {
+            code: Code::ReportUnavailable,
+        })?;
+        let report = reports
+            .as_ref()
+            .and_then(|reports| reports.get(index))
+            .filter(|report| {
+                report.state == "completed"
+                    && report.content_complete
+                    && report.inspected_subject().is_some()
+            })
+            .ok_or(QuarantineError {
+                code: Code::ReportUnavailable,
+            })?;
+        let inspection = crate::inspection_wire::inspection_snapshot(&request.report_ref, report)
+            .map_err(|_| QuarantineError {
+            code: Code::ReportUnavailable,
+        })?;
+        let preview = quarantine::QuarantinePreview {
+            action_ref: uuid::Uuid::new_v4().simple().to_string(),
+            selection_ref: job.selection_ref.clone(),
+            job_ref: job.reference.clone(),
+            report_ref: request.report_ref.clone(),
+            expires_after_seconds: 30,
+            inspection,
+        };
+        preview.validate().map_err(|_| QuarantineError {
+            code: Code::ReportUnavailable,
+        })?;
+        self.pending_quarantine = Some(PendingQuarantine {
+            reference: preview.action_ref.clone(),
+            owner: owner.into(),
+            job_ref: preview.job_ref.clone(),
+            selection_ref: preview.selection_ref.clone(),
+            report_ref: preview.report_ref.clone(),
+            expires: now + Duration::from_secs(30),
+        });
+        Ok(preview)
+    }
+
+    /// Call only after an actual trusted native confirmation, passing a fresh
+    /// native monotonic time. Never deserialize owner/time/confirmation/path.
+    /// Recognized actions are consumed before decline, revalidation or mutation;
+    /// a failed vault operation may require recovery, never automatic replay.
+    pub fn quarantine_after_native_confirmation(
+        &mut self,
+        owner: &str,
+        request: &quarantine::QuarantineActionReference,
+        now: Instant,
+        vault: &crate::vault::Vault,
+        native_confirmation: bool,
+    ) -> Result<quarantine::QuarantineReceipt, quarantine::QuarantineError> {
+        use quarantine::{QuarantineError, QuarantineErrorCode as Code};
+        request.validate().map_err(|_| QuarantineError {
+            code: Code::InvalidRequest,
+        })?;
+        self.maintain(now);
+        if !self
+            .pending_quarantine
+            .as_ref()
+            .is_some_and(|action| action.owner == owner && action.reference == request.action_ref)
+        {
+            return Err(QuarantineError {
+                code: Code::ActionUnavailable,
+            });
+        }
+        let action = self
+            .pending_quarantine
+            .take()
+            .expect("matched pending action");
+        if !native_confirmation {
+            return Err(QuarantineError {
+                code: Code::Declined,
+            });
+        }
+        let job = self
+            .job
+            .as_mut()
+            .filter(|job| {
+                job.owner == owner
+                    && job.reference == action.job_ref
+                    && job.selection_ref == action.selection_ref
+            })
+            .ok_or(QuarantineError {
+                code: Code::ActionUnavailable,
+            })?;
+        if job.worker.is_some()
+            || job.failed
+            || job.cancel.load(Ordering::Acquire)
+            || self.selection.is_some()
+        {
+            return Err(QuarantineError {
+                code: Code::ActionUnavailable,
+            });
+        }
+        let index = quarantine::report_index(&action.report_ref).map_err(|_| QuarantineError {
+            code: Code::ActionUnavailable,
+        })?;
+        if job.quarantine_attempted[index] {
+            return Err(QuarantineError {
+                code: Code::ActionUnavailable,
+            });
+        }
+        let (path, subject) = {
+            let reports = job.reports.lock().map_err(|_| QuarantineError {
+                code: Code::ActionUnavailable,
+            })?;
+            let report = reports
+                .as_ref()
+                .and_then(|reports| reports.get(index))
+                .filter(|report| report.state == "completed" && report.content_complete)
+                .ok_or(QuarantineError {
+                    code: Code::ActionUnavailable,
+                })?;
+            let subject = report.inspected_subject().cloned().ok_or(QuarantineError {
+                code: Code::ActionUnavailable,
+            })?;
+            (PathBuf::from(&report.path), subject)
+        };
+        // A successful or failed approved attempt retires this historical
+        // report for future actions. A fresh scan must observe current state.
+        job.quarantine_attempted[index] = true;
+        let outcome = vault
+            .quarantine_inspected(&path, &subject)
+            .map_err(|_| QuarantineError {
+                code: Code::ActionFailed,
+            })?;
+        let receipt = quarantine::QuarantineReceipt {
+            action_ref: action.reference,
+            selection_ref: action.selection_ref,
+            job_ref: action.job_ref,
+            report_ref: action.report_ref,
+            vault_file: outcome.vault_file,
+            state: if outcome.original_removed {
+                quarantine::QuarantineResultState::Quarantined
+            } else {
+                quarantine::QuarantineResultState::OriginalRetained
+            },
+        };
+        receipt.validate().map_err(|_| QuarantineError {
+            code: Code::ActionFailed,
+        })?;
+        Ok(receipt)
     }
 
     /// Canonical output from the privately correlated job. Native must derive

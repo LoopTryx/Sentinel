@@ -1,6 +1,361 @@
 use crate::engine::Engine;
 use crate::vault::Vault;
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
+
+fn completed_job(jobs: &mut crate::scan_jobs::SelectedJobs, source: &std::path::Path) -> String {
+    let selection = jobs
+        .select(
+            "trusted-main",
+            source.to_path_buf(),
+            crate::scan_jobs::SelectionKind::File,
+            Instant::now(),
+        )
+        .unwrap();
+    let job = jobs
+        .start("trusted-main", &selection, Instant::now())
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        if jobs.poll("trusted-main", &job).unwrap().finished {
+            return job;
+        }
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
+#[test]
+fn job_bound_quarantine_requires_native_confirmation_and_consumes_once() {
+    use sentinel_proto::quarantine_action::{
+        QuarantineActionReference, QuarantineErrorCode, QuarantinePrepareRequest,
+        QuarantineResultState,
+    };
+    let root = root();
+    let source = root.join("ordinary.txt");
+    let bytes = b"harmless job action bytes";
+    std::fs::write(&source, bytes).unwrap();
+    let mut jobs = crate::scan_jobs::SelectedJobs::default();
+    let job = completed_job(&mut jobs, &source);
+    let request = QuarantinePrepareRequest {
+        job_ref: job,
+        report_ref: "report_0".into(),
+    };
+    let preview = jobs
+        .prepare_quarantine("trusted-main", &request, Instant::now())
+        .unwrap();
+    preview.validate().unwrap();
+    let wire = serde_json::to_string(&preview).unwrap();
+    assert!(!wire.contains("ordinary.txt"));
+    assert!(!wire.contains(root.to_str().unwrap()));
+    assert_eq!(
+        jobs.prepare_quarantine("foreign", &request, Instant::now())
+            .unwrap_err()
+            .code,
+        QuarantineErrorCode::JobUnavailable
+    );
+    assert_eq!(
+        jobs.prepare_quarantine(
+            "trusted-main",
+            &QuarantinePrepareRequest {
+                job_ref: request.job_ref.clone(),
+                report_ref: "report_64".into()
+            },
+            Instant::now()
+        )
+        .unwrap_err()
+        .code,
+        QuarantineErrorCode::ReportUnavailable
+    );
+    let action = QuarantineActionReference {
+        action_ref: preview.action_ref,
+    };
+    let vault = Vault::new(&root.join("app"));
+    let superseding = jobs
+        .prepare_quarantine("trusted-main", &request, Instant::now())
+        .unwrap();
+    assert_eq!(
+        jobs.quarantine_after_native_confirmation(
+            "trusted-main",
+            &action,
+            Instant::now(),
+            &vault,
+            true
+        )
+        .unwrap_err()
+        .code,
+        QuarantineErrorCode::ActionUnavailable
+    );
+    let action = QuarantineActionReference {
+        action_ref: superseding.action_ref,
+    };
+    assert_eq!(
+        jobs.quarantine_after_native_confirmation(
+            "foreign",
+            &action,
+            Instant::now(),
+            &vault,
+            false
+        )
+        .unwrap_err()
+        .code,
+        QuarantineErrorCode::ActionUnavailable
+    );
+    assert_eq!(
+        jobs.quarantine_after_native_confirmation(
+            "trusted-main",
+            &action,
+            Instant::now(),
+            &vault,
+            false
+        )
+        .unwrap_err()
+        .code,
+        QuarantineErrorCode::Declined
+    );
+    assert_eq!(
+        jobs.quarantine_after_native_confirmation(
+            "trusted-main",
+            &action,
+            Instant::now(),
+            &vault,
+            true
+        )
+        .unwrap_err()
+        .code,
+        QuarantineErrorCode::ActionUnavailable
+    );
+    assert_eq!(std::fs::read(&source).unwrap(), bytes);
+    assert!(!root.join("app/vault.key").exists());
+    let preview = jobs
+        .prepare_quarantine("trusted-main", &request, Instant::now())
+        .unwrap();
+    let action = QuarantineActionReference {
+        action_ref: preview.action_ref,
+    };
+    let receipt = jobs
+        .quarantine_after_native_confirmation("trusted-main", &action, Instant::now(), &vault, true)
+        .unwrap();
+    receipt.validate().unwrap();
+    assert_eq!(receipt.state, QuarantineResultState::Quarantined);
+    assert_eq!(receipt.job_ref, request.job_ref);
+    assert_eq!(receipt.report_ref, request.report_ref);
+    assert!(!source.exists());
+    let old_report_refused = jobs
+        .prepare_quarantine("trusted-main", &request, Instant::now())
+        .is_err();
+    assert_eq!(
+        jobs.quarantine_after_native_confirmation(
+            "trusted-main",
+            &action,
+            Instant::now(),
+            &vault,
+            true
+        )
+        .unwrap_err()
+        .code,
+        QuarantineErrorCode::ActionUnavailable
+    );
+    vault
+        .restore(&receipt.vault_file, &root.join("restored.txt"))
+        .unwrap();
+    assert_eq!(std::fs::read(root.join("restored.txt")).unwrap(), bytes);
+    drop(jobs);
+    std::fs::remove_dir_all(root).unwrap();
+    assert!(
+        old_report_refused,
+        "approved action must retire report eligibility until a fresh scan"
+    );
+}
+
+#[test]
+fn action_expiry_and_new_selection_preserve_all_source_bytes() {
+    use sentinel_proto::quarantine_action::{
+        QuarantineActionReference, QuarantineErrorCode, QuarantinePrepareRequest,
+    };
+    let root = root();
+    let source = root.join("ordinary.txt");
+    let next = root.join("next.txt");
+    let bytes = b"harmless expired action bytes";
+    std::fs::write(&source, bytes).unwrap();
+    std::fs::write(&next, b"harmless next selection").unwrap();
+    let mut jobs = crate::scan_jobs::SelectedJobs::default();
+    let job = completed_job(&mut jobs, &source);
+    let request = QuarantinePrepareRequest {
+        job_ref: job,
+        report_ref: "report_0".into(),
+    };
+    let now = Instant::now();
+    let preview = jobs
+        .prepare_quarantine("trusted-main", &request, now)
+        .unwrap();
+    let action = QuarantineActionReference {
+        action_ref: preview.action_ref,
+    };
+    let vault = Vault::new(&root.join("app"));
+    assert_eq!(
+        jobs.quarantine_after_native_confirmation(
+            "trusted-main",
+            &action,
+            now + Duration::from_secs(30),
+            &vault,
+            true
+        )
+        .unwrap_err()
+        .code,
+        QuarantineErrorCode::ActionUnavailable
+    );
+    let preview = jobs
+        .prepare_quarantine("trusted-main", &request, Instant::now())
+        .unwrap();
+    let action = QuarantineActionReference {
+        action_ref: preview.action_ref,
+    };
+    jobs.select(
+        "trusted-main",
+        next.clone(),
+        crate::scan_jobs::SelectionKind::File,
+        Instant::now(),
+    )
+    .unwrap();
+    assert_eq!(
+        jobs.quarantine_after_native_confirmation(
+            "trusted-main",
+            &action,
+            Instant::now(),
+            &vault,
+            true
+        )
+        .unwrap_err()
+        .code,
+        QuarantineErrorCode::ActionUnavailable
+    );
+    assert_eq!(std::fs::read(&source).unwrap(), bytes);
+    assert!(!root.join("app/vault.key").exists());
+    completed_job(&mut jobs, &next);
+    assert_eq!(
+        jobs.prepare_quarantine("trusted-main", &request, Instant::now())
+            .unwrap_err()
+            .code,
+        QuarantineErrorCode::JobUnavailable
+    );
+    drop(jobs);
+    assert_eq!(std::fs::read(&next).unwrap(), b"harmless next selection");
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn changed_subject_failure_consumes_job_action_without_blob() {
+    use sentinel_proto::quarantine_action::{
+        QuarantineActionReference, QuarantineErrorCode, QuarantinePrepareRequest,
+    };
+    let root = root();
+    let source = root.join("ordinary.txt");
+    std::fs::write(&source, b"harmless original job bytes").unwrap();
+    let mut jobs = crate::scan_jobs::SelectedJobs::default();
+    let job = completed_job(&mut jobs, &source);
+    let request = QuarantinePrepareRequest {
+        job_ref: job,
+        report_ref: "report_0".into(),
+    };
+    let preview = jobs
+        .prepare_quarantine("trusted-main", &request, Instant::now())
+        .unwrap();
+    let action = QuarantineActionReference {
+        action_ref: preview.action_ref,
+    };
+    let modified = b"harmless modified job bytes";
+    std::fs::write(&source, modified).unwrap();
+    let vault = Vault::new(&root.join("app"));
+    assert_eq!(
+        jobs.quarantine_after_native_confirmation(
+            "trusted-main",
+            &action,
+            Instant::now(),
+            &vault,
+            true
+        )
+        .unwrap_err()
+        .code,
+        QuarantineErrorCode::ActionFailed
+    );
+    let old_report_refused = jobs
+        .prepare_quarantine("trusted-main", &request, Instant::now())
+        .is_err();
+    assert_eq!(
+        jobs.quarantine_after_native_confirmation(
+            "trusted-main",
+            &action,
+            Instant::now(),
+            &vault,
+            true
+        )
+        .unwrap_err()
+        .code,
+        QuarantineErrorCode::ActionUnavailable
+    );
+    assert_eq!(std::fs::read(&source).unwrap(), modified);
+    assert!(!root.join("app/vault.key").exists());
+    assert!(std::fs::read_dir(&vault.dir).unwrap().next().is_none());
+    drop(jobs);
+    std::fs::remove_dir_all(root).unwrap();
+    assert!(
+        old_report_refused,
+        "failed approved action must require fresh inspection, not another old-report preview"
+    );
+}
+
+#[test]
+fn late_cancel_invalidates_action_without_relabeling_completed_evidence() {
+    use sentinel_proto::quarantine_action::{
+        QuarantineActionReference, QuarantineErrorCode, QuarantinePrepareRequest,
+    };
+    let root = root();
+    let source = root.join("ordinary.txt");
+    let bytes = b"harmless cancelled action bytes";
+    std::fs::write(&source, bytes).unwrap();
+    let mut jobs = crate::scan_jobs::SelectedJobs::default();
+    let job = completed_job(&mut jobs, &source);
+    let request = QuarantinePrepareRequest {
+        job_ref: job.clone(),
+        report_ref: "report_0".into(),
+    };
+    let preview = jobs
+        .prepare_quarantine("trusted-main", &request, Instant::now())
+        .unwrap();
+    let action = QuarantineActionReference {
+        action_ref: preview.action_ref,
+    };
+    jobs.cancel("trusted-main", &job).unwrap();
+    let vault = Vault::new(&root.join("app"));
+    assert_eq!(
+        jobs.quarantine_after_native_confirmation(
+            "trusted-main",
+            &action,
+            Instant::now(),
+            &vault,
+            true
+        )
+        .unwrap_err()
+        .code,
+        QuarantineErrorCode::ActionUnavailable
+    );
+    assert_eq!(
+        jobs.prepare_quarantine("trusted-main", &request, Instant::now())
+            .unwrap_err()
+            .code,
+        QuarantineErrorCode::ReportUnavailable
+    );
+    let snapshot = jobs.poll_wire("trusted-main", &job).unwrap();
+    assert_eq!(
+        snapshot.reports[0].state,
+        sentinel_proto::file_inspection::FileInspectionState::Completed
+    );
+    assert_eq!(std::fs::read(&source).unwrap(), bytes);
+    assert!(!root.join("app/vault.key").exists());
+    drop(jobs);
+    std::fs::remove_dir_all(root).unwrap();
+}
 
 fn root() -> PathBuf {
     let root = std::env::temp_dir().join(format!(

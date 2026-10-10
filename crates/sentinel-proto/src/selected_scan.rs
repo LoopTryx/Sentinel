@@ -95,7 +95,7 @@ pub struct ScanError {
 #[derive(Debug, PartialEq, Eq)]
 pub struct InvalidSelectedScan;
 
-fn reference(value: &str) -> Result<(), InvalidSelectedScan> {
+pub(crate) fn reference(value: &str) -> Result<(), InvalidSelectedScan> {
     if value.is_empty()
         || value.len() > 64
         || !value

@@ -444,6 +444,19 @@ fn cancellation_keeps_worker_admission_until_actual_exit() {
         .job_ref;
     entered_rx.recv_timeout(Duration::from_secs(10)).unwrap();
     assert!(jobs.cancel("foreign", &job).is_err());
+    assert_eq!(
+        jobs.prepare_quarantine(
+            "trusted-main",
+            &sentinel_proto::quarantine_action::QuarantinePrepareRequest {
+                job_ref: job.clone(),
+                report_ref: "report_0".into()
+            },
+            Instant::now()
+        )
+        .unwrap_err()
+        .code,
+        sentinel_proto::quarantine_action::QuarantineErrorCode::Busy
+    );
     let acknowledgment = jobs
         .cancel_wire(
             "trusted-main",
