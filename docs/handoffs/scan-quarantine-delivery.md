@@ -659,3 +659,39 @@ and owner-directed acceptance/handoff of B requests is recorded in issue9#609969
 and issue12#6099690602. Next A work is the authoritative bounded native scanner
 selection/start/poll/cancel contract and implementation; B owns the handed-off
 independent USB foundation, with original hardware/privileged safety gates.
+
+## Internal selected-job controller candidate
+
+`scan_jobs::SelectedJobs` adds a bounded internal native-owned lifecycle behind
+the proposed issue9#6099724194 interface. `select(owner, path, kind, now)` retains
+one replacement selection and returns a random UUID reference. `start(owner,
+selection_ref, now)` consumes a matching selection, refuses expiry at60seconds,
+and admits one real engine thread. `poll(owner, job_ref)` joins a completed
+worker before marking finished and returns the latest bounded reports and current
+file acquisition counter. `cancel(owner, job_ref)` requests cancellation only;
+it never releases admission. A second start stays busy until actual joined exit.
+Starting a later job replaces the single retained terminal report, invalidating
+its old ref; no growing event/history queue exists. Failed spawn consumes the
+selection and reports unavailable; panic or poisoned report completion remains
+failed, never complete protection. Default hash provider is absent; trusted native
+`with_hash_lookup` must supply bounded local signature lookup and expose its
+availability. No remote provider/fallback or automatic quarantine occurs.
+
+These are internal signatures, not registered Tauri commands or generated wire
+contracts. Owner strings and paths may only come from the trusted native adapter;
+they do not authenticate a transport caller or establish stable selected subject
+identity. Native main-window/session derivation, actual picker, nofollow identity
+across selection/start, canonical path-free output conversion, singleton engine
+ownership, hash-provider wiring, shutdown reconciliation and isolated process
+containment remain integration requirements. Drop requests cancellation but does
+not prove joined teardown;30second cooperative deadlines are not OS containment.
+Current-file bytes are acquisition progress, not aggregate bytes or inspected
+coverage. Report states retain gaps/timeouts/cancel/engine failure independently;
+a late cancel request must not relabel already completed work as cancelled.
+
+Actual harmless job tests cover file-byte reports, foreign/replay/expired refs,
+one-use selections, cancellation while a controlled trusted hash callback is held,
+busy refusal until joined exit, then successful next-job admission and obsolete
+report refusal. The callback hold is a labeled lifecycle test boundary, not crash,
+native UI or worker-isolation evidence. New wire contracts wait for B's requested
+contract response; current UI scan capability remains unavailable for this API.

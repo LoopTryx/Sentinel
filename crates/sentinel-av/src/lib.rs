@@ -10,6 +10,7 @@ pub mod engine;
 pub mod inspection;
 pub mod inspection_wire;
 pub mod quarantine_journal;
+pub mod scan_jobs;
 mod storage_path;
 mod storage_privacy;
 pub mod vault;
