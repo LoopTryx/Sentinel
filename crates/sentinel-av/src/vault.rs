@@ -300,7 +300,7 @@ impl Vault {
                 .map_err(|_| "restore directory unavailable".to_string())?;
         }
         let mut options = std::fs::OpenOptions::new();
-        options.write(true).create_new(true);
+        options.read(true).write(true).create_new(true);
         #[cfg(windows)]
         {
             use std::os::windows::fs::OpenOptionsExt;
@@ -317,6 +317,20 @@ impl Vault {
         output
             .sync_all()
             .map_err(|_| "restore flush failed; recovery blob retained".to_string())?;
+        output
+            .seek(SeekFrom::Start(0))
+            .map_err(|_| "restore verification failed; recovery blob retained".to_string())?;
+        let mut persisted = Vec::new();
+        (&mut output)
+            .take(MAX_PLAINTEXT_BYTES as u64 + 1)
+            .read_to_end(&mut persisted)
+            .map_err(|_| "restore verification failed; recovery blob retained".to_string())?;
+        if persisted != plaintext {
+            return Err("restore verification failed; recovery blob retained".into());
+        }
+        let mut journal = crate::quarantine_journal::Journal::prepare_lifecycle(
+            &self.dir, vault_file, to_path, &plaintext, &key_bytes, false,
+        )?;
         #[cfg(windows)]
         let cleaned = mark_retained_file_for_deletion(&blob_handle);
         drop(blob_handle);
@@ -328,22 +342,31 @@ impl Vault {
         #[cfg(not(windows))]
         std::fs::remove_file(vault_path)
             .map_err(|_| "restored; recovery blob cleanup failed".to_string())?;
+        journal.finish_lifecycle(&key_bytes)?;
         Ok(())
     }
 
     pub fn destroy(&self, vault_file: &str) -> Result<(), String> {
         let path = self.blob_path(vault_file)?;
+        let key_bytes = self.load_key()?;
+        let (handle, bytes) = read_bounded_handle(&path, MAX_BLOB_BYTES, true)?;
+        let plaintext = self.decrypt_blob(&bytes, &key_bytes)?;
+        let mut journal = crate::quarantine_journal::Journal::prepare_lifecycle(
+            &self.dir, vault_file, &self.dir, &plaintext, &key_bytes, true,
+        )?;
         #[cfg(windows)]
         {
-            let (handle, _) = read_bounded_handle(&path, MAX_BLOB_BYTES, true)?;
             if !mark_retained_file_for_deletion(&handle) {
                 return Err("quarantine blob cleanup failed".into());
             }
             drop(handle);
-            Ok(())
         }
         #[cfg(not(windows))]
-        std::fs::remove_file(path).map_err(|e| e.to_string())
+        {
+            drop(handle);
+            std::fs::remove_file(path).map_err(|_| "quarantine blob cleanup failed".to_string())?;
+        }
+        journal.finish_lifecycle(&key_bytes)
     }
 
     fn decrypt_blob(&self, blob: &[u8], key_bytes: &[u8; 32]) -> Result<Vec<u8>, String> {

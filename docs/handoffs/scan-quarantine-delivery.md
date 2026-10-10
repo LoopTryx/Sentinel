@@ -237,8 +237,8 @@ contains `vault_file`, `phase`, canonical decimal `plaintext_bytes` (for example
 `"24"`) and the SHA-256 hex digest. It grants no action authority and is not an
 exposed RPC or browser DTO. `RemovalRecorded` and `SourceRetainedRecorded` are
 historical authenticated receipts, not proof of current blob availability,
-current source state or protection. Restore/destroy do not yet write lifecycle
-receipts; their old journals remain and must not be presented as live inventory.
+current source state or protection. The following lifecycle increment records
+restore/destroy separately; neither receipt is a live inventory proof.
 
 A verified initial record without a valid terminal record returns
 `RecoveryRequired`, including truncated or corrupt trailing records. Missing,
@@ -258,7 +258,40 @@ review passed interruption and journal tests; designated B review remains due.
 These are controlled-return tests, not process-kill, filesystem directory-entry
 durability or power-loss evidence. Full exact-head verification is recorded
 separately after committing. Storage ACL/ancestry, quotas, recovery inventory,
-restore/destroy journal lifecycle and actual application acceptance remain open.
+interrupted lifecycle resumption and actual application acceptance remain open.
+
+## Restore/destroy lifecycle candidate
+
+Explicit restore/destroy now create an exclusive encrypted `.qlj` receipt using
+the same 8192-byte total and 2048-byte encrypted-frame bounds. Restore writes and
+flushes an exclusively held destination, rereads the same handle and compares
+persisted plaintext before recording/flushing restore intent. Destroy first
+authenticates the bounded encrypted blob, then records/flushed deletion intent.
+Both retain the intent handle through held-blob disposition and append/flush
+completion only afterward. Restore's target association remains encrypted and
+is omitted from the native summary. Deletion is not secure erasure.
+
+`recovery_summary` prefers an existing lifecycle receipt; inaccessible, malformed
+or unauthenticated lifecycle data cannot fall back to the earlier quarantine
+receipt. Valid intent alone or torn completion returns `RecoveryRequired`.
+Complete native phases are `RestoredRecorded` and `DestroyedRecorded`, historical
+receipts only. They do not prove current destination contents or blob absence.
+Legacy blobs without `.qjr` remain explicitly restorable with a new lifecycle
+receipt. Occupied receipts are never overwritten: the operation fails while
+preserving the encrypted blob and any already verified restored destination.
+An existing incomplete receipt currently blocks a retry; authenticated explicit
+resumption/reconciliation remains required before release. A final receipt-write
+failure after disposition leaves an intent-only record and reports an error;
+callers must not infer that an error always means the blob was retained.
+
+The stale receipt regression failed first (`RemovalRecorded` after restore),
+then passed with actual byte-exact restore and authenticated destroy. Five
+journal/lifecycle tests cover target secrecy, intent-only/torn completion,
+occupied receipt preservation, malformed lifecycle refusal without fallback and
+corrupt-blob destroy refusal. AV43 and strict lint passed locally. Full committed
+head verification and independent review are recorded separately. No actual
+process termination, power-loss, storage ACL/ancestor or UI/browser acceptance is
+claimed; designated B security approval remains required.
 
 ## Remaining concrete delivery work
 

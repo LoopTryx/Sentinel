@@ -1,6 +1,103 @@
 use sentinel_av::{quarantine_journal::RecoveryPhase, vault::Vault};
 
 #[test]
+fn restore_and_destroy_record_authenticated_lifecycle_without_exposing_targets() {
+    let root = std::env::temp_dir().join(format!("sentinel-lifecycle-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(&root).unwrap();
+    let vault = Vault::new(&root.join("app"));
+    for destroy in [false, true] {
+        let source = root.join(if destroy {
+            "destroy.txt"
+        } else {
+            "restore.txt"
+        });
+        std::fs::write(&source, b"harmless lifecycle bytes").unwrap();
+        let reference = vault.quarantine(&source).unwrap().vault_file;
+        let target = root.join("private-restore-target.txt");
+        if destroy {
+            vault.destroy(&reference).unwrap();
+        } else {
+            vault.restore(&reference, &target).unwrap();
+            assert_eq!(std::fs::read(&target).unwrap(), b"harmless lifecycle bytes");
+        }
+        assert!(!vault.dir.join(&reference).exists());
+        let summary = vault.recovery_summary(&reference).unwrap();
+        assert_eq!(
+            format!("{:?}", summary.phase),
+            if destroy {
+                "DestroyedRecorded"
+            } else {
+                "RestoredRecorded"
+            }
+        );
+        assert!(!format!("{summary:?}").contains("private-restore-target"));
+        let receipt = vault.dir.join(reference.replace(".qtn", ".qlj"));
+        let bytes = std::fs::read(&receipt).unwrap();
+        assert!(!bytes
+            .windows(b"private-restore-target".len())
+            .any(|part| part == b"private-restore-target"));
+        let first_end = 8 + u32::from_be_bytes(bytes[4..8].try_into().unwrap()) as usize;
+        std::fs::write(&receipt, &bytes[..first_end]).unwrap();
+        assert_eq!(
+            vault.recovery_summary(&reference).unwrap().phase,
+            RecoveryPhase::RecoveryRequired
+        );
+        std::fs::write(&receipt, &bytes[..first_end + 3]).unwrap();
+        assert_eq!(
+            vault.recovery_summary(&reference).unwrap().phase,
+            RecoveryPhase::RecoveryRequired
+        );
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn occupied_lifecycle_receipt_preserves_blob_and_verified_restore_destination() {
+    let root =
+        std::env::temp_dir().join(format!("sentinel-lifecycle-fail-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(&root).unwrap();
+    let vault = Vault::new(&root.join("app"));
+    let source = root.join("harmless.txt");
+    std::fs::write(&source, b"preserve harmless recovery bytes").unwrap();
+    let reference = vault.quarantine(&source).unwrap().vault_file;
+    let receipt = vault.dir.join(reference.replace(".qtn", ".qlj"));
+    std::fs::write(&receipt, b"occupied existing receipt").unwrap();
+    let target = root.join("new-target.txt");
+    assert!(vault.restore(&reference, &target).is_err());
+    assert_eq!(
+        std::fs::read(&target).unwrap(),
+        b"preserve harmless recovery bytes"
+    );
+    assert!(vault.dir.join(&reference).exists());
+    assert_eq!(
+        std::fs::read(&receipt).unwrap(),
+        b"occupied existing receipt"
+    );
+    assert!(vault.recovery_summary(&reference).is_err());
+    assert!(vault.destroy(&reference).is_err());
+    assert!(vault.dir.join(&reference).exists());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn destroy_rejects_unauthenticated_blob_without_creating_lifecycle_receipt() {
+    let root = std::env::temp_dir().join(format!("sentinel-destroy-auth-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(&root).unwrap();
+    let vault = Vault::new(&root.join("app"));
+    let source = root.join("harmless.txt");
+    std::fs::write(&source, b"harmless authenticated original").unwrap();
+    let reference = vault.quarantine(&source).unwrap().vault_file;
+    let blob_path = vault.dir.join(&reference);
+    let mut damaged = std::fs::read(&blob_path).unwrap();
+    damaged[12] ^= 1;
+    std::fs::write(&blob_path, &damaged).unwrap();
+    assert!(vault.destroy(&reference).is_err());
+    assert_eq!(std::fs::read(&blob_path).unwrap(), damaged);
+    assert!(!vault.dir.join(reference.replace(".qtn", ".qlj")).exists());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn actual_quarantine_persists_encrypted_metadata_and_torn_tail_needs_recovery() {
     let root = std::env::temp_dir().join(format!("sentinel-journal-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir(&root).unwrap();

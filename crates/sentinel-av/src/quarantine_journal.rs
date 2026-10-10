@@ -16,6 +16,8 @@ const MAX_JOURNAL: usize = 8192;
 pub enum RecoveryPhase {
     RemovalRecorded,
     SourceRetainedRecorded,
+    RestoredRecorded,
+    DestroyedRecorded,
     RecoveryRequired,
 }
 
@@ -33,6 +35,10 @@ enum Stage {
     VerifiedBeforeRemoval,
     RemovalRecorded,
     SourceRetainedRecorded,
+    RestorePrepared,
+    DestroyPrepared,
+    RestoredRecorded,
+    DestroyedRecorded,
 }
 
 // Never derive Debug: the private source association is encrypted on disk and
@@ -52,7 +58,7 @@ pub(crate) struct Journal {
     record: Record,
 }
 
-fn journal_path(dir: &Path, reference: &str) -> Result<PathBuf, String> {
+fn journal_path(dir: &Path, reference: &str, lifecycle: bool) -> Result<PathBuf, String> {
     let id = reference
         .strip_suffix(".qtn")
         .ok_or("invalid recovery reference")?;
@@ -63,7 +69,7 @@ fn journal_path(dir: &Path, reference: &str) -> Result<PathBuf, String> {
     {
         return Err("invalid recovery reference".into());
     }
-    Ok(dir.join(format!("{id}.qjr")))
+    Ok(dir.join(format!("{id}.{}", if lifecycle { "qlj" } else { "qjr" })))
 }
 
 impl Journal {
@@ -74,6 +80,46 @@ impl Journal {
         bytes: &[u8],
         key: &[u8; 32],
     ) -> Result<Self, String> {
+        Self::create_record(
+            dir,
+            reference,
+            source,
+            bytes,
+            key,
+            Stage::VerifiedBeforeRemoval,
+        )
+    }
+
+    pub(crate) fn prepare_lifecycle(
+        dir: &Path,
+        reference: &str,
+        association: &Path,
+        bytes: &[u8],
+        key: &[u8; 32],
+        destroy: bool,
+    ) -> Result<Self, String> {
+        Self::create_record(
+            dir,
+            reference,
+            association,
+            bytes,
+            key,
+            if destroy {
+                Stage::DestroyPrepared
+            } else {
+                Stage::RestorePrepared
+            },
+        )
+    }
+
+    fn create_record(
+        dir: &Path,
+        reference: &str,
+        source: &Path,
+        bytes: &[u8],
+        key: &[u8; 32],
+        stage: Stage,
+    ) -> Result<Self, String> {
         let source_text = source.to_str().ok_or("recovery source unsupported")?;
         if !source.is_absolute() || source_text.len() > 1024 || source_text.contains('\0') {
             return Err("recovery source unsupported".into());
@@ -82,7 +128,7 @@ impl Journal {
             source: source_text.to_owned(),
             sha256: hex::encode(Sha256::digest(bytes)),
             bytes: bytes.len() as u64,
-            stage: Stage::VerifiedBeforeRemoval,
+            stage,
         };
         let mut options = std::fs::OpenOptions::new();
         options.write(true).create_new(true);
@@ -92,7 +138,11 @@ impl Journal {
             options.share_mode(0).custom_flags(0x00200000);
         }
         let file = options
-            .open(journal_path(dir, reference)?)
+            .open(journal_path(
+                dir,
+                reference,
+                record.stage != Stage::VerifiedBeforeRemoval,
+            )?)
             .map_err(|_| "recovery journal creation failed; source retained".to_string())?;
         let mut journal = Self {
             file,
@@ -112,6 +162,15 @@ impl Journal {
             Stage::RemovalRecorded
         } else {
             Stage::SourceRetainedRecorded
+        };
+        self.append(key)
+    }
+
+    pub(crate) fn finish_lifecycle(&mut self, key: &[u8; 32]) -> Result<(), String> {
+        self.record.stage = match self.record.stage {
+            Stage::RestorePrepared => Stage::RestoredRecorded,
+            Stage::DestroyPrepared => Stage::DestroyedRecorded,
+            _ => return Err("invalid recovery lifecycle transition".into()),
         };
         self.append(key)
     }
@@ -157,7 +216,15 @@ pub(crate) fn read_summary(
     reference: &str,
     key: &[u8; 32],
 ) -> Result<RecoverySummary, String> {
-    let bytes = crate::vault::read_bounded(&journal_path(dir, reference)?, MAX_JOURNAL)?;
+    let lifecycle_path = journal_path(dir, reference, true)?;
+    // A malformed/inaccessible lifecycle receipt must never fall back to the
+    // older quarantine receipt and falsely imply it describes the latest action.
+    let lifecycle = match std::fs::symlink_metadata(&lifecycle_path) {
+        Ok(_) => true,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+        Err(_) => return Err("recovery lifecycle unavailable".into()),
+    };
+    let bytes = crate::vault::read_bounded(&journal_path(dir, reference, lifecycle)?, MAX_JOURNAL)?;
     if bytes.get(..4) != Some(MAGIC.as_slice()) {
         return Err("recovery journal invalid".into());
     }
@@ -222,7 +289,14 @@ pub(crate) fn read_summary(
             if initial.source != record.source
                 || initial.sha256 != record.sha256
                 || initial.bytes != record.bytes
-                || record.stage == Stage::VerifiedBeforeRemoval
+                || !matches!(
+                    (&initial.stage, &record.stage),
+                    (
+                        Stage::VerifiedBeforeRemoval,
+                        Stage::RemovalRecorded | Stage::SourceRetainedRecorded
+                    ) | (Stage::RestorePrepared, Stage::RestoredRecorded)
+                        | (Stage::DestroyPrepared, Stage::DestroyedRecorded)
+                )
             {
                 phase = RecoveryPhase::RecoveryRequired;
                 break;
@@ -230,10 +304,19 @@ pub(crate) fn read_summary(
             phase = match record.stage {
                 Stage::RemovalRecorded => RecoveryPhase::RemovalRecorded,
                 Stage::SourceRetainedRecorded => RecoveryPhase::SourceRetainedRecorded,
-                Stage::VerifiedBeforeRemoval => RecoveryPhase::RecoveryRequired,
+                Stage::RestoredRecorded => RecoveryPhase::RestoredRecorded,
+                Stage::DestroyedRecorded => RecoveryPhase::DestroyedRecorded,
+                _ => RecoveryPhase::RecoveryRequired,
             };
         } else {
-            if record.stage != Stage::VerifiedBeforeRemoval {
+            if if lifecycle {
+                !matches!(
+                    record.stage,
+                    Stage::RestorePrepared | Stage::DestroyPrepared
+                )
+            } else {
+                record.stage != Stage::VerifiedBeforeRemoval
+            } {
                 break;
             }
             first = Some(record);
