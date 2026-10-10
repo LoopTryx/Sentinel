@@ -14,6 +14,13 @@ enum ControlledInterruption {
     SourceDispositionApplied,
 }
 
+#[cfg(test)]
+#[derive(PartialEq, Eq)]
+enum ControlledLifecycleInterruption {
+    IntentCommitted,
+    BlobDispositionApplied,
+}
+
 pub(crate) fn read_bounded(path: &Path, limit: usize) -> Result<Vec<u8>, String> {
     read_bounded_handle(path, limit, false).map(|(_, bytes)| bytes)
 }
@@ -291,6 +298,22 @@ impl Vault {
     }
 
     pub fn restore(&self, vault_file: &str, to_path: &Path) -> Result<(), String> {
+        #[cfg(test)]
+        {
+            self.restore_inner(vault_file, to_path, None)
+        }
+        #[cfg(not(test))]
+        {
+            self.restore_inner(vault_file, to_path)
+        }
+    }
+
+    fn restore_inner(
+        &self,
+        vault_file: &str,
+        to_path: &Path,
+        #[cfg(test)] interruption: Option<ControlledLifecycleInterruption>,
+    ) -> Result<(), String> {
         let vault_path = self.blob_path(vault_file)?;
         let key_bytes = self.load_key()?;
         let (blob_handle, blob) = read_bounded_handle(&vault_path, MAX_BLOB_BYTES, true)?;
@@ -331,6 +354,10 @@ impl Vault {
         let mut journal = crate::quarantine_journal::Journal::prepare_lifecycle(
             &self.dir, vault_file, to_path, &plaintext, &key_bytes, false,
         )?;
+        #[cfg(test)]
+        if interruption == Some(ControlledLifecycleInterruption::IntentCommitted) {
+            return Err("controlled interruption after restore intent".into());
+        }
         #[cfg(windows)]
         let cleaned = mark_retained_file_for_deletion(&blob_handle);
         drop(blob_handle);
@@ -342,11 +369,30 @@ impl Vault {
         #[cfg(not(windows))]
         std::fs::remove_file(vault_path)
             .map_err(|_| "restored; recovery blob cleanup failed".to_string())?;
+        #[cfg(test)]
+        if interruption == Some(ControlledLifecycleInterruption::BlobDispositionApplied) {
+            return Err("controlled interruption after restore disposition".into());
+        }
         journal.finish_lifecycle(&key_bytes)?;
         Ok(())
     }
 
     pub fn destroy(&self, vault_file: &str) -> Result<(), String> {
+        #[cfg(test)]
+        {
+            self.destroy_inner(vault_file, None)
+        }
+        #[cfg(not(test))]
+        {
+            self.destroy_inner(vault_file)
+        }
+    }
+
+    fn destroy_inner(
+        &self,
+        vault_file: &str,
+        #[cfg(test)] interruption: Option<ControlledLifecycleInterruption>,
+    ) -> Result<(), String> {
         let path = self.blob_path(vault_file)?;
         let key_bytes = self.load_key()?;
         let (handle, bytes) = read_bounded_handle(&path, MAX_BLOB_BYTES, true)?;
@@ -354,6 +400,10 @@ impl Vault {
         let mut journal = crate::quarantine_journal::Journal::prepare_lifecycle(
             &self.dir, vault_file, &self.dir, &plaintext, &key_bytes, true,
         )?;
+        #[cfg(test)]
+        if interruption == Some(ControlledLifecycleInterruption::IntentCommitted) {
+            return Err("controlled interruption after destroy intent".into());
+        }
         #[cfg(windows)]
         {
             if !mark_retained_file_for_deletion(&handle) {
@@ -365,6 +415,10 @@ impl Vault {
         {
             drop(handle);
             std::fs::remove_file(path).map_err(|_| "quarantine blob cleanup failed".to_string())?;
+        }
+        #[cfg(test)]
+        if interruption == Some(ControlledLifecycleInterruption::BlobDispositionApplied) {
+            return Err("controlled interruption after destroy disposition".into());
         }
         journal.finish_lifecycle(&key_bytes)
     }
@@ -391,6 +445,56 @@ impl Vault {
 #[cfg(all(test, windows))]
 mod retained_source_tests {
     use super::*;
+
+    #[test]
+    fn interrupted_restore_and_destroy_preserve_exact_intent_boundary_state() {
+        for destroy in [false, true] {
+            for interruption in [
+                ControlledLifecycleInterruption::IntentCommitted,
+                ControlledLifecycleInterruption::BlobDispositionApplied,
+            ] {
+                let root = std::env::temp_dir().join(format!(
+                    "sentinel-lifecycle-interrupted-{}",
+                    uuid::Uuid::new_v4()
+                ));
+                std::fs::create_dir(&root).unwrap();
+                let source = root.join("harmless.txt");
+                let plaintext = b"harmless lifecycle interruption bytes";
+                std::fs::write(&source, plaintext).unwrap();
+                let vault = Vault::new(&root.join("app"));
+                let reference = vault.quarantine(&source).unwrap().vault_file;
+                let target = root.join("explicit-restore-target.txt");
+                let before_disposition =
+                    interruption == ControlledLifecycleInterruption::IntentCommitted;
+                let result = if destroy {
+                    vault.destroy_inner(&reference, Some(interruption))
+                } else {
+                    vault.restore_inner(&reference, &target, Some(interruption))
+                };
+                assert!(
+                    result.is_err(),
+                    "injected interruption must stop before completion receipt"
+                );
+                assert_eq!(vault.dir.join(&reference).exists(), before_disposition);
+                let summary = vault.recovery_summary(&reference).unwrap();
+                assert_eq!(
+                    summary.phase,
+                    crate::quarantine_journal::RecoveryPhase::RecoveryRequired
+                );
+                assert_eq!(summary.plaintext_bytes, plaintext.len().to_string());
+                if !destroy {
+                    assert_eq!(std::fs::read(&target).unwrap(), plaintext);
+                }
+                assert_eq!(target.exists(), !destroy);
+                // Existing intent must not be overwritten by ordinary retries.
+                let journal = vault.dir.join(reference.replace(".qtn", ".qlj"));
+                let intent = std::fs::read(&journal).unwrap();
+                assert!(vault.destroy(&reference).is_err());
+                assert_eq!(std::fs::read(&journal).unwrap(), intent);
+                std::fs::remove_dir_all(root).unwrap();
+            }
+        }
+    }
 
     #[test]
     fn retained_handle_denies_replacement_and_deletes_only_after_close() {

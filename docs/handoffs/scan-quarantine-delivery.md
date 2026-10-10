@@ -295,6 +295,19 @@ claimed; designated B security approval remains required.
 
 ## Remaining concrete delivery work
 
+The follow-up Windows unit `interrupted_restore_and_destroy_preserve_exact_intent_boundary_state`
+executes restore and destroy with controlled returns at two live boundaries:
+immediately after flushed intent and immediately after held blob disposition,
+before completion. It failed with ignored fault points and passed after adding
+the test-only returns. All four cases retain authenticated recovery-required
+receipts and correct byte counts; blob presence matches the actual disposition
+boundary. Both restore cases preserve the byte-exact destination. Ordinary
+destroy retries fail without modifying the intent receipt. The enum, extra
+parameters and fault branches are compiled out of production. These are
+controlled-return ordering checks, not actual process termination or power-loss.
+Explicit authenticated resumption/reconciliation remains the next runtime task;
+existing intents are not silently overwritten to make retries appear successful.
+
 CI job 114173382527 failed the directory budget test at 40 MiB because its
 five-second test deadline expired before the 64 MiB budget. The test now supplies
 the existing 30-second production cap; production timeout behavior is unchanged
