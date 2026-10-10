@@ -578,7 +578,9 @@ than weakening the policy. Focused4 pass. Static supplemental security review
 found no unsafe buffer/lifetime or permission-write issue. Full verifier/CI and
 any independent executed evidence are recorded separately in PR61.
 
-Existing operations do not yet enforce this gate. A directory snapshot alone
+At the historical 7d9c77a candidate, operations did not yet enforce this gate.
+The following private-creation/enforcement candidate supersedes that state.
+A directory snapshot alone
 cannot validate key/blob/journal/admission-file ACLs or prevent later DACL changes
 by the owner or privileged processes. Private creation and child-handle policy,
 enforcement before every sensitive operation, subject/job/action authority and
@@ -586,3 +588,50 @@ installed native/browser acceptance remain required before valuable-file use.
 The production probe never changes any permissions. Only fresh owned temporary
 fixture directories receive explicit test descriptors through .NET creation;
 no existing path ACL, account privilege, Defender or E: was changed.
+
+## Private creation and enforced storage policy candidate
+
+Codex issue9 claim6097213844 supersedes the read-only-only stage. Public Vault
+signatures remain unchanged. Initialization now creates each missing storage
+directory atomically with an explicit protected owner/SYSTEM full-control OI|CI
+descriptor through CreateDirectoryW, under previously retained nofollow volume
+ancestry. It validates the app/key parent before creating the nested vault and
+opens that child using its captured GUID address while parent guards stay held.
+The filename-inclusive future bound is checked before missing-parent creation.
+Existing directory ACLs are never repaired or expanded: inherited/broad or
+unsupported app/vault storage returns an unavailable Vault, preserving existing
+content and requiring an explicitly selected fresh private location or separately
+reviewed recovery. No silent legacy-key migration or permission repair occurs.
+
+Every operational storage_guard checks key parent and vault policy before key,
+admission, blob or journal access. Retained private child handles validate actual
+owner/DACL before reading key/blob/journal bytes or writing newly created key,
+blob/journal bytes. Admission lock validation precedes storage mutation. Files
+accept only current-owner full-control plus optional SYSTEM full-control, with
+ordinary explicit or inherited ACEs (flags0 or INHERITED_ACE); directories still
+require the protected explicit inheritable policy. Unsupported/null/foreign/
+extra grants fail. New key creation uses nofollow/share0. Selected source and
+restore destination use their separate ordinary-file identity/ancestry policy;
+this storage policy must not accidentally demand private ACLs on user documents.
+
+Reproduction: cargo test -p sentinel-av --test vault_privacy (7 cases), then
+cargo test -p sentinel-av and strict clippy; unchanged tools/verify.ps1 on the
+committed candidate. Fresh private initialization and refusal before nested child
+creation reproduced failing-first. Broad-key fixture initially failed setup
+because the child PowerShell process could not autoload its Security module;
+using direct .NET AccessControl methods corrected that fixture. Do not label its
+initial setup failure as a reproduced scanner defect. Actual broad key/blob/
+journal/admission refusals now preserve benign source/recovery bytes; private
+owner-only and owner/SYSTEM locations accept. Existing bounded real roundtrips,
+ancestry, capacity and recovery cases pass with private initialization. Static
+supplemental review found no creation lifetime, coverage or mutation-order issue;
+executed independent and committed-head complete evidence is separately recorded.
+
+Production does not modify an existing ACL, enable a privilege, change accounts,
+Defender or E:. Test ACL broadening is limited to disposable owned benign files,
+never real credentials/content. No raw descriptor, SID or file contents are sent
+to AI or diagnostics. This policy protects the supported ordinary cross-user
+storage boundary, not the same owner/privileged actor changing DACLs, hardlink or
+volume identity across requests, or real process/power-loss durability. Explicit
+subject/job/action authorization, native ownership handoff and supported browser
+byte/download/same-report acceptance remain required before shipment/main.

@@ -22,7 +22,7 @@ enum ControlledLifecycleInterruption {
 }
 
 pub(crate) fn read_bounded(path: &Path, limit: usize) -> Result<Vec<u8>, String> {
-    read_bounded_handle(path, limit, false).map(|(_, bytes)| bytes)
+    read_bounded_file(path, limit, false, false, true).map(|(_, bytes)| bytes)
 }
 
 fn read_bounded_handle(
@@ -30,14 +30,22 @@ fn read_bounded_handle(
     limit: usize,
     delete_access: bool,
 ) -> Result<(std::fs::File, Vec<u8>), String> {
-    read_bounded_file(path, limit, delete_access, false)
+    read_bounded_file(path, limit, delete_access, false, false)
 }
 
 pub(crate) fn read_bounded_mutable(
     path: &Path,
     limit: usize,
 ) -> Result<(std::fs::File, Vec<u8>), String> {
-    read_bounded_file(path, limit, false, true)
+    read_bounded_file(path, limit, false, true, true)
+}
+
+fn read_private_bounded_handle(
+    path: &Path,
+    limit: usize,
+    delete_access: bool,
+) -> Result<(std::fs::File, Vec<u8>), String> {
+    read_bounded_file(path, limit, delete_access, false, true)
 }
 
 fn read_bounded_file(
@@ -45,6 +53,7 @@ fn read_bounded_file(
     limit: usize,
     delete_access: bool,
     write_access: bool,
+    private: bool,
 ) -> Result<(std::fs::File, Vec<u8>), String> {
     let metadata =
         std::fs::symlink_metadata(path).map_err(|_| "quarantine input unavailable".to_string())?;
@@ -75,6 +84,9 @@ fn read_bounded_file(
     let file = options
         .open(path)
         .map_err(|_| "quarantine input open failed".to_string())?;
+    if private {
+        crate::storage_privacy::validate_file(&file)?;
+    }
     let opened = file
         .metadata()
         .map_err(|_| "quarantine input metadata failed".to_string())?;
@@ -159,6 +171,8 @@ impl Vault {
             .parent()
             .ok_or("quarantine key parent unsupported")?;
         let guard = crate::storage_path::retain_pinned_directory(&parent.join("vault"))?;
+        crate::storage_privacy::validate(parent)?;
+        crate::storage_privacy::validate(&guard.path)?;
         let dir = guard.path.clone();
         Ok(ScopedStorage {
             vault: Vault {
@@ -193,6 +207,7 @@ impl Vault {
                 .custom_flags(0x00200000)
                 .open(self.dir.join(".admission.lock"))
                 .map_err(|_| "quarantine storage admission busy or unavailable")?;
+            crate::storage_privacy::validate_file(&handle)?;
             let lock_metadata = handle
                 .metadata()
                 .map_err(|_| "quarantine admission metadata failed")?;
@@ -296,7 +311,8 @@ impl Vault {
         )?;
         match std::fs::symlink_metadata(&blob_path) {
             Ok(_) => {
-                let (blob_handle, blob) = read_bounded_handle(&blob_path, MAX_BLOB_BYTES, true)?;
+                let (blob_handle, blob) =
+                    read_private_bounded_handle(&blob_path, MAX_BLOB_BYTES, true)?;
                 if vault.decrypt_blob(&blob, &key)? != plaintext {
                     return Err("recovery blob does not match verified destination".into());
                 }
@@ -329,7 +345,7 @@ impl Vault {
         let path = vault.blob_path(reference)?;
         let _admission = vault.admit_storage(2052, 0, Some(reference))?;
         let key = vault.load_key()?;
-        let (handle, blob) = read_bounded_handle(&path, MAX_BLOB_BYTES, true)?;
+        let (handle, blob) = read_private_bounded_handle(&path, MAX_BLOB_BYTES, true)?;
         let plaintext = vault.decrypt_blob(&blob, &key)?;
         let mut journal = crate::quarantine_journal::Journal::resume_lifecycle(
             &vault.dir, reference, &self.dir, &plaintext, &key, true,
@@ -375,7 +391,18 @@ impl Vault {
 
     pub fn new(app_data: &Path) -> Self {
         let dir = app_data.join("vault");
-        let storage = crate::storage_path::retain_directory(&dir, true).ok();
+        let storage = (|| -> Result<crate::storage_path::DirectoryGuard, String> {
+            let parent = crate::storage_path::retain_private_directory(
+                app_data,
+                Some(std::ffi::OsStr::new("vault")),
+            )?;
+            crate::storage_privacy::validate(&parent.path)?;
+            let vault =
+                crate::storage_path::retain_private_child_directory(&parent.path.join("vault"))?;
+            crate::storage_privacy::validate(&vault.path)?;
+            Ok(vault)
+        })()
+        .ok();
         let initialized = storage.is_some();
         let key_path = storage
             .and_then(|guard| guard.path.parent().map(|parent| parent.join("vault.key")))
@@ -408,11 +435,17 @@ impl Vault {
         }
         let mut key = [0u8; 32];
         rand::thread_rng().fill_bytes(&mut key);
-        let mut output = std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::OpenOptionsExt;
+            options.share_mode(0).custom_flags(0x00200000);
+        }
+        let mut output = options
             .open(&self.key_path)
             .map_err(|_| "quarantine key creation failed".to_string())?;
+        crate::storage_privacy::validate_file(&output)?;
         output
             .write_all(&key)
             .map_err(|_| "quarantine key write failed".to_string())?;
@@ -502,6 +535,7 @@ impl Vault {
         let mut output = options
             .open(&vault_path)
             .map_err(|_| "quarantine blob creation failed".to_string())?;
+        crate::storage_privacy::validate_file(&output)?;
         output
             .write_all(&blob)
             .map_err(|_| "quarantine blob write failed; original retained".to_string())?;
@@ -577,7 +611,7 @@ impl Vault {
         let vault = &storage.vault;
         let vault_path = vault.blob_path(vault_file)?;
         let key_bytes = vault.load_key()?;
-        let (blob_handle, blob) = read_bounded_handle(&vault_path, MAX_BLOB_BYTES, true)?;
+        let (blob_handle, blob) = read_private_bounded_handle(&vault_path, MAX_BLOB_BYTES, true)?;
         let plaintext = vault.decrypt_blob(&blob, &key_bytes)?;
         let _admission = vault.admit_storage(8192, 1, Some(vault_file))?;
         let target_parent = crate::storage_path::retain_file_parent(to_path, true)?;
@@ -656,7 +690,7 @@ impl Vault {
         let vault = &storage.vault;
         let path = vault.blob_path(vault_file)?;
         let key_bytes = vault.load_key()?;
-        let (handle, bytes) = read_bounded_handle(&path, MAX_BLOB_BYTES, true)?;
+        let (handle, bytes) = read_private_bounded_handle(&path, MAX_BLOB_BYTES, true)?;
         let plaintext = vault.decrypt_blob(&bytes, &key_bytes)?;
         let _admission = vault.admit_storage(8192, 1, Some(vault_file))?;
         let mut journal = crate::quarantine_journal::Journal::prepare_lifecycle(

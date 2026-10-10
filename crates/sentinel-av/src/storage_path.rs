@@ -60,6 +60,7 @@ pub(crate) fn retain_file_parent(path: &Path, create: bool) -> Result<FileParent
             create,
             false,
             Some(name),
+            false,
         )?;
         let resolved = parent.path.join(name);
         if resolved.as_os_str().encode_wide().count() > 1024 {
@@ -72,12 +73,23 @@ pub(crate) fn retain_file_parent(path: &Path, create: bool) -> Result<FileParent
     }
 }
 
+#[cfg(all(test, windows))]
 pub(crate) fn retain_directory(path: &Path, create: bool) -> Result<DirectoryGuard, String> {
-    retain_directory_inner(path, create, false, None)
+    retain_directory_inner(path, create, false, None, false)
 }
 
 pub(crate) fn retain_pinned_directory(path: &Path) -> Result<DirectoryGuard, String> {
-    retain_directory_inner(path, false, true, None)
+    retain_directory_inner(path, false, true, None, false)
+}
+
+pub(crate) fn retain_private_directory(
+    path: &Path,
+    reserved_child: Option<&std::ffi::OsStr>,
+) -> Result<DirectoryGuard, String> {
+    retain_directory_inner(path, true, false, reserved_child, true)
+}
+pub(crate) fn retain_private_child_directory(path: &Path) -> Result<DirectoryGuard, String> {
+    retain_directory_inner(path, true, true, None, true)
 }
 
 fn retain_directory_inner(
@@ -85,10 +97,11 @@ fn retain_directory_inner(
     create: bool,
     pinned: bool,
     selected_name: Option<&std::ffi::OsStr>,
+    private_creation: bool,
 ) -> Result<DirectoryGuard, String> {
     #[cfg(not(windows))]
     {
-        let _ = (path, create, pinned, selected_name);
+        let _ = (path, create, pinned, selected_name, private_creation);
         Err("quarantine storage ancestry unsupported".into())
     }
     #[cfg(windows)]
@@ -160,7 +173,11 @@ fn retain_directory_inner(
                 Err(error)
                     if create && index > 1 && error.kind() == std::io::ErrorKind::NotFound =>
                 {
-                    match std::fs::create_dir(&current) {
+                    match if private_creation {
+                        crate::storage_privacy::create_directory(&current)
+                    } else {
+                        std::fs::create_dir(&current)
+                    } {
                         Ok(()) => {}
                         Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
                         Err(_) => return Err("quarantine storage directory creation failed".into()),

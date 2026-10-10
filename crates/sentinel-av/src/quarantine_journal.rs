@@ -204,6 +204,7 @@ impl Journal {
                 record.stage != Stage::VerifiedBeforeRemoval,
             )?)
             .map_err(|_| "recovery journal creation failed; source retained".to_string())?;
+        crate::storage_privacy::validate_file(&file)?;
         let mut journal = Self {
             file,
             reference: reference.into(),

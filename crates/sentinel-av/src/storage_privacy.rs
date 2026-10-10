@@ -11,6 +11,21 @@ pub(crate) fn validate(path: &Path) -> Result<(), String> {
         windows::validate(path)
     }
 }
+pub(crate) fn validate_file(file: &std::fs::File) -> Result<(), String> {
+    #[cfg(not(windows))]
+    {
+        let _ = file;
+        Err("quarantine private file policy unsupported".into())
+    }
+    #[cfg(windows)]
+    {
+        windows::validate_file(file)
+    }
+}
+#[cfg(windows)]
+pub(crate) fn create_directory(path: &Path) -> std::io::Result<()> {
+    windows::create_directory(path)
+}
 #[cfg(windows)]
 mod windows {
     use std::{
@@ -82,6 +97,17 @@ mod windows {
         if !metadata.is_dir() || metadata.file_attributes() & 0x400 != 0 {
             return Err(REFUSE.into());
         }
+        validate_handle(&directory, true)
+    }
+    pub(super) fn validate_file(file: &std::fs::File) -> Result<(), String> {
+        use std::os::windows::fs::MetadataExt;
+        let metadata = file.metadata().map_err(|_| REFUSE)?;
+        if !metadata.is_file() || metadata.file_attributes() & 0x400 != 0 {
+            return Err(REFUSE.into());
+        }
+        validate_handle(file, false)
+    }
+    fn validate_handle(directory: &std::fs::File, is_directory: bool) -> Result<(), String> {
         let user_buffer = current_user()?;
         // SAFETY: Successful aligned TokenUser query; allocation stays live.
         let user = unsafe { (*user_buffer.as_ptr().cast::<TOKEN_USER>()).User.Sid };
@@ -149,7 +175,7 @@ mod windows {
         let mut revision = 0;
         // SAFETY: OS-returned descriptor/SIDs/ACL remain allocated through checks.
         if unsafe { GetSecurityDescriptorControl(descriptor, &mut control, &mut revision) } == 0
-            || control & SE_DACL_PROTECTED == 0
+            || (is_directory && control & SE_DACL_PROTECTED == 0)
             || unsafe { IsValidAcl(acl) } == 0
             || unsafe { EqualSid(owner, user) } == 0
         {
@@ -176,7 +202,11 @@ mod windows {
             let header = unsafe { &*ace.cast::<ACE_HEADER>() };
             let size = header.AceSize as usize;
             if header.AceType != 0
-                || header.AceFlags != (OBJECT_INHERIT_ACE | CONTAINER_INHERIT_ACE) as u8
+                || if is_directory {
+                    header.AceFlags != (OBJECT_INHERIT_ACE | CONTAINER_INHERIT_ACE) as u8
+                } else {
+                    header.AceFlags != 0 && header.AceFlags != INHERITED_ACE as u8
+                }
                 || !(16..=76).contains(&size)
                 || size > start + length - address
             {
@@ -212,6 +242,72 @@ mod windows {
         }
         if !owner_grant {
             return Err(REFUSE.into());
+        }
+        Ok(())
+    }
+    pub(super) fn create_directory(path: &std::path::Path) -> std::io::Result<()> {
+        use std::os::windows::ffi::OsStrExt;
+        use windows_sys::Win32::{
+            Foundation::LocalFree,
+            Security::Authorization::{
+                ConvertSidToStringSidW, ConvertStringSecurityDescriptorToSecurityDescriptorW,
+                SDDL_REVISION_1,
+            },
+            Storage::FileSystem::CreateDirectoryW,
+        };
+        struct Allocation(*mut std::ffi::c_void);
+        impl Drop for Allocation {
+            fn drop(&mut self) {
+                unsafe {
+                    LocalFree(self.0);
+                }
+            }
+        }
+        let user_buffer = current_user().map_err(std::io::Error::other)?;
+        // SAFETY: Successful aligned TokenUser query; allocation remains live.
+        let user = unsafe { (*user_buffer.as_ptr().cast::<TOKEN_USER>()).User.Sid };
+        let mut sid_text = null_mut();
+        if unsafe { ConvertSidToStringSidW(user, &mut sid_text) } == 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+        let _sid_text = Allocation(sid_text.cast());
+        let mut length = 0;
+        while length < 256 && unsafe { *sid_text.add(length) } != 0 {
+            length += 1;
+        }
+        if length == 256 {
+            return Err(std::io::Error::other(REFUSE));
+        }
+        // SAFETY: OS allocated terminated SID text, bounded above and live.
+        let sid = String::from_utf16(unsafe { std::slice::from_raw_parts(sid_text, length) })
+            .map_err(|_| std::io::Error::other(REFUSE))?;
+        let sddl: Vec<u16> = format!("O:{sid}D:P(A;OICI;FA;;;{sid})(A;OICI;FA;;;SY)")
+            .encode_utf16()
+            .chain(Some(0))
+            .collect();
+        let mut descriptor = null_mut();
+        if unsafe {
+            ConvertStringSecurityDescriptorToSecurityDescriptorW(
+                sddl.as_ptr(),
+                SDDL_REVISION_1,
+                &mut descriptor,
+                null_mut(),
+            )
+        } == 0
+        {
+            return Err(std::io::Error::last_os_error());
+        }
+        let _descriptor = Allocation(descriptor);
+        let attributes = SECURITY_ATTRIBUTES {
+            nLength: size_of::<SECURITY_ATTRIBUTES>() as u32,
+            lpSecurityDescriptor: descriptor,
+            bInheritHandle: 0,
+        };
+        let wide: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+        // SAFETY: Caller has validated bounded path and retains parent ancestry;
+        // both input buffers and descriptor remain live. Existing paths refuse.
+        if unsafe { CreateDirectoryW(wide.as_ptr(), &attributes) } == 0 {
+            return Err(std::io::Error::last_os_error());
         }
         Ok(())
     }
