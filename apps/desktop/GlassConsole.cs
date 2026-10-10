@@ -155,6 +155,10 @@ public sealed class SentinelGlassConsole : Window
                 if (actionDialog) { Reply(id, new { error = "action_busy" }); return; }
                 var action = data as Dictionary<string, object>;
                 bool restore = method == "restore.request";
+                // Fail closed until the native display identity is bound to the
+                // exact accepted report. Folder labels and rejected selections
+                // cannot authorize removal of a private Rust subject.
+                if (!restore) { Reply(id, new { error = "native_subject_binding_unavailable" }); return; }
                 string key = restore ? "actionRef" : "reportRef";
                 if (action == null || action.Count != 1 || !action.ContainsKey(key)) throw new InvalidOperationException();
                 string reference = action[key] as string;

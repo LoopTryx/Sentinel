@@ -74,9 +74,9 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
     nativeService=createNativeActionService({executable:nativeExecutable,path,kind:stat.isDirectory()?'folder':'file',appDir:nativeAppDir,onSnapshot:receive});
     result=await nativeService.ready;
    }else result=await inspectNative({executable:nativeExecutable,path,kind:stat.isDirectory()?'folder':'file',cancelled:()=>closed||current.cancel,onSnapshot:receive});
-   current.status=result.status==='cancelled'||result.status==='timed_out'?result.status:result.status==='finished'?'partial':'failed';
+   current.status=result.snapshot?.cancellationRequested?'cancelled':result.status==='cancelled'||result.status==='timed_out'?result.status:result.status==='finished'?'partial':'failed';
    if(current.status==='failed')current.errors++;
-   event('desktop',current.status==='failed'?'scan_failed':'scan_completed');
+   event('desktop',current.status==='failed'?'scan_failed':current.status==='cancelled'?'scan_cancelled':'scan_completed');
   }catch{current.errors++;current.status='failed';event('desktop','scan_failed');}
  }
  async function runScan(path,current) {

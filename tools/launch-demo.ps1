@@ -1,10 +1,13 @@
+param([switch]$Smoke)
 $ErrorActionPreference='Stop'
 $repo=Split-Path -Parent $PSScriptRoot
 $runtime=Join-Path $repo 'apps\demo-runtime\server.mjs'
 $console=Join-Path $repo 'apps\desktop\console-build\Sentinel.Glass.exe'
 $config=Join-Path $repo 'apps\desktop\console-build\demo-runtime.json'
 if(-not(Test-Path -LiteralPath $console)){throw 'Build the desktop console first.'}
-$instanceHash=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($repo))).Substring(0,24)
+$instanceHasher=[Security.Cryptography.SHA256]::Create()
+try {$instanceHash=[BitConverter]::ToString($instanceHasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($repo))).Replace('-','').Substring(0,24)}
+finally {$instanceHasher.Dispose()}
 $instanceMutex=[Threading.Mutex]::new($false,"Local\SentinelDemo_$instanceHash")
 $ownsInstance=$false
 try {$ownsInstance=$instanceMutex.WaitOne(0)} catch [Threading.AbandonedMutexException] {$ownsInstance=$true}
@@ -22,8 +25,10 @@ $worker=Start-Process -FilePath $nodeExecutable -ArgumentList @(('"'+$runtime+'"
   }
   if(-not(Test-Path -LiteralPath $config)){throw 'Demo runtime did not become ready.'}
   # Visible window is explicitly requested by the owner.
-  $ui=Start-Process -FilePath $console -ArgumentList '--demo' -WorkingDirectory $repo -WindowStyle Normal -PassThru
+  $uiArguments=if($Smoke){@('--smoke','--demo')}else{@('--demo')}
+  $ui=Start-Process -FilePath $console -ArgumentList $uiArguments -WorkingDirectory $repo -WindowStyle Normal -PassThru
   $ui.WaitForExit()
+  if($Smoke){$ui.Refresh();if($ui.ExitCode -ne 0){throw 'Native demo smoke failed.'}}
 } finally {
   if($worker){
     if(-not $worker.HasExited){

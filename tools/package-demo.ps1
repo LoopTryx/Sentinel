@@ -48,12 +48,12 @@ $ErrorActionPreference='Stop'
 '@ | Set-Content -LiteralPath (Join-Path $stage 'Start-Sentinel-Demo.ps1') -Encoding utf8
 @'
 Sentinel school-demo candidate. This is a portable local demo, not an installer or completed S1 release.
-Requires Windows, PowerShell 7, .NET Framework and installed WebView2 runtime.
-Run Start-Sentinel-Demo.ps1 in PowerShell 7. Load apps/extension/dist in Chrome.
+Requires Windows, Windows PowerShell 5.1 or PowerShell 7, .NET Framework and installed WebView2 runtime.
+Run Start-Sentinel-Demo.ps1 in PowerShell. Load apps/extension/dist in Chrome.
 Pair through the demo connection controls. Dummy accounts reset on restart.
 Automatic URL warnings require explicit Chrome site-access opt-in.
 The launched desktop uses bounded Rust byte inspection; reports remain partial coverage.
-No malware or EICAR is included. Native quarantine controls still await UI/review acceptance.
+No malware or EICAR is included. Native quarantine requests are disabled pending exact subject-label binding and UI/review acceptance.
 Legacy ClamAV is optional and is not used by the launched Rust inspection path.
 Persistent encrypted vault, native messaging, cloud explanations,
 download scanning and automatic desktop redirect logging remain incomplete. Opted-in WhatsApp Web wording warnings are supported for bounded rendered messages. See DEMO-GUIDE.md.
