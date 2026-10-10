@@ -725,3 +725,33 @@ mismatch is outside this leaf; only owned commands/helper were formatted.
 Existing app_status/protection claims, unregistered job API, selected-path caller
 and subject authority, private-vault initialization and explicit quarantine/
 restore action binding remain native integration work before shipping/main.
+
+
+Native command evidence supplement: b4388bc unchanged root verifier exit0/T01
+PASS; it excludes standalone Tauri. Reproducible owned tests now live in
+apps/desktop-tauri/tests/commands-harness.py and commands_harness.rs.in. The runner
+copies actual command source, removes command attributes and supplies a unit-only
+Tauri State/Emitter facade; real Engine, SQLite and Windows file I/O remain.
+Harmless synthetic signature inspection flags without source removal/key creation;
+exclusive-owned-file failure stays visible and emits incomplete state. Two policy
+checks plus those actual I/O probes pass4/4. Legacy3444300 scan_path-only source
+fails both I/O probes (quarantine count1 and no incomplete failure event); fixed
+b4388bc passes. Legacy simulation was excluded before copying/compiling source,
+so no real EICAR test signature/file was staged. This is a component regression,
+not full Tauri IPC authentication, native build or installed UI evidence.
+
+Reproduction (Windows, pinned GNU toolchain/PATH as existing verifier): python
+apps/desktop-tauri/tests/commands-harness.py; --baseline3444300 (with a separating
+space) is expected nonzero for the old scan_path. --work-dir optionally reuses an
+owned sentinel-native-command-harness-* directory under TEMP; default creates
+an isolated temporary workspace. No simulation/drive enumeration/policy functions
+execute. Only harmless owned fixtures are read/changed; no E:, Defender or valuable
+content action. Root target cache is reused; YARA-linked test binaries are large.
+
+A regenerated standalone lock candidate exists only in owned TEMP, not repository:
+full online regeneration changed34 added/31 removed package-version pairs. Minimal
+offline sentinel-av update also refused a yanked/missing cached yoke-derive chain.
+Do not apply this broad dependency candidate silently. Native shared lock ownership
+and bounded reconciliation/version review are requested from B/coordinator before
+actual native compile. Other gates listed above remain. Supplemental reviewer was
+unavailable due account usage limit; no independent authority review is claimed.
