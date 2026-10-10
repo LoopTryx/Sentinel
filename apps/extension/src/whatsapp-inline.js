@@ -1,5 +1,5 @@
 import {explainMessage} from './local-checks.js';
-const STYLE=`:host{display:block;margin:6px 0;color:#ffe8e8;font:13px/1.5 system-ui,sans-serif}button{cursor:pointer;border:1px solid #fa7e8b;border-radius:12px;background:#481a27e8;color:#ffe8e8;padding:7px 12px;font:600 12px system-ui;box-shadow:0 3px 18px #35121b35}button:focus-visible{outline:3px solid #ffc5cb;outline-offset:3px}.detail{max-width:340px;margin-top:6px;padding:12px 14px;border:1px solid #ff7e8b80;border-radius:12px;background:#211722f5;box-shadow:0 6px 20px #0003}p{margin:6px 0}ul{padding-left:18px;margin:8px 0}.muted{color:#ebbdc5;font-size:11px}@media(prefers-reduced-motion:no-preference){:host{animation:slide .22s ease-out}@keyframes slide{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)}}}`;
+const STYLE=`:host{display:block;margin:8px 0;color:#1b1e4a;font:13px/1.5 system-ui,sans-serif}button{cursor:pointer;border:1px solid #ff8379;border-radius:12px;background:linear-gradient(125deg,#e51c2a,#d21319 62%,#bd1036);color:#fff;padding:8px 13px;font:700 12px system-ui;box-shadow:inset 0 1px 0 #ffffff35,0 4px 12px #d2131930}button:hover{filter:brightness(1.08)}button:focus-visible{outline:3px solid #1b1e4a;outline-offset:3px}.detail{max-width:340px;margin-top:8px;padding:12px 14px;border:1px solid #afaea2;border-left:4px solid #d21319;border-radius:12px;background:linear-gradient(135deg,#fff9ed,#e5e1d5);box-shadow:0 6px 20px #0002}.detail strong{color:#1b1e4a;font-size:14px}p{margin:6px 0}ul{padding-left:18px;margin:8px 0}.muted{color:#474b5f;font-size:11px}@media(forced-colors:active){button,.detail{background:Canvas;color:CanvasText;border:1px solid CanvasText}.detail strong,.muted{color:CanvasText}}`;
 export function mountWhatsAppWarnings(doc){
  const win=doc.defaultView;
  const records=new Map();let timer=null,stopped=false;
@@ -42,7 +42,7 @@ export function mountWhatsAppWarnings(doc){
    const title=doc.createElement('strong');title.textContent='Pause and verify';detail.append(title);
    if(direction==='unknown'){const note=doc.createElement('p');note.className='muted';note.textContent='Message direction is unavailable in this layout. This checks wording only and does not identify the sender.';detail.append(note);}
    const reasons=doc.createElement('ul');for(const reason of result.reasons){const li=doc.createElement('li');li.textContent=reason.text;reasons.append(li);}detail.append(reasons);
-   const limits=doc.createElement('p');limits.className='muted';limits.textContent='Checked locally. These patterns do not prove fraud or verify the sender. No message was sent to AI.';detail.append(limits);
+   const limits=doc.createElement('p');limits.className='muted';limits.textContent='Local check · Not proof of fraud or sender identity. No AI upload.';detail.append(limits);
    button.onclick=()=>{detail.hidden=!detail.hidden;button.setAttribute('aria-expanded',String(!detail.hidden));};
    shadow.append(button,detail);node.append(badge);records.set(node,{text,direction,badge});
   }
