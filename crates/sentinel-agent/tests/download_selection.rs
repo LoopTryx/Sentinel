@@ -54,3 +54,31 @@ fn ingress_boundary_and_duplicate_fields_cannot_bypass_validation() {
         Err(DownloadIngressError::InvalidObservation)
     );
 }
+
+#[test]
+fn reservation_preflight_bounds_global_and_owner_usage_without_overflow() {
+    use sentinel_agent::download_selection::{
+        DownloadReservationError, check_download_reservation,
+    };
+    assert!(check_download_reservation(7, 31, 248 * 1024 * 1024, 8 * 1024 * 1024).is_ok());
+    assert_eq!(
+        check_download_reservation(8, 8, 0, 1),
+        Err(DownloadReservationError::Capacity)
+    );
+    assert_eq!(
+        check_download_reservation(1, 32, 0, 1),
+        Err(DownloadReservationError::Capacity)
+    );
+    assert_eq!(
+        check_download_reservation(0, 0, 0, 8 * 1024 * 1024 + 1),
+        Err(DownloadReservationError::TooLarge)
+    );
+    assert_eq!(
+        check_download_reservation(0, 0, u64::MAX, 1),
+        Err(DownloadReservationError::InvalidUsage)
+    );
+    assert_eq!(
+        check_download_reservation(2, 1, 0, 1),
+        Err(DownloadReservationError::InvalidUsage)
+    );
+}

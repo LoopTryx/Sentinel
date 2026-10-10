@@ -34,3 +34,41 @@ pub fn decode_download_observation(
         .map_err(|_| DownloadIngressError::InvalidObservation)?;
     Ok(observation)
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DownloadReservationError {
+    TooLarge,
+    Capacity,
+    InvalidUsage,
+}
+
+/// Pure policy preflight, not reservation, authentication or resource authority.
+/// A future broker must read/check/update trusted usage under ONE shared lock,
+/// retain the charge across inspection and release only after resource cleanup.
+/// Browser input must never supply these usage counters.
+pub fn check_download_reservation(
+    owner_approvals: usize,
+    global_approvals: usize,
+    global_reserved_bytes: u64,
+    file_bytes: u64,
+) -> Result<(), DownloadReservationError> {
+    const MAX_FILE: u64 = 8 * 1024 * 1024;
+    const MAX_BYTES: u64 = 32 * MAX_FILE;
+    if owner_approvals > global_approvals
+        || owner_approvals > 8
+        || global_approvals > 32
+        || global_reserved_bytes > MAX_BYTES
+    {
+        return Err(DownloadReservationError::InvalidUsage);
+    }
+    if file_bytes > MAX_FILE {
+        return Err(DownloadReservationError::TooLarge);
+    }
+    if owner_approvals == 8
+        || global_approvals == 32
+        || file_bytes > MAX_BYTES - global_reserved_bytes
+    {
+        return Err(DownloadReservationError::Capacity);
+    }
+    Ok(())
+}
