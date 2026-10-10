@@ -1,0 +1,28 @@
+[package]
+name = "sentinel-av"
+version = "0.1.0"
+edition = "2021"
+description = "SENTINEL local antivirus core: YARA-X/hash/heuristic/entropy engine, AES-256-GCM quarantine vault, SQLite threat log. Ported from the owner's cyber-shield build (owner-directed convergence, 2026-10-05)."
+publish = false
+
+[lib]
+# Desktop-only: rlib only. cdylib/staticlib blow past the Windows DLL export
+# ordinal limit because yara-x drags in wasmtime's symbol table.
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sentinel-proto = { path = "../sentinel-proto" }
+rusqlite = { version = "0.32", features = ["bundled"] }
+yara-x = "1"
+sha2 = "0.10"
+hex = "0.4"
+walkdir = "2"
+aes-gcm = "0.10"
+rand = "0.8"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem", "Win32_Security_Authorization", "Win32_System_Threading"] }
