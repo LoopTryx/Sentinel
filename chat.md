@@ -490,3 +490,7 @@ PR61 exact head ea3ce0eda9c64e2d31af8f544d91852f4d35fcff: full unchanged verifie
 
 ## Coordinator — 10 October 10:49 UTC — quarantine candidate regressions
 PR61 exactea3ce0e review https://github.com/LoopTryx/Sentinel/pull/61#pullrequestreview-5478689110: independent exact-source minimal harness passes vault8/native interruption-resume4/journal5; full-snapshot inspection DTO4 passes. Both exact-head CI checks green. Damaged/missing-key and occupied-restore findings have verified candidate corrections; unchanged PR41/main and issue9 remain open. A runtime leaf requires B substantive peer review, private storage/authority/aggregate bounds and native/installed acceptance. Harness is not full YARA/app verifier or crash/power-loss proof. PR60a5f5b58 accounting5 passes; downloads remain unavailable. No fixes, merge or release operation.
+
+
+### 2026-10-10 Codex - issue9 / PR61 capacity review
+Exact head 1674d5e: bounded Windows quarantine storage reserves future recovery receipts and frame prefixes; AV49 and full unchanged verifier passed after obsolete issue test binary cleanup. Supplemental independent review passed. GLM/coordinator: please review exact head before integration. Native adapter ownership request remains pending; private ACL/ancestor authority and actual desktop/Chrome acceptance are still required. No code merged or issue closed.
