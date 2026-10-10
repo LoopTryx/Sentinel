@@ -6,22 +6,89 @@ pub(crate) struct DirectoryGuard {
     pub(crate) path: std::path::PathBuf,
 }
 
+pub(crate) struct FileParentGuard {
+    pub(crate) path: std::path::PathBuf,
+    _parent: DirectoryGuard,
+}
+
+#[cfg(windows)]
+fn validate_name(name: &std::ffi::OsStr) -> Result<(), String> {
+    let name = name.to_str().ok_or("quarantine path name unsupported")?;
+    let base = name.split('.').next().unwrap_or("").to_ascii_uppercase();
+    if name.is_empty()
+        || name.ends_with(['.', ' '])
+        || name.contains([':', '\0'])
+        || matches!(base.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || (base.len() == 4
+            && (base.starts_with("COM") || base.starts_with("LPT"))
+            && matches!(base.as_bytes()[3], b'1'..=b'9'))
+    {
+        return Err("quarantine path alias unsupported".into());
+    }
+    Ok(())
+}
+
+/// Selected source/target paths use an ordinary absolute local disk path.
+/// The resolved parent is retained through the caller's entire file operation.
+pub(crate) fn retain_file_parent(path: &Path, create: bool) -> Result<FileParentGuard, String> {
+    #[cfg(not(windows))]
+    {
+        let _ = (path, create);
+        Err("quarantine selected file ancestry unsupported".into())
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::ffi::OsStrExt;
+        let text = path
+            .to_str()
+            .ok_or("quarantine selected path unsupported")?;
+        if text.ends_with(['\\', '/'])
+            || text
+                .split(['\\', '/'])
+                .any(|part| part == "." || part == "..")
+            || path.as_os_str().encode_wide().count() > 1024
+        {
+            return Err("quarantine selected path unsupported or exceeds limit".into());
+        }
+        let name = path
+            .file_name()
+            .ok_or("quarantine selected filename unavailable")?;
+        validate_name(name)?;
+        let parent = retain_directory_inner(
+            path.parent()
+                .ok_or("quarantine selected parent unavailable")?,
+            create,
+            false,
+            Some(name),
+        )?;
+        let resolved = parent.path.join(name);
+        if resolved.as_os_str().encode_wide().count() > 1024 {
+            return Err("quarantine selected volume path exceeds limit".into());
+        }
+        Ok(FileParentGuard {
+            path: resolved,
+            _parent: parent,
+        })
+    }
+}
+
 pub(crate) fn retain_directory(path: &Path, create: bool) -> Result<DirectoryGuard, String> {
-    retain_directory_inner(path, create, false)
+    retain_directory_inner(path, create, false, None)
 }
 
 pub(crate) fn retain_pinned_directory(path: &Path) -> Result<DirectoryGuard, String> {
-    retain_directory_inner(path, false, true)
+    retain_directory_inner(path, false, true, None)
 }
 
 fn retain_directory_inner(
     path: &Path,
     create: bool,
     pinned: bool,
+    selected_name: Option<&std::ffi::OsStr>,
 ) -> Result<DirectoryGuard, String> {
     #[cfg(not(windows))]
     {
-        let _ = (path, create, pinned);
+        let _ = (path, create, pinned, selected_name);
         Err("quarantine storage ancestry unsupported".into())
     }
     #[cfg(windows)]
@@ -70,17 +137,7 @@ fn retain_directory_inner(
             let Component::Normal(name) = part else {
                 return Err("quarantine storage component unsupported".into());
             };
-            let name = name.to_str().ok_or("quarantine storage name unsupported")?;
-            let base = name.split('.').next().unwrap_or("").to_ascii_uppercase();
-            if name.ends_with(['.', ' '])
-                || name.contains(':')
-                || matches!(base.as_str(), "CON" | "PRN" | "AUX" | "NUL")
-                || (base.len() == 4
-                    && (base.starts_with("COM") || base.starts_with("LPT"))
-                    && matches!(base.as_bytes()[3], b'1'..=b'9'))
-            {
-                return Err("quarantine storage alias unsupported".into());
-            }
+            validate_name(name)?;
         }
         let mut current = PathBuf::new();
         current.push(components[0].as_os_str());
@@ -175,6 +232,11 @@ fn retain_directory_inner(
                     let mut final_path = root.clone();
                     for component in components.iter().skip(2) {
                         final_path.push(component.as_os_str());
+                    }
+                    // Include the selected filename before any missing parent
+                    // can be created; GUID resolution can lengthen a DOS path.
+                    if let Some(name) = selected_name {
+                        final_path.push(name);
                     }
                     if final_path.as_os_str().encode_wide().count() > 1024 {
                         return Err("quarantine pinned storage path exceeds limit".into());

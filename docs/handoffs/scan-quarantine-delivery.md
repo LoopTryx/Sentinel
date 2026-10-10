@@ -511,3 +511,40 @@ binding or process/power-loss durability. Native adapter ownership and actual
 supported desktop/Chrome scan/download/report journeys remain pending. Next
 runtime gate: private storage ACL policy and source/target authority. No main code
 integration or enabled remediation; Defender unchanged and E: untouched.
+## Selected file ancestry candidate
+
+Codex issue9 claim6096994338 covers storage_path.rs, vault.rs and the new
+vault_subject_ancestry.rs tests. Public operation signatures remain unchanged.
+Selected quarantine source, restore destination and resume destination use a
+bounded ordinary absolute fixed-local-drive path. Validate the full raw selected
+path before extracting the filename: dot traversal, trailing separators, ADS,
+reserved names and trailing dot/space refuse. Parents retain the storage ancestry
+policy (1024 UTF16 units, 32 directory components, no reparse ancestors), with
+GUID-addressed I/O from the retained volume root. Include the filename in the
+resolved bound before any missing parent creation. Restore creates each missing
+parent under its already held ancestor instead of create_dir_all. These guards
+remain live through source disposition or target verification and terminal
+receipt; the restore output's exclusive handle remains held through its receipt.
+No action is inferred from inspection flags and no native adapter is enabled.
+
+Real owned-temp failing-first regressions reproduced source-junction mutation,
+resume through a junction cleaning authenticated recovery state, raw trailing-dot
+filename normalization, and resolved overlength creating missing directories.
+All now refuse and preserve original/recovery bytes; source refusal creates no
+key/blob. The restore-junction case already refused before this leaf and is a
+control, not a newly reproduced bug. Nested-parent restore still returns exact
+original bytes. Focused ancestry5 and resume1 passed. Full AV62, strict clippy
+and formatting passed on Windows GNU 1.98.1. Supplemental review and exact
+committed-head verifier/CI are recorded separately in PR61.
+
+Reproduce: cargo test -p sentinel-av; cargo clippy -p sentinel-av --all-targets
+-- -D warnings; cargo fmt --all -- --check; then unchanged tools/verify.ps1 on
+the committed candidate. Tests use harmless owned tempfiles and junctions;
+no malware/EICAR, permission changes, Defender changes or E: access.
+
+Remaining authority gates: private storage ACL policy, subject/job/action binding
+and identity across requests/initialization, privileged namespace bypass and real
+process/power-loss recovery evidence. Native adapter ownership handoff remains
+pending; actual supported desktop/Chrome scan/download/same-report journeys,
+designated review and coordinator main integration remain required. This leaf
+is a runtime correction, not shipment or whole-issue completion.

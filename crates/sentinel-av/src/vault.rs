@@ -288,7 +288,9 @@ impl Vault {
         let blob_path = vault.blob_path(reference)?;
         let _admission = vault.admit_storage(2052, 0, Some(reference))?;
         let key = vault.load_key()?;
-        let (target_handle, plaintext) = read_bounded_handle(target, MAX_PLAINTEXT_BYTES, false)?;
+        let target_parent = crate::storage_path::retain_file_parent(target, false)?;
+        let (target_handle, plaintext) =
+            read_bounded_handle(&target_parent.path, MAX_PLAINTEXT_BYTES, false)?;
         let mut journal = crate::quarantine_journal::Journal::resume_lifecycle(
             &vault.dir, reference, target, &plaintext, &key, false,
         )?;
@@ -448,7 +450,9 @@ impl Vault {
     ) -> Result<QuarantineOutcome, String> {
         let storage = self.storage_guard()?;
         let vault = &storage.vault;
-        let (source_handle, plaintext) = read_bounded_handle(source, MAX_PLAINTEXT_BYTES, true)?;
+        let source_parent = crate::storage_path::retain_file_parent(source, false)?;
+        let (source_handle, plaintext) =
+            read_bounded_handle(&source_parent.path, MAX_PLAINTEXT_BYTES, true)?;
         let _admission = vault.admit_storage(plaintext.len() as u64 + 28 + 2 * 8192, 3, None)?;
         let key_bytes = vault.load_or_create_key()?;
 
@@ -562,10 +566,7 @@ impl Vault {
         let (blob_handle, blob) = read_bounded_handle(&vault_path, MAX_BLOB_BYTES, true)?;
         let plaintext = vault.decrypt_blob(&blob, &key_bytes)?;
         let _admission = vault.admit_storage(8192, 1, Some(vault_file))?;
-        if let Some(parent) = to_path.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|_| "restore directory unavailable".to_string())?;
-        }
+        let target_parent = crate::storage_path::retain_file_parent(to_path, true)?;
         let mut options = std::fs::OpenOptions::new();
         options.read(true).write(true).create_new(true);
         #[cfg(windows)]
@@ -574,7 +575,7 @@ impl Vault {
             options.share_mode(0).custom_flags(0x00200000);
         }
         let mut output = options
-            .open(to_path)
+            .open(&target_parent.path)
             .map_err(|_| "restore destination unavailable or occupied".to_string())?;
         // On a partial write, preserve both the encrypted recovery blob and
         // partial destination. Never remove a path that could have been replaced.
@@ -605,7 +606,6 @@ impl Vault {
         #[cfg(windows)]
         let cleaned = mark_retained_file_for_deletion(&blob_handle);
         drop(blob_handle);
-        drop(output);
         #[cfg(windows)]
         if !cleaned {
             return Err("restored; recovery blob cleanup failed".into());
@@ -618,6 +618,7 @@ impl Vault {
             return Err("controlled interruption after restore disposition".into());
         }
         journal.finish_lifecycle(&key_bytes)?;
+        drop(output);
         Ok(())
     }
 
@@ -691,6 +692,46 @@ impl Vault {
 
 #[cfg(all(test, windows))]
 mod retained_source_tests {
+    #[test]
+    fn resume_restore_junction_preserves_authenticated_intent_and_blob() {
+        let root =
+            std::env::temp_dir().join(format!("sentinel-resume-parent-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&root).unwrap();
+        let vault = Vault::new(&root.join("app"));
+        let source = root.join("source.txt");
+        let bytes = b"ordinary resumed bytes";
+        std::fs::write(&source, bytes).unwrap();
+        let reference = vault.quarantine(&source).unwrap().vault_file;
+        let other = root.join("other");
+        std::fs::create_dir(&other).unwrap();
+        std::fs::write(other.join("target.txt"), bytes).unwrap();
+        let link = root.join("redirect");
+        let setup = std::process::Command::new("cmd.exe")
+            .args(["/c", "mklink", "/J"])
+            .arg(&link)
+            .arg(&other)
+            .output()
+            .unwrap();
+        assert!(setup.status.success());
+        let target = link.join("target.txt");
+        let key = vault.load_key().unwrap();
+        let journal = crate::quarantine_journal::Journal::prepare_lifecycle(
+            &vault.dir, &reference, &target, bytes, &key, false,
+        )
+        .unwrap();
+        drop(journal);
+        let receipt = vault.dir.join(reference.replace(".qtn", ".qlj"));
+        let before = std::fs::read(&receipt).unwrap();
+        let blob_before = std::fs::read(vault.dir.join(&reference)).unwrap();
+        let refused = vault.resume_restore(&reference, &target).is_err();
+        let unchanged = std::fs::read(receipt).unwrap() == before
+            && std::fs::read(vault.dir.join(&reference)).ok().as_deref()
+                == Some(blob_before.as_slice());
+        std::fs::remove_dir(&link).unwrap();
+        std::fs::remove_dir_all(root).unwrap();
+        assert!(refused && unchanged);
+    }
+
     #[test]
     fn rejected_guid_constructor_stays_unavailable_without_mutation() {
         let root = std::env::temp_dir().join(format!(
