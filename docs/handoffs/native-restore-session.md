@@ -16,7 +16,7 @@ Request example: `{"quarantineActionRef":"action_1"}`; confirm/decline: `{"resto
 
 Output envelopes: `{"type":"scan","data":ScanJobSnapshot}`, quarantine_preview/receipt, restore_preview/receipt, and `{"type":"error","data":QuarantineError}`. Scan evidence remains historical after disposition. Input: closed newline JSON, <=1024 bytes/frame, <=64 frames/session, queue4. Operations: cancel/close; prepare_quarantine {reportRef}; confirm_quarantine/decline_quarantine {actionRef}; prepare_restore {quarantineActionRef}; confirm_restore/decline_restore {restoreRef}. No path/approved fields. EOF/close cancels and waits for worker exit; malformed/oversized input closes with invalid_request. Parent must additionally bound/drain output and enforce shutdown/resources.
 
-**Confirm commands may only be sent by the trusted native desktop parent after its own explicit OS dialog.** Never map them to browser methods or arbitrary renderer/network requests. No host/UI confirmation integration is enabled here. The child cannot independently prove its parent showed a dialog: tests exercise the trusted-parent branch, not visible consent.
+**Confirm commands may only be sent by the trusted native desktop parent after its own explicit OS dialog.** Never map them to browser methods or arbitrary renderer/network requests. The native window implementation is described below; visible UI consent acceptance remains unverified. The child cannot independently prove its parent showed a dialog: tests exercise the trusted-parent branch, not visible consent.
 
 ## Evidence and next actions
 
@@ -24,7 +24,7 @@ Actual harmless Windows library regression covers successful quarantine/removal,
 
 Reproduce: configured Rust/MinGW PATH; `cargo test -p sentinel-av --lib inspected_quarantine_tests`; `cargo test -p sentinel-proto --test restore_action`; build sentinel-inspect; set test-only SENTINEL_TEST_INSPECT to target/debug/sentinel-inspect.exe; `node --test apps/demo-runtime/native-session.test.mjs apps/demo-runtime/native-inspection.test.mjs`. Temporary owned harmless data only; no valuable files/E:/Defender changes.
 
-Next: independent exact-head review; owned native picker/session lifecycle and actual OS consent; accepted shared UI/demo DTO handoff; staged browser byte scan and same-report; visible fresh/offline launches and pinned route. The owner's CI waiver does not invent these results or finish the full goal.
+Next: independent exact-head review; actual native dialog/UI acceptance; accepted shared UI/demo DTO handoff; staged browser byte scan and same-report; visible fresh/offline launches and pinned route. The owner's CI waiver does not invent these results or finish the full goal.
 
 ## Native parent adapter
 
@@ -36,7 +36,7 @@ Glass renderer methods quarantine.request({reportRef}) and restore.request({acti
 
 Actual runtime tests exercise trusted native HTTP credentials on owned harmless C: data: browser/ordinary desktop refusal, injected approved rejection, decline preserving bytes, replay refusal, completed quarantine/removal and exact-byte original restore. These tests bypass the visual MessageBox and do not prove OS consent or visible renderer integration. Independent review remains required before main integration.
 
-`native-action-service.mjs` provides an awaitable private service over the parent: ready resolves actual scan terminal evidence; prepare and native decision methods resolve canonical response envelopes. One pending action,5-second action deadline, close settles pending/scan waits, and missing process reports unavailable. The runtime retains this service when trusted bootstrap supplies nativeAppDir; cancel reaches it and replacing selection/shutdown waits for the prior owned child to close. CLI uses a separate LocalAppData/Sentinel-School-Demo/inspection-vault directory. No HTTP action routes or renderer approval methods are enabled by this lifecycle increment. Native OS-dialog routing remains next; service tests exercise the trusted branch only.
+`native-action-service.mjs` provides an awaitable private service over the parent: ready resolves actual scan terminal evidence; prepare and native decision methods resolve canonical response envelopes. One pending action,5-second action deadline, close settles pending/scan waits, and missing process reports unavailable. The runtime retains this service when trusted bootstrap supplies nativeAppDir; cancel reaches it and replacing selection/shutdown waits for the prior owned child to close. CLI uses a separate LocalAppData/Sentinel-School-Demo/inspection-vault directory. The later native-window routes above connect it with separate credentials; service tests exercise the trusted branch only.
 
 `apps/demo-runtime/native-session-parent.mjs` exports `openNativeSession({executable,path,kind,appDir,onMessage,timeoutMs})`. Only trusted native configuration may supply these inputs. The returned frozen capability exposes done, close, cancel, prepareQuarantine(reportRef), prepareRestore(quarantineActionRef), nativeQuarantineDecision(actionRef, approved), and nativeRestoreDecision(restoreRef, approved). Decision methods are exclusively for the trusted OS-dialog branch; do not route them through renderer, HTTP or extension requests. No visible dialog is wired by this module.
 
