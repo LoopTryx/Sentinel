@@ -470,3 +470,44 @@ ACLs, source and restore destination ancestors, explicit subject/action binding,
 actual process/power-loss evidence and native/Chrome acceptance remain required.
 No permission changes, peer adapter/UI edits, enabled remediation or main code
 integration accompany this candidate. Defender unchanged; E: untouched.
+## Volume-addressed storage candidate
+
+Codex issue9 claim6096905013 retains the public `Vault::new(&Path)` and operational
+signatures, but separates configured/display storage from private I/O addresses.
+During successful initialization, the held fixed-drive root is resolved with
+GetFinalPathNameByHandleW/VOLUME_NAME_GUID before any descendant creation or open.
+All following initialization paths use that volume address. The private key path
+retains it for this Vault instance, and each operation validates/reholds its
+bounded canonical volume ancestry. Keys, admission, blobs and journals use the
+scoped volume-addressed Vault, never a later DOS drive-letter lookup. Public dir
+reassignment refuses; public dir remains legacy configuration/display, not action
+authority. Original destroy association strings remain authenticated metadata
+only, preserving earlier receipt reconciliation without using them for I/O.
+Microsoft API contract:
+https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfinalpathnamebyhandlew
+
+Failed initialization is explicitly unavailable for all six operational APIs;
+it does not become usable after external path repair. Reconstruct only after
+reviewing/fixing configuration. A supplemental reviewer found that a caller's
+already-valid GUID path could survive the first fallback implementation. The new
+regression reproduced accepted mutation before an explicit initialized marker
+was added; now refusal retains source and creates no key. Public caller GUID/
+device paths remain unsupported; internally captured GUID paths must have a
+canonical Volume UUID prefix, fixed root and matching held final volume path.
+
+Falling-first volume regression checks an anchored private key, a real byte-exact
+quarantine/restore and reconciliation of an original-display-path destroy intent.
+It failed with DOS addressing and passed after the correction. AV56, strict lint
+and formatting passed. Supplemental independent volume roundtrip1/GUID refusal1
+and prior ancestry4 passed; no remaining unsafe fallback or residual operational
+DOS storage I/O finding. Committed-head full verifier and designated review/CI
+are separate requirements. No drive mappings, account permissions or volume
+configuration were changed; all bytes are harmless owned temporary fixtures.
+
+This addresses ordinary DOS drive-letter lookup for this instance's storage I/O,
+not privileged volume namespace replacement, identity across initialization or a
+new constructor, private ACLs, source/restore target ancestry, selected action
+binding or process/power-loss durability. Native adapter ownership and actual
+supported desktop/Chrome scan/download/report journeys remain pending. Next
+runtime gate: private storage ACL policy and source/target authority. No main code
+integration or enabled remediation; Defender unchanged and E: untouched.

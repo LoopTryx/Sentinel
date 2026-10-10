@@ -3,12 +3,25 @@ use std::path::Path;
 
 pub(crate) struct DirectoryGuard {
     _handles: Vec<std::fs::File>,
+    pub(crate) path: std::path::PathBuf,
 }
 
 pub(crate) fn retain_directory(path: &Path, create: bool) -> Result<DirectoryGuard, String> {
+    retain_directory_inner(path, create, false)
+}
+
+pub(crate) fn retain_pinned_directory(path: &Path) -> Result<DirectoryGuard, String> {
+    retain_directory_inner(path, false, true)
+}
+
+fn retain_directory_inner(
+    path: &Path,
+    create: bool,
+    pinned: bool,
+) -> Result<DirectoryGuard, String> {
     #[cfg(not(windows))]
     {
-        let _ = (path, create);
+        let _ = (path, create, pinned);
         Err("quarantine storage ancestry unsupported".into())
     }
     #[cfg(windows)]
@@ -31,8 +44,24 @@ pub(crate) fn retain_directory(path: &Path, create: bool) -> Result<DirectoryGua
             return Err("quarantine storage traversal unsupported".into());
         }
         let components: Vec<_> = path.components().collect();
+        let supported_prefix = match components.first() {
+            Some(Component::Prefix(prefix)) => match prefix.kind() {
+                Prefix::Disk(_) => !pinned,
+                Prefix::Verbatim(name) if pinned => name.to_str().is_some_and(|name| {
+                    name.strip_prefix("Volume{")
+                        .and_then(|name| name.strip_suffix('}'))
+                        .is_some_and(|id| {
+                            uuid::Uuid::parse_str(id).is_ok_and(|uuid| {
+                                uuid.hyphenated().to_string().eq_ignore_ascii_case(id)
+                            })
+                        })
+                }),
+                _ => false,
+            },
+            _ => false,
+        };
         if components.len() > 32
-            || !matches!(components.first(), Some(Component::Prefix(prefix)) if matches!(prefix.kind(), Prefix::Disk(_)))
+            || !supported_prefix
             || !matches!(components.get(1), Some(Component::RootDir))
         {
             return Err("quarantine storage requires bounded absolute local disk path".into());
@@ -106,7 +135,7 @@ pub(crate) fn retain_directory(path: &Path, create: bool) -> Result<DirectoryGua
                         handle.as_raw_handle(),
                         resolved.as_mut_ptr(),
                         resolved.len() as u32,
-                        0,
+                        if pinned { 1 } else { 0 },
                     )
                 } as usize;
                 if drive_type != 3 || length == 0 || length >= resolved.len() {
@@ -114,9 +143,43 @@ pub(crate) fn retain_directory(path: &Path, create: bool) -> Result<DirectoryGua
                 }
                 let final_name = String::from_utf16(&resolved[..length])
                     .map_err(|_| "quarantine storage volume name unsupported")?;
-                let expected = format!("\\\\?\\{}", current.display());
+                let expected = if pinned {
+                    current.to_string_lossy().into_owned()
+                } else {
+                    format!("\\\\?\\{}", current.display())
+                };
                 if !final_name.eq_ignore_ascii_case(&expected) {
                     return Err("quarantine storage drive alias unsupported".into());
+                }
+                if !pinned {
+                    // Resolve from the already retained root handle, then use
+                    // this volume address for every subsequent child operation.
+                    let length = unsafe {
+                        GetFinalPathNameByHandleW(
+                            handle.as_raw_handle(),
+                            resolved.as_mut_ptr(),
+                            resolved.len() as u32,
+                            1,
+                        )
+                    } as usize;
+                    if length == 0 || length >= resolved.len() {
+                        return Err("quarantine storage volume address unavailable".into());
+                    }
+                    let volume = String::from_utf16(&resolved[..length])
+                        .map_err(|_| "quarantine volume address unsupported")?;
+                    let root = PathBuf::from(volume);
+                    if !matches!(root.components().next(), Some(Component::Prefix(prefix)) if matches!(prefix.kind(), Prefix::Verbatim(_)))
+                    {
+                        return Err("quarantine volume address unsupported".into());
+                    }
+                    let mut final_path = root.clone();
+                    for component in components.iter().skip(2) {
+                        final_path.push(component.as_os_str());
+                    }
+                    if final_path.as_os_str().encode_wide().count() > 1024 {
+                        return Err("quarantine pinned storage path exceeds limit".into());
+                    }
+                    current = root;
                 }
             }
             // Retain every inspected ancestor before accessing its next child.
@@ -124,7 +187,10 @@ pub(crate) fn retain_directory(path: &Path, create: bool) -> Result<DirectoryGua
             // through ordinary cooperating Win32 handles, not privileged bypass.
             handles.push(handle);
         }
-        Ok(DirectoryGuard { _handles: handles })
+        Ok(DirectoryGuard {
+            _handles: handles,
+            path: current,
+        })
     }
 }
 

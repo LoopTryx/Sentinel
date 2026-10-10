@@ -132,6 +132,13 @@ fn mark_retained_file_for_deletion(file: &std::fs::File) -> bool {
 pub struct Vault {
     pub dir: PathBuf,
     key_path: PathBuf,
+    configured_dir: PathBuf,
+    initialized: bool,
+}
+
+struct ScopedStorage {
+    vault: Vault,
+    _guard: crate::storage_path::DirectoryGuard,
 }
 
 pub struct QuarantineOutcome {
@@ -140,15 +147,28 @@ pub struct QuarantineOutcome {
 }
 
 impl Vault {
-    fn storage_guard(&self) -> Result<crate::storage_path::DirectoryGuard, String> {
+    fn storage_guard(&self) -> Result<ScopedStorage, String> {
+        if !self.initialized {
+            return Err("quarantine storage initialization unavailable".into());
+        }
+        if self.dir != self.configured_dir {
+            return Err("quarantine storage directory association changed".into());
+        }
         let parent = self
             .key_path
             .parent()
             .ok_or("quarantine key parent unsupported")?;
-        if self.dir != parent.join("vault") {
-            return Err("quarantine storage directory association changed".into());
-        }
-        crate::storage_path::retain_directory(&self.dir, false)
+        let guard = crate::storage_path::retain_pinned_directory(&parent.join("vault"))?;
+        let dir = guard.path.clone();
+        Ok(ScopedStorage {
+            vault: Vault {
+                dir: dir.clone(),
+                key_path: self.key_path.clone(),
+                configured_dir: dir,
+                initialized: true,
+            },
+            _guard: guard,
+        })
     }
     fn admit_storage(
         &self,
@@ -263,18 +283,19 @@ impl Vault {
     /// Explicit reconciliation of a previously flushed restore intent. This
     /// does not grant selection/action authority or overwrite any destination.
     pub fn resume_restore(&self, reference: &str, target: &Path) -> Result<(), String> {
-        let _storage = self.storage_guard()?;
-        let blob_path = self.blob_path(reference)?;
-        let _admission = self.admit_storage(2052, 0, Some(reference))?;
-        let key = self.load_key()?;
+        let storage = self.storage_guard()?;
+        let vault = &storage.vault;
+        let blob_path = vault.blob_path(reference)?;
+        let _admission = vault.admit_storage(2052, 0, Some(reference))?;
+        let key = vault.load_key()?;
         let (target_handle, plaintext) = read_bounded_handle(target, MAX_PLAINTEXT_BYTES, false)?;
         let mut journal = crate::quarantine_journal::Journal::resume_lifecycle(
-            &self.dir, reference, target, &plaintext, &key, false,
+            &vault.dir, reference, target, &plaintext, &key, false,
         )?;
         match std::fs::symlink_metadata(&blob_path) {
             Ok(_) => {
                 let (blob_handle, blob) = read_bounded_handle(&blob_path, MAX_BLOB_BYTES, true)?;
-                if self.decrypt_blob(&blob, &key)? != plaintext {
+                if vault.decrypt_blob(&blob, &key)? != plaintext {
                     return Err("recovery blob does not match verified destination".into());
                 }
                 #[cfg(windows)]
@@ -301,14 +322,15 @@ impl Vault {
     /// Resume only while the selected encrypted blob remains authenticatable.
     /// Missing bytes cannot establish deletion or secure-erasure evidence.
     pub fn resume_destroy(&self, reference: &str) -> Result<(), String> {
-        let _storage = self.storage_guard()?;
-        let path = self.blob_path(reference)?;
-        let _admission = self.admit_storage(2052, 0, Some(reference))?;
-        let key = self.load_key()?;
+        let storage = self.storage_guard()?;
+        let vault = &storage.vault;
+        let path = vault.blob_path(reference)?;
+        let _admission = vault.admit_storage(2052, 0, Some(reference))?;
+        let key = vault.load_key()?;
         let (handle, blob) = read_bounded_handle(&path, MAX_BLOB_BYTES, true)?;
-        let plaintext = self.decrypt_blob(&blob, &key)?;
+        let plaintext = vault.decrypt_blob(&blob, &key)?;
         let mut journal = crate::quarantine_journal::Journal::resume_lifecycle(
-            &self.dir, reference, &self.dir, &plaintext, &key, true,
+            &vault.dir, reference, &self.dir, &plaintext, &key, true,
         )?;
         #[cfg(windows)]
         {
@@ -329,17 +351,24 @@ impl Vault {
         &self,
         vault_file: &str,
     ) -> Result<crate::quarantine_journal::RecoverySummary, String> {
-        let _storage = self.storage_guard()?;
-        self.blob_path(vault_file)?;
-        crate::quarantine_journal::read_summary(&self.dir, vault_file, &self.load_key()?)
+        let storage = self.storage_guard()?;
+        let vault = &storage.vault;
+        vault.blob_path(vault_file)?;
+        crate::quarantine_journal::read_summary(&vault.dir, vault_file, &vault.load_key()?)
     }
 
     pub fn new(app_data: &Path) -> Self {
         let dir = app_data.join("vault");
-        let _ = crate::storage_path::retain_directory(&dir, true);
+        let storage = crate::storage_path::retain_directory(&dir, true).ok();
+        let initialized = storage.is_some();
+        let key_path = storage
+            .and_then(|guard| guard.path.parent().map(|parent| parent.join("vault.key")))
+            .unwrap_or_else(|| app_data.join("vault.key"));
         Vault {
+            configured_dir: dir.clone(),
             dir,
-            key_path: app_data.join("vault.key"),
+            key_path,
+            initialized,
         }
     }
 
@@ -417,10 +446,11 @@ impl Vault {
         source: &Path,
         #[cfg(test)] interruption: Option<ControlledInterruption>,
     ) -> Result<QuarantineOutcome, String> {
-        let _storage = self.storage_guard()?;
+        let storage = self.storage_guard()?;
+        let vault = &storage.vault;
         let (source_handle, plaintext) = read_bounded_handle(source, MAX_PLAINTEXT_BYTES, true)?;
-        let _admission = self.admit_storage(plaintext.len() as u64 + 28 + 2 * 8192, 3, None)?;
-        let key_bytes = self.load_or_create_key()?;
+        let _admission = vault.admit_storage(plaintext.len() as u64 + 28 + 2 * 8192, 3, None)?;
+        let key_bytes = vault.load_or_create_key()?;
 
         let key = Key::<Aes256Gcm>::from_slice(&key_bytes);
         let cipher = Aes256Gcm::new(key);
@@ -440,7 +470,7 @@ impl Vault {
 
         let id = uuid::Uuid::new_v4().simple().to_string();
         let vault_file = format!("{}.qtn", id);
-        let vault_path = self.dir.join(&vault_file);
+        let vault_path = vault.dir.join(&vault_file);
 
         let mut blob = nonce_bytes.to_vec();
         blob.extend_from_slice(&sealed);
@@ -472,7 +502,7 @@ impl Vault {
         if stored.len() != blob.len() {
             return Err("quarantine blob verification failed; original retained".into());
         }
-        let roundtrip = self.decrypt_blob(&stored, &key_bytes)?;
+        let roundtrip = vault.decrypt_blob(&stored, &key_bytes)?;
         if roundtrip != plaintext {
             return Err("post-encryption verification failed; original left in place".into());
         }
@@ -480,7 +510,7 @@ impl Vault {
         // Persist authenticated source association before source deletion can
         // occur. The exclusive journal handle stays retained through completion.
         let mut journal = crate::quarantine_journal::Journal::create(
-            &self.dir,
+            &vault.dir,
             &vault_file,
             source,
             &plaintext,
@@ -525,12 +555,13 @@ impl Vault {
         to_path: &Path,
         #[cfg(test)] interruption: Option<ControlledLifecycleInterruption>,
     ) -> Result<(), String> {
-        let _storage = self.storage_guard()?;
-        let vault_path = self.blob_path(vault_file)?;
-        let key_bytes = self.load_key()?;
+        let storage = self.storage_guard()?;
+        let vault = &storage.vault;
+        let vault_path = vault.blob_path(vault_file)?;
+        let key_bytes = vault.load_key()?;
         let (blob_handle, blob) = read_bounded_handle(&vault_path, MAX_BLOB_BYTES, true)?;
-        let plaintext = self.decrypt_blob(&blob, &key_bytes)?;
-        let _admission = self.admit_storage(8192, 1, Some(vault_file))?;
+        let plaintext = vault.decrypt_blob(&blob, &key_bytes)?;
+        let _admission = vault.admit_storage(8192, 1, Some(vault_file))?;
         if let Some(parent) = to_path.parent() {
             std::fs::create_dir_all(parent)
                 .map_err(|_| "restore directory unavailable".to_string())?;
@@ -565,7 +596,7 @@ impl Vault {
             return Err("restore verification failed; recovery blob retained".into());
         }
         let mut journal = crate::quarantine_journal::Journal::prepare_lifecycle(
-            &self.dir, vault_file, to_path, &plaintext, &key_bytes, false,
+            &vault.dir, vault_file, to_path, &plaintext, &key_bytes, false,
         )?;
         #[cfg(test)]
         if interruption == Some(ControlledLifecycleInterruption::IntentCommitted) {
@@ -606,14 +637,15 @@ impl Vault {
         vault_file: &str,
         #[cfg(test)] interruption: Option<ControlledLifecycleInterruption>,
     ) -> Result<(), String> {
-        let _storage = self.storage_guard()?;
-        let path = self.blob_path(vault_file)?;
-        let key_bytes = self.load_key()?;
+        let storage = self.storage_guard()?;
+        let vault = &storage.vault;
+        let path = vault.blob_path(vault_file)?;
+        let key_bytes = vault.load_key()?;
         let (handle, bytes) = read_bounded_handle(&path, MAX_BLOB_BYTES, true)?;
-        let plaintext = self.decrypt_blob(&bytes, &key_bytes)?;
-        let _admission = self.admit_storage(8192, 1, Some(vault_file))?;
+        let plaintext = vault.decrypt_blob(&bytes, &key_bytes)?;
+        let _admission = vault.admit_storage(8192, 1, Some(vault_file))?;
         let mut journal = crate::quarantine_journal::Journal::prepare_lifecycle(
-            &self.dir, vault_file, &self.dir, &plaintext, &key_bytes, true,
+            &vault.dir, vault_file, &self.dir, &plaintext, &key_bytes, true,
         )?;
         #[cfg(test)]
         if interruption == Some(ControlledLifecycleInterruption::IntentCommitted) {
@@ -659,6 +691,68 @@ impl Vault {
 
 #[cfg(all(test, windows))]
 mod retained_source_tests {
+    #[test]
+    fn rejected_guid_constructor_stays_unavailable_without_mutation() {
+        let root = std::env::temp_dir().join(format!(
+            "sentinel-invalid-guid-init-{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir(&root).unwrap();
+        let supported = Vault::new(&root.join("app"));
+        let rejected = Vault::new(supported.key_path.parent().unwrap());
+        let source = root.join("source.txt");
+        std::fs::write(&source, b"preserve rejected constructor bytes").unwrap();
+        let refused = rejected.quarantine(&source).is_err();
+        let intact =
+            std::fs::read(&source).ok().as_deref() == Some(b"preserve rejected constructor bytes");
+        let no_key = !supported.key_path.exists();
+        std::fs::remove_dir_all(root).unwrap();
+        assert!(
+            refused && intact && no_key,
+            "unsupported constructor must not gain operational availability"
+        );
+    }
+
+    #[test]
+    fn volume_addressed_storage_retains_exact_roundtrip_and_original_receipt_association() {
+        let root =
+            std::env::temp_dir().join(format!("sentinel-volume-path-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&root).unwrap();
+        let vault = Vault::new(&root.join("app"));
+        let anchored = vault
+            .key_path
+            .to_string_lossy()
+            .starts_with("\\\\?\\Volume{");
+        let source = root.join("plain.txt");
+        std::fs::write(&source, b"harmless anchored bytes").unwrap();
+        let reference = vault.quarantine(&source).unwrap().vault_file;
+        let target = root.join("restored.txt");
+        vault.restore(&reference, &target).unwrap();
+        let exact = std::fs::read(&target).unwrap() == b"harmless anchored bytes";
+        // Keep legacy destroy association strings as authenticated metadata;
+        // they must not be used as the storage I/O address.
+        std::fs::write(&source, b"harmless legacy receipt bytes").unwrap();
+        let reference = vault.quarantine(&source).unwrap().vault_file;
+        let key = vault.load_key().unwrap();
+        let journal = crate::quarantine_journal::Journal::prepare_lifecycle(
+            &vault.dir,
+            &reference,
+            &vault.dir,
+            b"harmless legacy receipt bytes",
+            &key,
+            true,
+        )
+        .unwrap();
+        drop(journal);
+        vault.resume_destroy(&reference).unwrap();
+        let reconciled = !vault.dir.join(reference).exists();
+        std::fs::remove_dir_all(root).unwrap();
+        assert!(
+            anchored && exact && reconciled,
+            "storage must stay volume addressed and preserve receipt compatibility"
+        );
+    }
+
     use super::*;
 
     #[test]
