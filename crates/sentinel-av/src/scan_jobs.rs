@@ -5,6 +5,7 @@
 use crate::engine::scan_directory_with_control;
 use crate::engine::{Engine, ScanReport};
 use sentinel_proto::quarantine_action as quarantine;
+use sentinel_proto::restore_action as restore;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -59,6 +60,21 @@ struct PendingQuarantine {
     expires: Instant,
 }
 
+struct RestorableQuarantine {
+    owner: String,
+    path: PathBuf,
+    receipt: quarantine::QuarantineReceipt,
+    sha256: String,
+    bytes: u64,
+}
+
+struct PendingRestore {
+    owner: String,
+    reference: String,
+    quarantine_action_ref: String,
+    expires: Instant,
+}
+
 /// One selection and one retained job; no growing history or event queue.
 pub struct SelectedJobs {
     engine: Arc<Engine>,
@@ -66,6 +82,8 @@ pub struct SelectedJobs {
     selection: Option<Selection>,
     job: Option<ActiveJob>,
     pending_quarantine: Option<PendingQuarantine>,
+    restorations: Vec<RestorableQuarantine>,
+    pending_restore: Option<PendingRestore>,
 }
 
 /// Trusted native callback; it must be bounded and must not perform remote fetches.
@@ -79,6 +97,8 @@ impl Default for SelectedJobs {
             selection: None,
             job: None,
             pending_quarantine: None,
+            restorations: Vec::new(),
+            pending_restore: None,
         }
     }
 }
@@ -189,6 +209,7 @@ impl SelectedJobs {
             ancestry,
         });
         self.pending_quarantine = None;
+        self.pending_restore = None;
         Ok(reference)
     }
 
@@ -219,6 +240,13 @@ impl SelectedJobs {
             self.pending_quarantine = None;
         }
         self.reap();
+        if self
+            .pending_restore
+            .as_ref()
+            .is_some_and(|action| now >= action.expires)
+        {
+            self.pending_restore = None;
+        }
         expired
     }
 
@@ -341,6 +369,7 @@ impl SelectedJobs {
             .ok_or("job unavailable")?;
         job.cancel.store(true, Ordering::Release);
         self.pending_quarantine = None;
+        self.pending_restore = None;
         Ok(())
     }
 
@@ -455,6 +484,9 @@ impl SelectedJobs {
                 code: Code::Declined,
             });
         }
+        if self.restorations.len() >= 64 {
+            return Err(QuarantineError { code: Code::Busy });
+        }
         let job = self
             .job
             .as_mut()
@@ -483,7 +515,7 @@ impl SelectedJobs {
                 code: Code::ActionUnavailable,
             });
         }
-        let (path, subject) = {
+        let (path, subject, sha256, bytes) = {
             let reports = job.reports.lock().map_err(|_| QuarantineError {
                 code: Code::ActionUnavailable,
             })?;
@@ -497,7 +529,12 @@ impl SelectedJobs {
             let subject = report.inspected_subject().cloned().ok_or(QuarantineError {
                 code: Code::ActionUnavailable,
             })?;
-            (PathBuf::from(&report.path), subject)
+            (
+                PathBuf::from(&report.path),
+                subject,
+                report.sha256.clone(),
+                report.size,
+            )
         };
         // A successful or failed approved attempt retires this historical
         // report for future actions. A fresh scan must observe current state.
@@ -518,6 +555,125 @@ impl SelectedJobs {
             } else {
                 quarantine::QuarantineResultState::OriginalRetained
             },
+        };
+        receipt.validate().map_err(|_| QuarantineError {
+            code: Code::ActionFailed,
+        })?;
+        if receipt.state == quarantine::QuarantineResultState::Quarantined {
+            self.restorations.push(RestorableQuarantine {
+                owner: owner.into(),
+                path,
+                receipt: receipt.clone(),
+                sha256,
+                bytes,
+            });
+        }
+        Ok(receipt)
+    }
+
+    /// Native adapter shows the original private destination in its own dialog;
+    /// the path is never supplied by or returned to browser/UI request bodies.
+    pub fn prepare_restore(
+        &mut self,
+        owner: &str,
+        request: &restore::RestorePrepareRequest,
+        now: Instant,
+    ) -> Result<restore::RestorePreview, quarantine::QuarantineError> {
+        use quarantine::{QuarantineError, QuarantineErrorCode as Code};
+        request.validate().map_err(|_| QuarantineError {
+            code: Code::InvalidRequest,
+        })?;
+        self.maintain(now);
+        let item = self
+            .restorations
+            .iter()
+            .find(|item| {
+                item.owner == owner && item.receipt.action_ref == request.quarantine_action_ref
+            })
+            .ok_or(QuarantineError {
+                code: Code::ActionUnavailable,
+            })?;
+        let reference = uuid::Uuid::new_v4().simple().to_string();
+        let preview = restore::RestorePreview {
+            restore_ref: reference.clone(),
+            quarantine: item.receipt.clone(),
+            expires_after_seconds: 30,
+        };
+        preview.validate().map_err(|_| QuarantineError {
+            code: Code::ActionFailed,
+        })?;
+        self.pending_restore = Some(PendingRestore {
+            owner: owner.into(),
+            reference,
+            quarantine_action_ref: request.quarantine_action_ref.clone(),
+            expires: now + Duration::from_secs(30),
+        });
+        Ok(preview)
+    }
+
+    /// Confirmation, owner, vault and monotonic time are trusted native inputs.
+    /// Consume approval before filesystem access; no automatic retry/overwrite.
+    pub fn restore_after_native_confirmation(
+        &mut self,
+        owner: &str,
+        request: &restore::RestoreActionReference,
+        now: Instant,
+        vault: &crate::vault::Vault,
+        native_confirmation: bool,
+    ) -> Result<restore::RestoreReceipt, quarantine::QuarantineError> {
+        use quarantine::{QuarantineError, QuarantineErrorCode as Code};
+        request.validate().map_err(|_| QuarantineError {
+            code: Code::InvalidRequest,
+        })?;
+        self.maintain(now);
+        if !self
+            .pending_restore
+            .as_ref()
+            .is_some_and(|action| action.owner == owner && action.reference == request.restore_ref)
+        {
+            return Err(QuarantineError {
+                code: Code::ActionUnavailable,
+            });
+        }
+        let action = self.pending_restore.take().expect("matched restore action");
+        if !native_confirmation {
+            return Err(QuarantineError {
+                code: Code::Declined,
+            });
+        }
+        let index = self
+            .restorations
+            .iter()
+            .position(|item| {
+                item.owner == owner && item.receipt.action_ref == action.quarantine_action_ref
+            })
+            .ok_or(QuarantineError {
+                code: Code::ActionUnavailable,
+            })?;
+        let item = &self.restorations[index];
+        let summary = vault
+            .recovery_summary(&item.receipt.vault_file)
+            .map_err(|_| QuarantineError {
+                code: Code::ActionFailed,
+            })?;
+        if summary.sha256 != item.sha256
+            || summary.plaintext_bytes != item.bytes.to_string()
+            || summary.phase != crate::quarantine_journal::RecoveryPhase::RemovalRecorded
+        {
+            return Err(QuarantineError {
+                code: Code::ActionFailed,
+            });
+        }
+        vault
+            .restore(&item.receipt.vault_file, &item.path)
+            .map_err(|_| QuarantineError {
+                code: Code::ActionFailed,
+            })?;
+        let item = self.restorations.remove(index);
+        let receipt = restore::RestoreReceipt {
+            restore_ref: action.reference,
+            quarantine: item.receipt,
+            state: restore::RestoreResultState::Restored,
         };
         receipt.validate().map_err(|_| QuarantineError {
             code: Code::ActionFailed,
