@@ -262,6 +262,15 @@ restore/destroy journal lifecycle and actual application acceptance remain open.
 
 ## Remaining concrete delivery work
 
+CI job 114173382527 failed the directory budget test at 40 MiB because its
+five-second test deadline expired before the 64 MiB budget. The test now supplies
+the existing 30-second production cap; production timeout behavior is unchanged
+and expired-deadline coverage remains separate. The corrected focused test passed
+locally in 3.36 seconds. The initial full journal verifier encountered linker disk
+exhaustion, not a test assertion; six obsolete test executables from this issue's
+earlier runs were removed before retrying. Final exact-head verification and CI
+results must be recorded independently.
+
 1. Retained source identity, bounded encrypted staging, verified on-disk bytes,
    transactional journal and crash recovery; never delete a replacement pathname.
    Private Windows directory/ACL/no-follow handling and supported volume evidence.

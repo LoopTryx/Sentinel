@@ -159,7 +159,9 @@ fn directory_budget_counts_acquired_bytes_and_cancellation_stops_traversal() {
         &mut |path, count| {
             counts.insert(path.to_path_buf(), count);
         },
-        Instant::now() + Duration::from_secs(5),
+        // Exercise the byte budget with the production maximum deadline. A
+        // five-second deadline can legitimately time out first on cold CI.
+        Instant::now() + Duration::from_secs(30),
     );
     assert_eq!(counts.values().sum::<u64>(), 64 * 1024 * 1024);
     assert_eq!(reports.last().unwrap().state, "limit_reached");
