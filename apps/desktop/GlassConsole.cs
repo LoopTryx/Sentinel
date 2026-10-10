@@ -162,6 +162,10 @@ public sealed class SentinelGlassConsole : Window
                 } else throw new InvalidOperationException();
                 if (path == null) { Reply(id, new { cancelled = true }); return; }
                 route = "scan"; data = new { path = path };
+            } else if (method == "inspection.read") {
+                var empty = data as Dictionary<string, object>;
+                if (empty == null || empty.Count != 0) throw new InvalidOperationException();
+                route = "inspection";
             } else if (method == "state" || method == "lock" || method == "unlock" || method == "rotate" || method == "reveal" || method == "cancel" || method == "pair") route = method;
             else throw new InvalidOperationException();
             requests++;

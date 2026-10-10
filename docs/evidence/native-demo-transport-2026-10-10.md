@@ -11,3 +11,9 @@ Reproduce: run tools/verify.ps1 with the pinned GNU toolchain; set SENTINEL_TEST
 Outstanding acceptance: independent exact-head security review; visible native OS confirmation wired to retained session; accepted shared UI/proto handoff for canonical partial evidence; supported browser download identity/staging/byte inspection and same report; installed fresh/offline desktop/browser launches; pinned event package, route and rehearsal. None of these are proved by the process or HTTP tests. Existing shared UI contracts are preserved: legacy full-digest reports are projected to state while partial-byte evidence remains at the desktop-only inspection endpoint. Main integration of this PR has not occurred.
 
 Durable handoff: PR64 comment6101353960 and issue11 comment6101354113 request exact-head review and the shared UI editing handoff. No silence-based ownership transfer is assumed.
+
+## Native bridge compile and fresh smoke
+
+The additive GlassConsole inspection.read leaf was claimed on issue9 comment6101374970 after checking the current PR41 file list and B's published claim; neither includes GlassConsole.cs. The native host accepts empty data only, retains its private token and fixed inspection route, and preserves source pinning/concurrency/deadline/response bounds. Shared UI source is unchanged.
+
+Compiled with existing official WebView2 SDK1.0.4258.31 using apps/desktop/build-console.ps1. Started an owned Node runtime and fresh Sentinel.Glass.exe --smoke --demo process, then shut both down and removed the ephemeral token config. Exit0; native output: navigation=True, glass=true, heading="Console", custom_chrome=True, backdrop_requested=True, backend=demo_runtime. This establishes actual WebView rendering and runtime startup. It does not exercise inspection.read from the renderer, native picker/manual scanning, OS confirmation or disconnected-network rehearsal. No visible manual acceptance is claimed.
