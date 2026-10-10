@@ -327,6 +327,7 @@ public sealed class SentinelGlassConsole : Window
                     if (closing) return;
                     string glass = await core.ExecuteScriptAsync("document.documentElement.dataset.desktop === 'glass'");
                     string backend = "unavailable";
+                    string inspectionBridge = "not_checked";
                     if (demo) {
                         using (var probe = new HttpRequestMessage(HttpMethod.Post, runtimeUrl + "/state")) {
                             probe.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", runtimeToken);
@@ -338,9 +339,18 @@ public sealed class SentinelGlassConsole : Window
                                 backend = "demo_runtime";
                             }
                         }
+                        if (smoke) {
+                            await core.ExecuteScriptAsync(@"document.documentElement.dataset.inspectionSmoke = ''; window.chrome.webview.addEventListener('message', e => { if(e.data?.id === 'native_smoke_read') { const s=e.data.data?.snapshot; document.documentElement.dataset.inspectionSmoke=JSON.stringify({state:s?.state??null,reports:s?.reports.length??0,inspectedBytes:s?.reports[0]?.inspectedBytes??null,sha256:s?.reports[0]?.sha256??null}); } }); window.chrome.webview.postMessage(JSON.stringify({id:'native_smoke_read',method:'inspection.read',data:{}}));");
+                            for (int attempt = 0; attempt < 100 && !closing; attempt++) {
+                                inspectionBridge = await core.ExecuteScriptAsync("document.documentElement.dataset.inspectionSmoke || ''");
+                                if (inspectionBridge != "\"\"") break;
+                                await Task.Delay(50);
+                            }
+                            if (inspectionBridge == "\"\"") throw new InvalidOperationException();
+                        }
                     }
                     deadline.Stop();
-                    File.WriteAllText(evidence, "navigation=True\nglass=" + glass + "\nheading=" + heading + "\ncustom_chrome=True\nbackdrop_requested=" + backdrop + "\nbackend=" + backend + "\n");
+                    File.WriteAllText(evidence, "navigation=True\nglass=" + glass + "\nheading=" + heading + "\ncustom_chrome=True\nbackdrop_requested=" + backdrop + "\nbackend=" + backend + "\ninspection_bridge=" + inspectionBridge + "\n");
                     if (smoke) { if (glass != "true" || heading != "\"Console\"") Environment.ExitCode = 1; Close(); }
                 } catch (Exception error) { Fail(error.GetType().Name + "_" + error.HResult.ToString("X8")); }
             };

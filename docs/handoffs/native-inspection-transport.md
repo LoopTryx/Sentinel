@@ -14,6 +14,8 @@ Next: confirm editing ownership for current server/native/UI operation files, wi
 
 ## Desktop runtime connection
 
+Native --smoke --demo now sends an actual inspection.read WebView message and polls a bounded renderer reply summary. To verify bytes rather than a null startup snapshot, use the owned runtime's desktop scan route on an invented file first; compare inspection_bridge's digest/byte count with that fixture's independently computed values. An actual29-byte journey passed; see native-demo-transport-2026-10-10.md. Smoke uses the normal source/token/route/response checks and accepts no external page or approval override.
+
 GlassConsole's source-pinned renderer bridge now accepts inspection.read with an empty object only. Example: {"id":"read_1","method":"inspection.read","data":{}}. Reply retains the normal bridge envelope {id,data:{snapshot:ScanJobSnapshot|null}}. The native host supplies its private desktop token and fixed /inspection route; no URL/path/executable or action approval is accepted by this method. Existing source check, four concurrent requests,8-second deadline and128KiB response cap remain. This enables shared UI adoption without modifying the peer-owned ScanView or demo DTO. A compile is not visible bridge/UI acceptance.
 
 Stage the locally built executable with tools/stage-inspection-engine.ps1 -EnginePath <owned build output>; optional StripToolPath strips debug symbols only from the copy. This writes inspection-engine.json with source and staged digests. tools/package-demo.ps1 now refuses a missing or digest-mismatched engine before creating its output directory, and includes the receipt. The receipt proves byte identity only; rerun native tests against the staged executable before publishing a candidate.
