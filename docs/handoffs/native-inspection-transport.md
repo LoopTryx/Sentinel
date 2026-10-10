@@ -14,6 +14,8 @@ Next: confirm editing ownership for current server/native/UI operation files, wi
 
 ## Desktop runtime connection
 
+GlassConsole's source-pinned renderer bridge now accepts inspection.read with an empty object only. Example: {"id":"read_1","method":"inspection.read","data":{}}. Reply retains the normal bridge envelope {id,data:{snapshot:ScanJobSnapshot|null}}. The native host supplies its private desktop token and fixed /inspection route; no URL/path/executable or action approval is accepted by this method. Existing source check, four concurrent requests,8-second deadline and128KiB response cap remain. This enables shared UI adoption without modifying the peer-owned ScanView or demo DTO. A compile is not visible bridge/UI acceptance.
+
 Stage the locally built executable with tools/stage-inspection-engine.ps1 -EnginePath <owned build output>; optional StripToolPath strips debug symbols only from the copy. This writes inspection-engine.json with source and staged digests. tools/package-demo.ps1 now refuses a missing or digest-mismatched engine before creating its output directory, and includes the receipt. The receipt proves byte identity only; rerun native tests against the staged executable before publishing a candidate.
 
 Local staged-copy evidence: ten native runtime/parent/DFI tests passed against apps/desktop/console-build/sentinel-inspect.exe, including missing configured engine with no synthetic fallback, actual scan/quarantine/restore and deadlines. Staged SHA256 f7b8f9b4c8fa0c9cb2e32aed5baaa93c4599efa044c0b07094b60bd9a3e55435, 133676274 bytes. This remains an unpinned local candidate, not full portable packaging or visible/offline rehearsal acceptance.
