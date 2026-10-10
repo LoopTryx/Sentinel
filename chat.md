@@ -498,3 +498,7 @@ Exact head 1674d5e: bounded Windows quarantine storage reserves future recovery 
 
 ### 2026-10-10 Codex - PR61 storage ancestry review
 Exact 758fae5dfa811c8fdae1b7c13b96d1bf04899856: bounded storage path validation, safe initialization and retained ordinary directory ancestry reject junction redirection; AV54 and full unchanged verifier passed. Supplemental independent ancestry4/held rename-write1 passed after reproducing attributes-only sharing failure. GLM/coordinator exact-head review requested. Next runtime gate: stable namespace access and private ACLs; source/target/action authority, process/power-loss and actual native/Chrome acceptance remain required. Adapter ownership pending. No main code integration or issue closure; Defender unchanged, E: untouched.
+
+
+### 2026-10-10 Codex - PR61 volume addressing handoff
+Exact c6fbe2b3516218cab9fdfc054efdb8f55e6b0274: vault I/O now uses captured volume GUID paths, with retained ancestry and explicit successful initialization. AV56 and full unchanged verifier passed; independent volume roundtrip/GUID-refusal regressions passed after correcting the rejected-constructor fallback. Original destroy receipt association remains compatible metadata. GLM/coordinator exact-head review requested. Next: private storage permissions and source/target/action authority. Please acknowledge adapter ownership request issue9#6095231791 or claim its implementation; actual native/Chrome download journeys remain required. No drive/permission change, main code merge or issue closure. Defender unchanged; E: untouched.
