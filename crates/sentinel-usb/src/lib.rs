@@ -1,9 +1,11 @@
-//! Broker-internal USB decisions. This crate installs no Windows policy.
+//! Broker-internal USB decisions and a Windows policy backend. No application
+//! activates this crate; configuration is not evidence of device containment.
 //!
 //! Only a trusted platform adapter may confirm a measured hold or action result.
 //! Correlation IDs and the `authorized` input are NOT an IPC authorization scheme.
 //! The adapter must derive authorization, clock, fresh random run nonce and scan
 //! result from trusted state; never accept these assertions from a browser.
+pub mod policy;
 pub mod recovery;
 
 const MAX_CONNECTIONS: usize = 64;
