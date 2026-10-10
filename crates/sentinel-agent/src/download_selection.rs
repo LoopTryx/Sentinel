@@ -18,6 +18,15 @@ pub fn decode_download_observation(
     if bytes.len() > MAX_OBSERVATION_BYTES {
         return Err(DownloadIngressError::TooLarge);
     }
+    // Serde structs also accept positional arrays; this wire contract requires
+    // an object with named references so positional input cannot bypass it.
+    if bytes
+        .iter()
+        .find(|byte| !matches!(**byte, b' ' | b'\t' | b'\r' | b'\n'))
+        != Some(&b'{')
+    {
+        return Err(DownloadIngressError::InvalidObservation);
+    }
     let observation: DownloadObservation =
         serde_json::from_slice(bytes).map_err(|_| DownloadIngressError::InvalidObservation)?;
     observation
