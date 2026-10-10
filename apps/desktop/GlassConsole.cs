@@ -35,7 +35,10 @@ public sealed class SentinelGlassConsole : Window
     readonly bool demo;
     readonly JavaScriptSerializer json = new JavaScriptSerializer { MaxJsonLength = 131072 };
     readonly HttpClient runtimeClient = new HttpClient { Timeout = TimeSpan.FromSeconds(8), MaxResponseContentBufferSize = 131072 };
-    string runtimeUrl, runtimeToken;
+    string runtimeUrl, runtimeToken, runtimeActionToken;
+    bool actionDialog;
+    string nativeSelectedPath;
+    readonly Dictionary<string, string> quarantinedPaths = new Dictionary<string, string>();
     int requests;
 
     [STAThread]
@@ -148,7 +151,20 @@ public sealed class SentinelGlassConsole : Window
             if (id == null || !System.Text.RegularExpressions.Regex.IsMatch(id, "^[a-zA-Z0-9_-]{1,64}$")) return;
             string route = null;
             object data = request["data"];
-            if (method == "scan.select") {
+            if (method == "quarantine.request" || method == "restore.request") {
+                if (actionDialog) { Reply(id, new { error = "action_busy" }); return; }
+                var action = data as Dictionary<string, object>;
+                bool restore = method == "restore.request";
+                string key = restore ? "actionRef" : "reportRef";
+                if (action == null || action.Count != 1 || !action.ContainsKey(key)) throw new InvalidOperationException();
+                string reference = action[key] as string;
+                if (reference == null || !System.Text.RegularExpressions.Regex.IsMatch(reference, "^[a-zA-Z0-9_-]{1,64}$")) throw new InvalidOperationException();
+                actionDialog = true; requests++;
+                try { Reply(id, await NativeDisposition(restore, reference)); }
+                finally { actionDialog = false; requests--; }
+                return;
+            } else if (method == "scan.select") {
+                if (actionDialog) { Reply(id, new { error = "action_busy" }); return; }
                 var selection = data as Dictionary<string, object>;
                 if (selection == null || selection.Count != 1 || !selection.ContainsKey("kind")) throw new InvalidOperationException();
                 string path = null;
@@ -161,6 +177,7 @@ public sealed class SentinelGlassConsole : Window
                     }
                 } else throw new InvalidOperationException();
                 if (path == null) { Reply(id, new { cancelled = true }); return; }
+                nativeSelectedPath = path;
                 route = "scan"; data = new { path = path };
             } else if (method == "inspection.read") {
                 var empty = data as Dictionary<string, object>;
@@ -195,6 +212,61 @@ public sealed class SentinelGlassConsole : Window
         if (!closing) view.CoreWebView2.PostWebMessageAsJson(json.Serialize(new { id = id, data = data }));
     }
 
+    async Task<Dictionary<string, object>> NativeActionCall(string route, object data)
+    {
+        using (var message = new HttpRequestMessage(HttpMethod.Post, runtimeUrl + "/" + route)) {
+            message.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", runtimeToken);
+            message.Headers.Add("X-Sentinel-Native-Action", runtimeActionToken);
+            message.Content = new StringContent(json.Serialize(data), Encoding.UTF8, "application/json");
+            using (var response = await runtimeClient.SendAsync(message, HttpCompletionOption.ResponseHeadersRead)) {
+                if (!response.IsSuccessStatusCode || response.Content.Headers.ContentLength > 131072) throw new InvalidOperationException();
+                using (var cancel = new System.Threading.CancellationTokenSource(8000)) using (var stream = await response.Content.ReadAsStreamAsync()) using (var bytes = new MemoryStream()) {
+                    var chunk = new byte[8192]; int count;
+                    while ((count = await stream.ReadAsync(chunk, 0, chunk.Length, cancel.Token)) != 0) {
+                        if (bytes.Length + count > 131072) throw new InvalidOperationException();
+                        bytes.Write(chunk, 0, count);
+                    }
+                    return json.Deserialize<Dictionary<string, object>>(Encoding.UTF8.GetString(bytes.ToArray()));
+                }
+            }
+        }
+    }
+
+    async Task<object> NativeDisposition(bool restore, string reference)
+    {
+        string prefix = restore ? "restore" : "quarantine";
+        object input = restore ? (object)new { actionRef = reference } : new { reportRef = reference };
+        var preview = await NativeActionCall(prefix + "-prepare", input);
+        if (!preview.ContainsKey("type") || (preview["type"] as string) != prefix + "_preview") return preview;
+        var payload = preview["data"] as Dictionary<string, object>;
+        string key = restore ? "restoreRef" : "actionRef";
+        string action = payload == null || !payload.ContainsKey(key) ? null : payload[key] as string;
+        if (action == null || !System.Text.RegularExpressions.Regex.IsMatch(action, "^[a-zA-Z0-9_-]{1,64}$") || closing) throw new InvalidOperationException();
+        string explanation = restore
+            ? "Restore the retained quarantined bytes to their original location? Existing files will not be overwritten."
+            : "Encrypt and quarantine this completed selected-file report, then remove the original? This is a file operation, not a malware verdict. Only proceed for your intended selected file.";
+        string displayPath = nativeSelectedPath;
+        if (restore && !quarantinedPaths.TryGetValue(reference, out displayPath)) throw new InvalidOperationException();
+        string evidenceText = "";
+        if (!restore) {
+            var inspection = payload.ContainsKey("inspection") ? payload["inspection"] as Dictionary<string, object> : null;
+            string digest = inspection == null || !inspection.ContainsKey("sha256") ? null : inspection["sha256"] as string;
+            if (digest == null || !System.Text.RegularExpressions.Regex.IsMatch(digest, "^[a-f0-9]{64}$")) throw new InvalidOperationException();
+            evidenceText = "\nSHA-256: " + digest;
+        }
+        // Default is No. The renderer never supplies approval or the preview's
+        // native action reference. Rust rechecks its subject and30-second expiry.
+        bool approved = MessageBox.Show(this, explanation + "\n\nNative selection: " + displayPath + "\nReport/reference: " + reference + evidenceText + "\nApproval expires after30 seconds.", "Sentinel native " + prefix + " confirmation", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes;
+        object decision = restore ? (object)new { restoreRef = action } : new { actionRef = action };
+        var result = await NativeActionCall(prefix + (approved ? "-confirm" : "-decline"), decision);
+        var receipt = result.ContainsKey("data") ? result["data"] as Dictionary<string, object> : null;
+        if (receipt != null && receipt.ContainsKey("state")) {
+            if (!restore && (receipt["state"] as string) == "quarantined" && quarantinedPaths.Count < 64) quarantinedPaths[action] = displayPath;
+            if (restore && (receipt["state"] as string) == "restored") quarantinedPaths.Remove(reference);
+        }
+        return result;
+    }
+
     void Fail(string reason)
     {
         if (closing) return;
@@ -225,7 +297,8 @@ public sealed class SentinelGlassConsole : Window
                 var config = json.Deserialize<Dictionary<string, string>>(File.ReadAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "demo-runtime.json")));
                 Uri target;
                 if (!Uri.TryCreate(config["url"], UriKind.Absolute, out target) || target.Scheme != "http" || target.Host != "127.0.0.1" || target.Port < 1024 || target.AbsolutePath != "/" || target.Query.Length != 0 || target.UserInfo.Length != 0 || !System.Text.RegularExpressions.Regex.IsMatch(config["token"], "^[a-f0-9]{64}$")) throw new InvalidOperationException();
-                runtimeUrl = config["url"]; runtimeToken = config["token"];
+                if (!config.ContainsKey("nativeActionToken") || !System.Text.RegularExpressions.Regex.IsMatch(config["nativeActionToken"], "^[a-f0-9]{64}$")) throw new InvalidOperationException();
+                runtimeUrl = config["url"]; runtimeToken = config["token"]; runtimeActionToken = config["nativeActionToken"];
                 core.WebMessageReceived += RuntimeMessage;
             }
             core.Settings.AreDevToolsEnabled = false;

@@ -39,6 +39,7 @@ function keys(body,list){return body&&typeof body==='object'&&!Array.isArray(bod
 
 export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=null,nativeAppDir=null}={}) {
  const desktopToken=randomBytes(32).toString('hex');
+ const nativeActionToken=randomBytes(32).toString('hex');
  let browserToken='',extensionId='',unlocked=false,scan=null,closed=false,revision=0,activeScan=Promise.resolve(),closing;
  const events=[];
  const accounts=[
@@ -143,7 +144,22 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
   req.setTimeout(5000,()=>req.destroy());
   let body;
   try{let size=0;const chunks=[];for await(const c of req){size+=c.length;if(size>4096)return respond(413,{error:'request_too_large'});chunks.push(c);}body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{return respond(400,{error:'invalid_request'});}
-  if(!keys(body,['id','path','extensionId','risk','codes']))return respond(400,{error:'invalid_request'});
+  if(!keys(body,['id','path','extensionId','risk','codes','reportRef','actionRef','restoreRef']))return respond(400,{error:'invalid_request'});
+  const actionRoutes={
+   '/quarantine-prepare':['reportRef',v=>nativeService.prepareQuarantine(v)],
+   '/quarantine-confirm':['actionRef',v=>nativeService.nativeQuarantineDecision(v,true)],
+   '/quarantine-decline':['actionRef',v=>nativeService.nativeQuarantineDecision(v,false)],
+   '/restore-prepare':['actionRef',v=>nativeService.prepareRestore(v)],
+   '/restore-confirm':['restoreRef',v=>nativeService.nativeRestoreDecision(v,true)],
+   '/restore-decline':['restoreRef',v=>nativeService.nativeRestoreDecision(v,false)]
+  };
+  if(Object.hasOwn(actionRoutes,req.url)){
+   if(!desktop||!equal(req.headers['x-sentinel-native-action'],nativeActionToken))return respond(403,{error:'forbidden'});
+   const [key,operation]=actionRoutes[req.url];
+   if(!keys(body,[key])||Object.keys(body).length!==1||typeof body[key]!=='string'||!/^[A-Za-z0-9_-]{1,64}$/.test(body[key]))return respond(400,{error:'invalid_request'});
+   if(!nativeService)return respond(503,{type:'error',data:{code:'unavailable'}});
+   return respond(200,await operation(body[key]));
+  }
   if(req.url==='/state'&&keys(body,[])){const snapshot=state();if(browser)snapshot.scan=null;return respond(200,snapshot);}
   if(req.url==='/inspection'&&desktop&&keys(body,[]))return respond(200,{snapshot:nativeSnapshot});
   if(req.url==='/shutdown'&&desktop&&keys(body,[])){res.once('finish',()=>{void close().then(onShutdown);});return respond(200,{ok:true});}
@@ -178,12 +194,12 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
  server.maxConnections=8;server.requestTimeout=5000;server.headersTimeout=5000;
  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});
  function close(){if(!closing){closed=true;if(scan)scan.cancel=true;closing=(async()=>{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));if(nativeService)await nativeService.close();await activeScan;})();}return closing;}
- return {desktopToken,url:'http://127.0.0.1:'+server.address().port,port:server.address().port,close};
+ return {desktopToken,nativeActionToken,url:'http://127.0.0.1:'+server.address().port,port:server.address().port,close};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
  const nativeExecutable=fileURLToPath(new URL('../desktop/console-build/sentinel-inspect.exe',import.meta.url));
  const nativeAppDir=process.env.LOCALAPPDATA?join(process.env.LOCALAPPDATA,'Sentinel-School-Demo','inspection-vault'):null;
  const runtime=await startRuntime({onShutdown:()=>process.exit(0),nativeExecutable,nativeAppDir});
- await writeFile(new URL('../desktop/console-build/demo-runtime.json',import.meta.url),JSON.stringify({url:runtime.url,token:runtime.desktopToken}),{mode:0o600});
+ await writeFile(new URL('../desktop/console-build/demo-runtime.json',import.meta.url),JSON.stringify({url:runtime.url,token:runtime.desktopToken,nativeActionToken:runtime.nativeActionToken}),{mode:0o600});
  process.on('SIGTERM',async()=>{await runtime.close();process.exit(0);});
 }
