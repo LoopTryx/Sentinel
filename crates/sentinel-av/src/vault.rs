@@ -1,12 +1,11 @@
 use aes_gcm::aead::{Aead, KeyInit, Payload};
 use aes_gcm::{Aes256Gcm, Key, Nonce};
 use rand::RngCore;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
-/// Quarantine vault: infected files are AES-256-GCM encrypted and moved
-/// out of reach, keyed by a key stored in the app-data dir. Encrypted blobs
-/// are inert — nothing on the machine can execute them, and Defender
-/// can't re-flag them, which keeps the quarantine list stable on stage.
+/// Local encrypted quarantine candidate. Encryption does not establish file
+/// identity, private-directory permissions or crash-safe remediation authority.
 pub struct Vault {
     pub dir: PathBuf,
     key_path: PathBuf,
@@ -28,17 +27,56 @@ impl Vault {
     }
 
     fn load_or_create_key(&self) -> Result<[u8; 32], String> {
-        if let Ok(existing) = std::fs::read(&self.key_path) {
-            if existing.len() == 32 {
-                let mut key = [0u8; 32];
-                key.copy_from_slice(&existing);
-                return Ok(key);
-            }
+        match self.load_key() {
+            Ok(key) => return Ok(key),
+            Err(_) if !self.key_path.exists() => {}
+            Err(error) => return Err(error),
+        }
+        // Never generate a replacement while existing recovery blobs need the
+        // old key. A missing key requires recovery, not silent reinitialization.
+        if std::fs::read_dir(&self.dir)
+            .map_err(|_| "vault unavailable".to_string())?
+            .next()
+            .is_some()
+        {
+            return Err("quarantine key missing; recovery required".into());
         }
         let mut key = [0u8; 32];
         rand::thread_rng().fill_bytes(&mut key);
-        std::fs::write(&self.key_path, key).map_err(|e| e.to_string())?;
+        let mut output = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&self.key_path)
+            .map_err(|_| "quarantine key creation failed".to_string())?;
+        output
+            .write_all(&key)
+            .map_err(|_| "quarantine key write failed".to_string())?;
+        output
+            .sync_all()
+            .map_err(|_| "quarantine key flush failed".to_string())?;
         Ok(key)
+    }
+
+    fn load_key(&self) -> Result<[u8; 32], String> {
+        let existing = std::fs::read(&self.key_path)
+            .map_err(|_| "quarantine key unavailable; recovery required".to_string())?;
+        existing
+            .try_into()
+            .map_err(|_| "quarantine key damaged; recovery required".into())
+    }
+
+    fn blob_path(&self, reference: &str) -> Result<PathBuf, String> {
+        let Some(id) = reference.strip_suffix(".qtn") else {
+            return Err("invalid quarantine reference".into());
+        };
+        if id.len() != 32
+            || !id
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        {
+            return Err("invalid quarantine reference".into());
+        }
+        Ok(self.dir.join(reference))
     }
 
     /// Encrypt the file and move it into the vault. The original is deleted
@@ -85,19 +123,35 @@ impl Vault {
     }
 
     pub fn restore(&self, vault_file: &str, to_path: &Path) -> Result<(), String> {
-        let blob = std::fs::read(self.dir.join(vault_file)).map_err(|e| e.to_string())?;
-        let key_bytes = self.load_or_create_key()?;
+        let vault_path = self.blob_path(vault_file)?;
+        let key_bytes = self.load_key()?;
+        let blob = std::fs::read(&vault_path).map_err(|e| e.to_string())?;
         let plaintext = self.decrypt_blob(&blob, &key_bytes)?;
         if let Some(parent) = to_path.parent() {
-            std::fs::create_dir_all(parent).ok();
+            std::fs::create_dir_all(parent)
+                .map_err(|_| "restore directory unavailable".to_string())?;
         }
-        std::fs::write(to_path, plaintext).map_err(|e| e.to_string())?;
-        std::fs::remove_file(self.dir.join(vault_file)).ok();
+        let mut output = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(to_path)
+            .map_err(|_| "restore destination unavailable or occupied".to_string())?;
+        // On a partial write, preserve both the encrypted recovery blob and
+        // partial destination. Never remove a path that could have been replaced.
+        output
+            .write_all(&plaintext)
+            .map_err(|_| "restore write failed; recovery blob retained".to_string())?;
+        output
+            .sync_all()
+            .map_err(|_| "restore flush failed; recovery blob retained".to_string())?;
+        drop(output);
+        std::fs::remove_file(vault_path)
+            .map_err(|_| "restored; recovery blob cleanup failed".to_string())?;
         Ok(())
     }
 
     pub fn destroy(&self, vault_file: &str) -> Result<(), String> {
-        std::fs::remove_file(self.dir.join(vault_file)).map_err(|e| e.to_string())
+        std::fs::remove_file(self.blob_path(vault_file)?).map_err(|e| e.to_string())
     }
 
     fn decrypt_blob(&self, blob: &[u8], key_bytes: &[u8; 32]) -> Result<Vec<u8>, String> {
