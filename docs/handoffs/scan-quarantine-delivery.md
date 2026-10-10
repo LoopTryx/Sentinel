@@ -162,6 +162,31 @@ and corrected; four protocol cases, actual report conversion and strict protocol
 lint pass after that correction. Named B security review, native UI acceptance and
 installed-browser download acceptance remain pending. No issue is complete.
 
+## Bounded quarantine storage follow-up
+
+Plaintext admission is at most 8 MiB, key input exactly 32 bytes, encrypted blob
+input at most 8 MiB plus the 12-byte nonce and 16-byte authentication tag.
+Each reader checks ordinary-file metadata before/opened/after access, rejects
+final symlinks/reparse points and uses a bounded read (at most limit plus one
+overflow sentinel byte). Windows sharing excludes writers/deletion during that
+read. No ancestry or subject authorization is inferred from these checks.
+
+New encrypted blobs use exclusive creation, write and flush, then reread and
+authenticate the actual stored bytes before the old source-removal step. A write,
+flush or verification failure retains the source; a partial blob can remain and
+must be treated as recovery-needed. Storage has no total quota/journal yet.
+Source pathname removal after closing the read handle remains unresolved, as do
+restore/blob-cleanup identity, ancestors, private ACLs and crash recovery. Do not
+enable automatic or valuable-file remediation on the strength of these tests.
+
+A harmless 9 MiB source regression failed before correction (the old code accepted
+and removed it). Eight focused recovery cases pass afterwards, including an exact
+8 MiB roundtrip with a blob 28 bytes larger, an oversized preserved key and an
+oversized preserved blob. Strict AV lint and the native AV suite passed before the
+added boundary case; that boundary case also passed. Supplemental independent
+review found no introduced Windows leaf blocker and ran the earlier seven cases.
+This is not designated B security approval or actual application acceptance.
+
 ## Remaining concrete delivery work
 
 1. Retained source identity, bounded encrypted staging, verified on-disk bytes,

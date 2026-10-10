@@ -90,3 +90,67 @@ fn authenticated_restore_remains_byte_exact_and_tampering_preserves_blob() {
     assert_eq!(std::fs::read(blob).unwrap(), bytes);
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn oversized_source_is_rejected_before_key_or_blob_creation() {
+    let root = std::env::temp_dir().join(format!("sentinel-large-vault-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&root).unwrap();
+    let source = root.join("large.txt");
+    std::fs::File::create(&source)
+        .unwrap()
+        .set_len(9 * 1024 * 1024)
+        .unwrap();
+    let vault = Vault::new(&root.join("app"));
+    assert!(vault.quarantine(&source).is_err());
+    assert_eq!(std::fs::metadata(&source).unwrap().len(), 9 * 1024 * 1024);
+    assert!(!root.join("app/vault.key").exists());
+    assert_eq!(std::fs::read_dir(&vault.dir).unwrap().count(), 0);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn oversized_recovery_input_preserves_blob_and_destination() {
+    let (root, vault, id) = fixture();
+    let blob = vault.dir.join(&id);
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(&blob)
+        .unwrap()
+        .set_len(9 * 1024 * 1024)
+        .unwrap();
+    let target = root.join("restored.txt");
+    assert!(vault.restore(&id, &target).is_err());
+    assert!(!target.exists());
+    assert_eq!(std::fs::metadata(&blob).unwrap().len(), 9 * 1024 * 1024);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn exact_plaintext_boundary_restores_and_oversized_key_is_preserved() {
+    let root =
+        std::env::temp_dir().join(format!("sentinel-boundary-vault-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&root).unwrap();
+    let source = root.join("boundary.txt");
+    std::fs::File::create(&source)
+        .unwrap()
+        .set_len(8 * 1024 * 1024)
+        .unwrap();
+    let vault = Vault::new(&root.join("app"));
+    let id = vault.quarantine(&source).unwrap().vault_file;
+    assert_eq!(
+        std::fs::metadata(vault.dir.join(&id)).unwrap().len(),
+        8 * 1024 * 1024 + 28
+    );
+    let target = root.join("restored.txt");
+    vault.restore(&id, &target).unwrap();
+    assert_eq!(std::fs::metadata(&target).unwrap().len(), 8 * 1024 * 1024);
+    let second = root.join("second.txt");
+    std::fs::write(&second, b"harmless").unwrap();
+    let id = vault.quarantine(&second).unwrap().vault_file;
+    let key = root.join("app/vault.key");
+    std::fs::write(&key, [0u8; 33]).unwrap();
+    assert!(vault.restore(&id, &root.join("blocked.txt")).is_err());
+    assert_eq!(std::fs::read(&key).unwrap(), [0u8; 33]);
+    assert!(vault.dir.join(&id).exists());
+    std::fs::remove_dir_all(root).unwrap();
+}
