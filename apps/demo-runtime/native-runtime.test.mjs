@@ -21,6 +21,21 @@ test('desktop runtime uses actual Rust bytes and keeps browser filesystem access
   const id='a'.repeat(32),pair=await(await call('/pair',{extensionId:id})).json();
   assert.equal((await call('/inspection',{},pair.token,{'X-Sentinel-Extension':id})).status,403);
   assert.equal((await call('/scan',{path},pair.token,{'X-Sentinel-Extension':id})).status,403);
+  assert.equal((await call('/quarantine-prepare',{reportRef:'report_0'})).status,403);
+  assert.equal((await call('/quarantine-confirm',{actionRef:'forged'},pair.token,{'X-Sentinel-Extension':id,'X-Sentinel-Native-Action':runtime.nativeActionToken})).status,403);
+  const native={'X-Sentinel-Native-Action':runtime.nativeActionToken};
+  assert.equal((await call('/quarantine-confirm',{actionRef:'forged',approved:true},runtime.desktopToken,native)).status,400);
+  const declinedPreview=await(await call('/quarantine-prepare',{reportRef:'report_0'},runtime.desktopToken,native)).json();
+  assert.equal((await(await call('/quarantine-decline',{actionRef:declinedPreview.data.actionRef},runtime.desktopToken,native)).json()).data.code,'declined');
+  assert.deepEqual(await readFile(path),bytes);
+  assert.equal((await(await call('/quarantine-confirm',{actionRef:declinedPreview.data.actionRef},runtime.desktopToken,native)).json()).data.code,'action_unavailable');
+  const preview=await(await call('/quarantine-prepare',{reportRef:'report_0'},runtime.desktopToken,native)).json();
+  assert.equal(preview.type,'quarantine_preview');
+  const receipt=await(await call('/quarantine-confirm',{actionRef:preview.data.actionRef},runtime.desktopToken,native)).json();
+  assert.equal(receipt.data.state,'quarantined');await assert.rejects(readFile(path));
+  const restore=await(await call('/restore-prepare',{actionRef:receipt.data.actionRef},runtime.desktopToken,native)).json();assert.equal(restore.type,'restore_preview');
+  assert.equal((await(await call('/restore-confirm',{restoreRef:restore.data.restoreRef},runtime.desktopToken,native)).json()).data.state,'restored');
+  assert.deepEqual(await readFile(path),bytes);
  }finally{await runtime.close();await rm(root,{recursive:true});}
 });
 
