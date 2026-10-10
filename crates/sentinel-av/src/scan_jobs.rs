@@ -20,6 +20,7 @@ struct Selection {
     path: PathBuf,
     kind: SelectionKind,
     expires: Instant,
+    file: Option<std::fs::File>,
 }
 
 #[derive(Clone, Default)]
@@ -80,6 +81,34 @@ impl SelectedJobs {
         if owner.is_empty() || owner.len() > 128 || path.as_os_str().len() > 2048 {
             return Err("invalid native selection");
         }
+        let file = match kind {
+            SelectionKind::File => {
+                if !crate::engine::local_selection_path(&path) {
+                    return Err("selected file unsupported");
+                }
+                let selected =
+                    std::fs::symlink_metadata(&path).map_err(|_| "selected file unavailable")?;
+                if !selected.is_file() || crate::engine::is_reparse(&selected) {
+                    return Err("selected file unsupported");
+                }
+                let mut options = std::fs::OpenOptions::new();
+                options.read(true);
+                #[cfg(windows)]
+                {
+                    use std::os::windows::fs::OpenOptionsExt;
+                    options.share_mode(1).custom_flags(0x0020_0000);
+                }
+                let file = options
+                    .open(&path)
+                    .map_err(|_| "selected file unavailable")?;
+                let metadata = file.metadata().map_err(|_| "selected file unavailable")?;
+                if !metadata.is_file() || crate::engine::is_reparse(&metadata) {
+                    return Err("selected file unsupported");
+                }
+                Some(file)
+            }
+            SelectionKind::Directory => None,
+        };
         let reference = uuid::Uuid::new_v4().simple().to_string();
         self.selection = Some(Selection {
             reference: reference.clone(),
@@ -87,6 +116,7 @@ impl SelectedJobs {
             path,
             kind,
             expires: now + Duration::from_secs(60),
+            file,
         });
         Ok(reference)
     }
@@ -135,8 +165,14 @@ impl SelectedJobs {
                     worker_bytes.store(count, Ordering::Release);
                 };
                 let result = match selected.kind {
-                    SelectionKind::File => vec![engine.scan_file_with_control(
-                        &selected.path,
+                    SelectionKind::File => vec![engine.scan_retained_file_with_control(
+                        (
+                            &selected.path,
+                            selected
+                                .file
+                                .as_ref()
+                                .expect("file selection retains handle"),
+                        ),
                         &*hash_lookup,
                         &mut cancelled,
                         &mut progress,

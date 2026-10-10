@@ -127,6 +127,11 @@ pub struct ScanReport {
     pub content_evidence: Option<crate::inspection::ContentEvidence>,
 }
 
+struct Acquisition<'a> {
+    byte_budget: usize,
+    retained: Option<&'a std::fs::File>,
+}
+
 pub struct Engine {
     rules: yara_x::Rules,
     admission: Mutex<()>,
@@ -183,7 +188,36 @@ impl Engine {
             cancelled,
             progress,
             deadline,
-            8 * 1024 * 1024,
+            Acquisition {
+                byte_budget: 8 * 1024 * 1024,
+                retained: None,
+            },
+        )
+    }
+
+    /// Internal selected-file acquisition. The trusted job owns the original
+    /// read-only handle; a path is only the private label/heuristic context.
+    pub(crate) fn scan_retained_file_with_control(
+        &self,
+        subject: (&Path, &std::fs::File),
+        hash_lookup: &dyn Fn(&str) -> Option<(String, String)>,
+        cancelled: &mut dyn FnMut() -> bool,
+        progress: &mut dyn FnMut(u64),
+        deadline: Instant,
+    ) -> ScanReport {
+        let Ok(_permit) = self.admission.try_lock() else {
+            return terminal_report(subject.0, "busy");
+        };
+        self.scan_file_inner(
+            subject.0,
+            hash_lookup,
+            cancelled,
+            progress,
+            deadline,
+            Acquisition {
+                byte_budget: 8 * 1024 * 1024,
+                retained: Some(subject.1),
+            },
         )
     }
 
@@ -194,7 +228,7 @@ impl Engine {
         cancelled: &mut dyn FnMut() -> bool,
         progress: &mut dyn FnMut(u64),
         deadline: Instant,
-        byte_budget: usize,
+        acquisition: Acquisition<'_>,
     ) -> ScanReport {
         let start = Instant::now();
         let deadline = deadline.min(start + Duration::from_secs(30));
@@ -211,23 +245,26 @@ impl Engine {
             report.state = "unsupported".into();
             return report;
         }
-        let Ok(selected) = std::fs::symlink_metadata(path) else {
-            return report;
+        let opened = if let Some(retained) = acquisition.retained {
+            retained.try_clone()
+        } else {
+            let Ok(selected) = std::fs::symlink_metadata(path) else {
+                return report;
+            };
+            if !selected.is_file() || is_reparse(&selected) {
+                report.state = "unsupported".into();
+                return report;
+            }
+            let mut options = std::fs::OpenOptions::new();
+            options.read(true);
+            #[cfg(windows)]
+            {
+                use std::os::windows::fs::OpenOptionsExt;
+                options.share_mode(1).custom_flags(0x0020_0000);
+            }
+            options.open(path)
         };
-        if !selected.is_file() || is_reparse(&selected) {
-            report.state = "unsupported".into();
-            return report;
-        }
-        let mut options = std::fs::OpenOptions::new();
-        options.read(true);
-        #[cfg(windows)]
-        {
-            use std::os::windows::fs::OpenOptionsExt;
-            // Retain a read handle that excludes writers/deletion. Opening the
-            // leaf itself must not follow a replacement reparse point.
-            options.share_mode(1).custom_flags(0x0020_0000);
-        }
-        let Ok(mut file) = options.open(path) else {
+        let Ok(mut file) = opened else {
             return report;
         };
         let Ok(before) = file.metadata() else {
@@ -237,7 +274,7 @@ impl Engine {
             report.state = "unsupported".into();
             return report;
         }
-        let max_buf = byte_budget.min(8 * 1024 * 1024);
+        let max_buf = acquisition.byte_budget.min(8 * 1024 * 1024);
         let mut buf = Vec::new();
         let size = before.len();
         report.size = size;
@@ -458,7 +495,7 @@ fn terminal_report(path: &Path, state: &str) -> ScanReport {
     }
 }
 
-fn is_reparse(metadata: &std::fs::Metadata) -> bool {
+pub(crate) fn is_reparse(metadata: &std::fs::Metadata) -> bool {
     #[cfg(windows)]
     {
         use std::os::windows::fs::MetadataExt;
@@ -470,7 +507,7 @@ fn is_reparse(metadata: &std::fs::Metadata) -> bool {
     }
 }
 
-fn local_selection_path(path: &Path) -> bool {
+pub(crate) fn local_selection_path(path: &Path) -> bool {
     if !path.is_absolute() {
         return false;
     }
@@ -660,7 +697,10 @@ pub fn scan_directory_with_control(
                     progress(entry.path(), count);
                 },
                 deadline,
-                remaining,
+                Acquisition {
+                    byte_budget: remaining,
+                    retained: None,
+                },
             );
             bytes += acquired;
             reports.push(report);

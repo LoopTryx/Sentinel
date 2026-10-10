@@ -1,6 +1,79 @@
 use sentinel_av::scan_jobs::{SelectedJobs, SelectionKind};
 use std::time::{Duration, Instant};
 
+#[cfg(windows)]
+#[test]
+fn selected_file_is_retained_before_start_and_released_after_completion() {
+    let root = std::env::temp_dir().join(format!("sentinel-job-held-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(&root).unwrap();
+    let path = root.join("ordinary.txt");
+    let bytes = b"original harmless selected bytes";
+    std::fs::write(&path, bytes).unwrap();
+    let mut jobs = SelectedJobs::default();
+    let selected = jobs
+        .select(
+            "trusted-main",
+            path.clone(),
+            SelectionKind::File,
+            Instant::now(),
+        )
+        .unwrap();
+    assert!(jobs
+        .select(
+            "trusted-main",
+            root.clone(),
+            SelectionKind::File,
+            Instant::now()
+        )
+        .is_err());
+    let write_refused = std::fs::OpenOptions::new().write(true).open(&path).is_err();
+    let rename_refused = std::fs::rename(&path, root.join("replacement.txt")).is_err();
+    assert!(
+        write_refused && rename_refused,
+        "selection must retain original read-only subject before start"
+    );
+    let job = jobs
+        .start("trusted-main", &selected, Instant::now())
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let snapshot = jobs.poll("trusted-main", &job).unwrap();
+        if snapshot.finished {
+            assert_eq!(snapshot.reports[0].bytes_inspected, bytes.len() as u64);
+            assert_eq!(snapshot.reports[0].state, "completed");
+            break;
+        }
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert!(std::fs::OpenOptions::new().write(true).open(&path).is_ok());
+    std::fs::remove_file(path).unwrap();
+    std::fs::remove_dir(root).unwrap();
+}
+
+#[cfg(windows)]
+#[test]
+fn dropping_unstarted_selection_releases_only_its_handle() {
+    let root = std::env::temp_dir().join(format!("sentinel-job-drop-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(&root).unwrap();
+    let path = root.join("ordinary.txt");
+    std::fs::write(&path, b"harmless drop bytes").unwrap();
+    let mut jobs = SelectedJobs::default();
+    jobs.select(
+        "trusted-main",
+        path.clone(),
+        SelectionKind::File,
+        Instant::now(),
+    )
+    .unwrap();
+    assert!(std::fs::OpenOptions::new().write(true).open(&path).is_err());
+    drop(jobs);
+    assert!(std::fs::OpenOptions::new().write(true).open(&path).is_ok());
+    assert_eq!(std::fs::read(&path).unwrap(), b"harmless drop bytes");
+    std::fs::remove_file(path).unwrap();
+    std::fs::remove_dir(root).unwrap();
+}
+
 #[test]
 fn selection_is_single_use_owner_bound_and_produces_real_report() {
     let root = std::env::temp_dir().join(format!("sentinel-job-{}", uuid::Uuid::new_v4()));
@@ -36,24 +109,34 @@ fn selection_is_single_use_owner_bound_and_produces_real_report() {
 }
 
 #[test]
-fn expired_selection_refuses_without_filesystem_access() {
+fn expired_selection_releases_handle_and_refuses_replay() {
+    let root = std::env::temp_dir().join(format!("sentinel-job-expiry-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(&root).unwrap();
+    let path = root.join("ordinary.txt");
+    std::fs::write(&path, b"harmless expiry bytes").unwrap();
     let mut jobs = SelectedJobs::default();
     let now = Instant::now();
     assert!(jobs
-        .select("", "nonexistent".into(), SelectionKind::File, now)
+        .select("", path.clone(), SelectionKind::File, now)
         .is_err());
-    let selection = jobs
+    assert!(jobs
         .select(
             "trusted-main",
-            "nonexistent".into(),
+            root.join("missing.txt"),
             SelectionKind::File,
-            now,
+            now
         )
+        .is_err());
+    let selection = jobs
+        .select("trusted-main", path.clone(), SelectionKind::File, now)
         .unwrap();
     assert!(jobs
         .start("trusted-main", &selection, now + Duration::from_secs(61))
         .is_err());
+    assert!(std::fs::OpenOptions::new().write(true).open(&path).is_ok());
+    std::fs::remove_file(path).unwrap();
     assert!(jobs.start("trusted-main", &selection, now).is_err());
+    std::fs::remove_dir(root).unwrap();
 }
 
 #[test]

@@ -776,3 +776,34 @@ the earlier broad candidate is superseded for this repair. Native compilation an
 installed supported journeys remain required. Current C: free space is about
 679MiB, so a fresh large native build needs an explicitly budgeted build location
 or verified disposable owned-artifact cleanup, never broad peer-cache deletion.
+
+## Selected regular-file handle binding
+
+SelectedJobs file selection now acquires a regular-file read handle immediately.
+Windows opens the leaf without following a reparse point and shares reads only,
+so writers and deletion/rename are refused while selection/worker owns the handle.
+The worker transfers that retained subject to internal engine acquisition; it
+clones the handle rather than reopening the path. The original private path remains
+heuristic/report context only and must never become quarantine action authority.
+Selection failure preserves the previous selection. Expired start consumes/releases
+the handle; completed worker exit releases it before admission resumes. Overwrite
+or controller drop also releases an unstarted selection. Native integration must
+schedule idle expiry cleanup; the controller does not have an autonomous timer.
+
+Actual harmless Windows replacement/write regression failed first on path-only
+selection. Five selected-job tests then pass, covering refusal before start,
+original-byte report, post-completion write release, expired-start release/replay,
+foreign refs and held cancellation/admission. Selecting a missing file now fails
+at selection rather than deferring missing-path access to the worker. Directory
+root/descendant binding and initial picker-to-open ancestry validation remain
+separate gates. Non-Windows sharing does not provide the Windows deny-write/delete
+guarantee. No registered native capability, isolated worker, installed browser
+journey, action authorization, peer approval or main integration is inferred.
+
+Final unchanged tools/verify.ps1 exits0 / All available T01 checks passed,
+including strict workspace clippy, actual engine/job/vault tests, generated parity,
+UI and extension checks. Test fixture adjustment replaces the old nonexistent-path
+selection with an actual harmless file, because picker-time acquisition is now
+required; expiry still refuses before worker filesystem access and releases the
+handle. Dropping an unstarted controller preserves bytes and releases writers.
+Standalone Tauri remains excluded from the root verifier.
