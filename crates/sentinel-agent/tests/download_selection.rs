@@ -97,3 +97,22 @@ fn usage_cannot_charge_bytes_without_corresponding_live_slots() {
         Err(DownloadReservationError::InvalidUsage)
     );
 }
+
+#[test]
+fn atomic_accounting_retains_charges_until_cleanup_succeeds() {
+    use sentinel_agent::download_selection::reserve_download_accounting;
+    let mut tickets = Vec::new();
+    for _ in 0..8 {
+        tickets.push(reserve_download_accounting("budget-test-owner", 1).unwrap());
+    }
+    assert!(reserve_download_accounting("budget-test-owner", 1).is_err());
+    let ticket = tickets.pop().unwrap();
+    let ticket = ticket.release_with_cleanup(|| Err(())).unwrap_err();
+    assert!(reserve_download_accounting("budget-test-owner", 1).is_err());
+    ticket.release_with_cleanup(|| Ok(())).unwrap();
+    let replacement = reserve_download_accounting("budget-test-owner", 1).unwrap();
+    replacement.release_with_cleanup(|| Ok(())).unwrap();
+    for ticket in tickets {
+        ticket.release_with_cleanup(|| Ok(())).unwrap();
+    }
+}
