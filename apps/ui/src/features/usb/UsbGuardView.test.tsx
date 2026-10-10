@@ -1,8 +1,11 @@
 // @vitest-environment jsdom
 import {act} from 'react';
 import {createRoot} from 'react-dom/client';
-import {afterEach, expect, it, vi} from 'vitest';
+import {afterEach, beforeEach, expect, it, vi} from 'vitest';
 import UsbGuardView from './UsbGuardView';
+const bridge=vi.hoisted(()=>({state:null as unknown,error:'',call:vi.fn()}));
+vi.mock('../../demo-bridge',()=>({useDemoState:()=>({state:bridge.state,error:bridge.error}),demoCall:bridge.call}));
+beforeEach(()=>{bridge.state=null;bridge.error='';bridge.call.mockReset();bridge.call.mockResolvedValue({});});
 (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT=true;
 let root: ReturnType<typeof createRoot>;
 afterEach(async()=>{if(root) await act(()=>root.unmount()); document.body.innerHTML=''; vi.restoreAllMocks();});
@@ -13,3 +16,21 @@ it('does not claim USB prevention or scans without an adapter',async()=>{const h
 it('shows a composite device as separate storage/input exposure, then clears it',async()=>{const host=await mount();await load(host,async()=>snapshot());expect(host.textContent).toContain('Composite device');expect(host.textContent).toContain('Keyboard input');expect(host.textContent).toContain('Storage approval cannot approve HID');await act(()=>Array.from(host.querySelectorAll('button')).find(b=>b.textContent==='Clear snapshot')!.click());expect(host.textContent).not.toContain('Composite device');});
 it('rejects oversized files without reading their contents',async()=>{const host=await mount();const read=vi.fn();await load(host,read,32769);expect(read).not.toHaveBeenCalled();expect(host.textContent).toContain('Invalid or oversized inventory');});
 it('suppresses a late import after clear',async()=>{const host=await mount();let finish!:(text:string)=>void;await load(host,()=>new Promise(resolve=>{finish=resolve;}));await act(()=>Array.from(host.querySelectorAll('button')).find(b=>b.textContent==='Clear snapshot')!.click());await act(async()=>finish(snapshot()));expect(host.textContent).toContain('No inventory loaded');expect(host.textContent).not.toContain('Composite device');});
+
+it('opens the existing native folder selector without sending a device ID or path',async()=>{
+ bridge.state={scan:null};const host=await mount();const choose=Array.from(host.querySelectorAll('button')).find(b=>b.textContent==='Choose folder')!;
+ expect(choose).toBeTruthy();expect(choose.disabled).toBe(false);
+ await act(async()=>choose.click());expect(bridge.call).toHaveBeenCalledWith('scan.select',{kind:'folder'});
+ expect(host.textContent).toContain('Known harmless samples only');expect(host.textContent).toContain('No storage hold or HID gate');
+});
+it('shows the shared incomplete scan and cancels its existing job',async()=>{
+ bridge.state={scan:{status:'running',coverage:'partial',engine:'Existing engine',checked:1,skipped:2,errors:0,bytes:10,visited:3,findings:[],files:[]}};
+ const host=await mount();expect(host.textContent).toContain('Existing engine');expect(host.textContent).toContain('partial coverage');
+ const choose=Array.from(host.querySelectorAll('button')).find(b=>b.textContent==='Choose folder')!;expect(choose.disabled).toBe(true);
+ await act(async()=>Array.from(host.querySelectorAll('button')).find(b=>b.textContent==='Cancel inspection')!.click());expect(bridge.call).toHaveBeenCalledWith('cancel');
+});
+it('preserves selector failure and leaves HID controls unavailable',async()=>{
+ bridge.state={scan:null};bridge.call.mockRejectedValue(new Error('Selection unavailable'));
+ const host=await mount();await act(async()=>Array.from(host.querySelectorAll('button')).find(b=>b.textContent==='Choose folder')!.click());
+ expect(host.textContent).toContain('Selection unavailable');expect(host.textContent).toContain('HID input blocking unavailable');
+});
