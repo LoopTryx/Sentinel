@@ -43,3 +43,11 @@ body:has([data-view=settings][aria-pressed=true]) main>.notice{display:none}
 body:has([data-view=settings][aria-pressed=true]) footer{margin-top:16px}
 .settings-panel [role=status]:not(:empty){padding:9px;font-size:11px;background:#11172c}
 @media(forced-colors:active){nav button[aria-pressed=true],button.primary,.setting-card>button{background:Highlight;color:HighlightText}.setting-card,.settings-group{border-color:CanvasText}}
+
+/* Compact navigation with complementary red accents. */
+nav{border-top:2px solid #d21319;background:#151a35;padding:5px}
+nav button{border:1px solid transparent;border-bottom:3px solid transparent}
+nav button[aria-pressed=true]{border:1px solid #afaea2;border-bottom:3px solid #d21319;background:linear-gradient(135deg,#e4dfd2,#afaea2);color:#1b1e4a}
+nav button:hover{border-bottom-color:#ed2530}
+footer{justify-content:flex-end}header h1{font-size:19px}main{gap:12px}
+@media(forced-colors:active){nav{border-color:CanvasText}nav button[aria-pressed=true]{border-color:Highlight}}
