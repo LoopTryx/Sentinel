@@ -755,3 +755,24 @@ Do not apply this broad dependency candidate silently. Native shared lock owners
 and bounded reconciliation/version review are requested from B/coordinator before
 actual native compile. Other gates listed above remain. Supplemental reviewer was
 unavailable due account usage limit; no independent authority review is claimed.
+
+## Targeted native lock reconciliation evidence
+
+The subsequent online `cargo update --package sentinel-av` in the same isolated
+TEMP manifest succeeds. Unlike full regeneration, its diff adds only
+sentinel-proto0.1.0, ts-rs11.1.0 and ts-rs-macros11.1.0; no existing package/version
+is removed or upgraded. The sentinel-av dependency list also gains its declared
+serde_json and windows-sys0.61.2 edges, using already locked packages.
+`cargo metadata --locked --offline --no-deps --format-version 1` succeeds against
+that candidate. Metadata is resolution evidence, not compilation or IPC evidence.
+
+Candidate directory: TEMP/sentinel-native-lock-candidate-b4388bc. Reproduce by
+copying the standalone manifest/lock into an owned temporary directory, replacing
+the sentinel-av path with this checkout's absolute path, adding an empty src/main.rs,
+and running the targeted update above. Keep the original native package settings.
+Compare the candidate lock against apps/desktop-tauri/Cargo.lock before transfer.
+The repository lock remains unchanged pending exact shared-file editing ownership;
+the earlier broad candidate is superseded for this repair. Native compilation and
+installed supported journeys remain required. Current C: free space is about
+679MiB, so a fresh large native build needs an explicitly budgeted build location
+or verified disposable owned-artifact cleanup, never broad peer-cache deletion.
