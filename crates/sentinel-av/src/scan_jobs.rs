@@ -253,6 +253,62 @@ impl SelectedJobs {
 
     /// Canonical output from the privately correlated job. Native must derive
     /// owner from authenticated caller context; references alone grant no access.
+    pub fn start_wire(
+        &mut self,
+        owner: &str,
+        request: &sentinel_proto::selected_scan::ScanStartRequest,
+        now: Instant,
+    ) -> Result<
+        sentinel_proto::selected_scan::ScanJobReference,
+        sentinel_proto::selected_scan::ScanError,
+    > {
+        use sentinel_proto::selected_scan::{ScanError, ScanErrorCode, ScanJobReference};
+        request.validate().map_err(|_| ScanError {
+            code: ScanErrorCode::InvalidRequest,
+        })?;
+        let job_ref = self
+            .start(owner, &request.selection_ref, now)
+            .map_err(|error| ScanError {
+                code: match error {
+                    "scan worker busy" => ScanErrorCode::Busy,
+                    "selection unavailable" | "selection expired" => {
+                        ScanErrorCode::SelectionUnavailable
+                    }
+                    _ => ScanErrorCode::Unavailable,
+                },
+            })?;
+        let response = ScanJobReference { job_ref };
+        response.validate().map_err(|_| ScanError {
+            code: ScanErrorCode::Unavailable,
+        })?;
+        Ok(response)
+    }
+
+    /// Sticky cancellation acknowledgment, never immediate worker termination.
+    pub fn cancel_wire(
+        &mut self,
+        owner: &str,
+        request: &sentinel_proto::selected_scan::ScanJobReference,
+    ) -> Result<
+        sentinel_proto::selected_scan::ScanCancelResponse,
+        sentinel_proto::selected_scan::ScanError,
+    > {
+        use sentinel_proto::selected_scan::{ScanCancelResponse, ScanError, ScanErrorCode};
+        request.validate().map_err(|_| ScanError {
+            code: ScanErrorCode::InvalidRequest,
+        })?;
+        self.cancel(owner, &request.job_ref)
+            .map_err(|_| ScanError {
+                code: ScanErrorCode::JobUnavailable,
+            })?;
+        Ok(ScanCancelResponse {
+            job_ref: request.job_ref.clone(),
+            cancellation_requested: true,
+        })
+    }
+
+    /// Canonical output from the privately correlated job. Native must derive
+    /// owner from authenticated caller context; references alone grant no access.
     pub fn poll_wire(
         &mut self,
         owner: &str,

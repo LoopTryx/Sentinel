@@ -117,6 +117,20 @@ implementation. This proves library conversion, not registered Tauri/authenticat
 IPC or installed desktop/browser acceptance. Raw poll remains internal native use
 only; callers must use poll_wire for transport.
 
+Implemented typed controls: `SelectedJobs::start_wire(owner, &ScanStartRequest,
+native_now) -> Result<ScanJobReference, ScanError>` and
+`cancel_wire(owner, &ScanJobReference) -> Result<ScanCancelResponse, ScanError>`.
+Both validate input before controller work. Start maps busy/selection refusal/
+worker unavailability to closed codes; cancel returns only the validated jobRef
+and sticky acknowledgment. No raw controller error is transported. Native caller
+identity/time remains trusted adapter context; never deserialize it from a page.
+
+The actual held-worker test uses typed start/cancel, rejects foreign selection,
+checks exact acknowledgment correlation and invalid path-shaped references, and
+retains admission until the joined worker exits. Seven selected-job checks pass.
+Initial test failed missing controls; no Tauri dispatch, permission policy or
+installed acceptance is proved by these library functions.
+
 Use one controller and a bounded idle maintenance timer, trusted native clocks,
 actual picker authorization and held subject identity. File handles are retained
 already; directory root/descendant and picker-to-open ancestry binding remain

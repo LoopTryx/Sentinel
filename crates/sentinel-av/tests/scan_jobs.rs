@@ -232,6 +232,7 @@ fn expired_selection_releases_handle_and_refuses_replay() {
 
 #[test]
 fn cancellation_keeps_worker_admission_until_actual_exit() {
+    use sentinel_proto::selected_scan::{ScanErrorCode, ScanJobReference, ScanStartRequest};
     use std::sync::{mpsc, Arc, Mutex};
     let root = std::env::temp_dir().join(format!("sentinel-job-cancel-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir(&root).unwrap();
@@ -252,10 +253,40 @@ fn cancellation_keeps_worker_admission_until_actual_exit() {
     let selected = jobs
         .select("trusted-main", path.clone(), SelectionKind::File, now)
         .unwrap();
-    let job = jobs.start("trusted-main", &selected, now).unwrap();
+    let request = ScanStartRequest {
+        selection_ref: selected,
+    };
+    assert_eq!(
+        jobs.start_wire("foreign", &request, now).unwrap_err().code,
+        ScanErrorCode::SelectionUnavailable
+    );
+    let job = jobs
+        .start_wire("trusted-main", &request, now)
+        .unwrap()
+        .job_ref;
     entered_rx.recv_timeout(Duration::from_secs(10)).unwrap();
     assert!(jobs.cancel("foreign", &job).is_err());
-    jobs.cancel("trusted-main", &job).unwrap();
+    let acknowledgment = jobs
+        .cancel_wire(
+            "trusted-main",
+            &ScanJobReference {
+                job_ref: job.clone(),
+            },
+        )
+        .unwrap();
+    assert_eq!(acknowledgment.job_ref, job);
+    assert!(acknowledgment.cancellation_requested);
+    assert_eq!(
+        jobs.cancel_wire(
+            "trusted-main",
+            &ScanJobReference {
+                job_ref: "C:/private/file".into()
+            }
+        )
+        .unwrap_err()
+        .code,
+        ScanErrorCode::InvalidRequest
+    );
     let snapshot = jobs.poll("trusted-main", &job).unwrap();
     let next = jobs
         .select("trusted-main", path, SelectionKind::File, now)
