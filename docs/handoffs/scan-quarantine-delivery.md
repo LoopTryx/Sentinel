@@ -807,3 +807,32 @@ selection with an actual harmless file, because picker-time acquisition is now
 required; expiry still refuses before worker filesystem access and releases the
 handle. Dropping an unstarted controller preserves bytes and releases writers.
 Standalone Tauri remains excluded from the root verifier.
+
+## Idle and busy selection expiry maintenance
+
+`SelectedJobs::maintain(now: Instant) -> bool` is a trusted-native monotonic-clock
+hook. It releases an unused selection at its inclusive60second expiry and reaps
+only finished workers. The return value reports whether a selection expired;
+no subject/path is emitted. Select/start invoke it with native supplied time;
+poll/cancel invoke it with Instant::now. Start now expires selection before the
+worker-busy check, so an active unrelated scan cannot retain an expired file lock.
+Maintenance neither cancels nor frees admission for a running worker.
+
+Actual harmless busy-worker expiry regression failed first on c6dcfe0: a second
+expired file remained locked because start returned busy first. Candidate fixes
+that refusal path; seven selected-job tests pass. Idle maintenance control proves
+retention at59seconds, release at60seconds, idempotence at61seconds and replay
+refusal, with unchanged bytes. The busy test uses a labeled controlled hash callback
+to keep the actual first worker live, then releases it and joins via polling.
+This is lifecycle evidence, not OS worker containment or installed protection.
+
+Native integration must call maintain(Instant::now()) from its bounded trusted
+idle timer and reconcile shutdown. This library does not create an autonomous
+timer/thread for each selection. Browser/client clocks must never be accepted as
+the maintenance clock. Directory subject binding, caller/action authorization,
+canonical wire/native integration and real download-byte journeys remain open.
+
+Unchanged tools/verify.ps1 on this final source completes exit0 / All available
+T01 checks passed, including strict workspace lint, seven actual job tests,
+engine/vault checks, generated parity and UI/extension checks. Root verification
+still excludes standalone Tauri compilation/IPC and installed acceptance.

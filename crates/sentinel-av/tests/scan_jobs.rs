@@ -3,6 +3,88 @@ use std::time::{Duration, Instant};
 
 #[cfg(windows)]
 #[test]
+fn native_maintenance_releases_idle_selection_at_exact_expiry() {
+    let root =
+        std::env::temp_dir().join(format!("sentinel-job-idle-expiry-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(&root).unwrap();
+    let path = root.join("ordinary.txt");
+    std::fs::write(&path, b"harmless idle bytes").unwrap();
+    let mut jobs = SelectedJobs::default();
+    let now = Instant::now();
+    let reference = jobs
+        .select("trusted-main", path.clone(), SelectionKind::File, now)
+        .unwrap();
+    assert!(!jobs.maintain(now + Duration::from_secs(59)));
+    assert!(std::fs::OpenOptions::new().write(true).open(&path).is_err());
+    assert!(jobs.maintain(now + Duration::from_secs(60)));
+    assert!(!jobs.maintain(now + Duration::from_secs(61)));
+    assert!(std::fs::OpenOptions::new().write(true).open(&path).is_ok());
+    assert!(jobs.start("trusted-main", &reference, now).is_err());
+    assert_eq!(std::fs::read(&path).unwrap(), b"harmless idle bytes");
+    std::fs::remove_file(path).unwrap();
+    std::fs::remove_dir(root).unwrap();
+}
+
+#[cfg(windows)]
+#[test]
+fn expired_selection_releases_while_another_worker_is_busy() {
+    use std::sync::{mpsc, Arc, Mutex};
+    let root =
+        std::env::temp_dir().join(format!("sentinel-job-busy-expiry-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(&root).unwrap();
+    let first = root.join("first.txt");
+    let second = root.join("second.txt");
+    std::fs::write(&first, b"harmless first job").unwrap();
+    std::fs::write(&second, b"harmless unstarted selection").unwrap();
+    let (entered_tx, entered_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let release_rx = Mutex::new(release_rx);
+    let mut jobs = SelectedJobs::with_hash_lookup(Arc::new(move |_| {
+        entered_tx.send(()).unwrap();
+        let _ = release_rx
+            .lock()
+            .unwrap()
+            .recv_timeout(Duration::from_secs(10));
+        None
+    }));
+    let now = Instant::now();
+    let first_ref = jobs
+        .select("trusted-main", first.clone(), SelectionKind::File, now)
+        .unwrap();
+    let job = jobs.start("trusted-main", &first_ref, now).unwrap();
+    entered_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+    let second_ref = jobs
+        .select("trusted-main", second.clone(), SelectionKind::File, now)
+        .unwrap();
+    assert!(std::fs::OpenOptions::new()
+        .write(true)
+        .open(&second)
+        .is_err());
+    let refused = jobs
+        .start("trusted-main", &second_ref, now + Duration::from_secs(60))
+        .is_err();
+    let released = std::fs::OpenOptions::new()
+        .write(true)
+        .open(&second)
+        .is_ok();
+    release_tx.send(()).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !jobs.poll("trusted-main", &job).unwrap().finished {
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    drop(jobs);
+    std::fs::remove_file(first).unwrap();
+    std::fs::remove_file(second).unwrap();
+    std::fs::remove_dir(root).unwrap();
+    assert!(
+        refused && released,
+        "busy admission must not retain an expired selected file"
+    );
+}
+
+#[cfg(windows)]
+#[test]
 fn selected_file_is_retained_before_start_and_released_after_completion() {
     let root = std::env::temp_dir().join(format!("sentinel-job-held-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir(&root).unwrap();

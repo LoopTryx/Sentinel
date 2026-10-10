@@ -81,6 +81,7 @@ impl SelectedJobs {
         if owner.is_empty() || owner.len() > 128 || path.as_os_str().len() > 2048 {
             return Err("invalid native selection");
         }
+        self.maintain(now);
         let file = match kind {
             SelectionKind::File => {
                 if !crate::engine::local_selection_path(&path) {
@@ -129,13 +130,28 @@ impl SelectedJobs {
         }
     }
 
+    /// Trusted native timer/operation hook, using a native monotonic clock.
+    /// Releases unused expired selections even while a different worker runs.
+    /// This is not an autonomous timer or a worker interruption mechanism.
+    pub fn maintain(&mut self, now: Instant) -> bool {
+        let expired = self
+            .selection
+            .as_ref()
+            .is_some_and(|selection| now >= selection.expires);
+        if expired {
+            self.selection = None;
+        }
+        self.reap();
+        expired
+    }
+
     pub fn start(
         &mut self,
         owner: &str,
         reference: &str,
         now: Instant,
     ) -> Result<String, &'static str> {
-        self.reap();
+        self.maintain(now);
         if self.job.as_ref().is_some_and(|job| job.worker.is_some()) {
             return Err("scan worker busy");
         }
@@ -205,7 +221,7 @@ impl SelectedJobs {
     }
 
     pub fn poll(&mut self, owner: &str, reference: &str) -> Result<JobSnapshot, &'static str> {
-        self.reap();
+        self.maintain(Instant::now());
         let job = self
             .job
             .as_ref()
@@ -222,6 +238,7 @@ impl SelectedJobs {
     }
 
     pub fn cancel(&mut self, owner: &str, reference: &str) -> Result<(), &'static str> {
+        self.maintain(Instant::now());
         let job = self
             .job
             .as_ref()
