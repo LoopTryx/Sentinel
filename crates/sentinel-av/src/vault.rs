@@ -7,7 +7,14 @@ use std::path::{Path, PathBuf};
 const MAX_PLAINTEXT_BYTES: usize = 8 * 1024 * 1024;
 const MAX_BLOB_BYTES: usize = MAX_PLAINTEXT_BYTES + 12 + 16;
 
-fn read_bounded(path: &Path, limit: usize) -> Result<Vec<u8>, String> {
+#[cfg(test)]
+#[derive(PartialEq, Eq)]
+enum ControlledInterruption {
+    JournalCommitted,
+    SourceDispositionApplied,
+}
+
+pub(crate) fn read_bounded(path: &Path, limit: usize) -> Result<Vec<u8>, String> {
     read_bounded_handle(path, limit, false).map(|(_, bytes)| bytes)
 }
 
@@ -106,6 +113,14 @@ pub struct QuarantineOutcome {
 }
 
 impl Vault {
+    pub fn recovery_summary(
+        &self,
+        vault_file: &str,
+    ) -> Result<crate::quarantine_journal::RecoverySummary, String> {
+        self.blob_path(vault_file)?;
+        crate::quarantine_journal::read_summary(&self.dir, vault_file, &self.load_key()?)
+    }
+
     pub fn new(app_data: &Path) -> Self {
         let dir = app_data.join("vault");
         std::fs::create_dir_all(&dir).ok();
@@ -171,6 +186,21 @@ impl Vault {
     /// Encrypt the file and move it into the vault. The original is deleted
     /// only after the encrypted copy is fully written and verified readable.
     pub fn quarantine(&self, source: &Path) -> Result<QuarantineOutcome, String> {
+        #[cfg(test)]
+        {
+            self.quarantine_inner(source, None)
+        }
+        #[cfg(not(test))]
+        {
+            self.quarantine_inner(source)
+        }
+    }
+
+    fn quarantine_inner(
+        &self,
+        source: &Path,
+        #[cfg(test)] interruption: Option<ControlledInterruption>,
+    ) -> Result<QuarantineOutcome, String> {
         let (source_handle, plaintext) = read_bounded_handle(source, MAX_PLAINTEXT_BYTES, true)?;
         let key_bytes = self.load_or_create_key()?;
 
@@ -229,12 +259,31 @@ impl Vault {
             return Err("post-encryption verification failed; original left in place".into());
         }
 
+        // Persist authenticated source association before source deletion can
+        // occur. The exclusive journal handle stays retained through completion.
+        let mut journal = crate::quarantine_journal::Journal::create(
+            &self.dir,
+            &vault_file,
+            source,
+            &plaintext,
+            &key_bytes,
+        )?;
+        #[cfg(test)]
+        if interruption == Some(ControlledInterruption::JournalCommitted) {
+            return Err("controlled interruption before source disposition".into());
+        }
+
         #[cfg(windows)]
         let original_removed = mark_retained_file_for_deletion(&source_handle);
         drop(source_handle);
         drop(output);
         #[cfg(not(windows))]
         let original_removed = std::fs::remove_file(source).is_ok();
+        #[cfg(test)]
+        if interruption == Some(ControlledInterruption::SourceDispositionApplied) {
+            return Err("controlled interruption before terminal journal receipt".into());
+        }
+        journal.finish(original_removed, &key_bytes)?;
         Ok(QuarantineOutcome {
             vault_file,
             original_removed,
@@ -359,5 +408,39 @@ mod retained_source_tests {
         drop(handle);
         assert!(source.exists());
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn interrupted_quarantine_retains_authenticated_recovery_on_both_sides_of_removal() {
+        for interruption in [
+            ControlledInterruption::JournalCommitted,
+            ControlledInterruption::SourceDispositionApplied,
+        ] {
+            let root =
+                std::env::temp_dir().join(format!("sentinel-interrupted-{}", uuid::Uuid::new_v4()));
+            std::fs::create_dir(&root).unwrap();
+            let source = root.join("harmless.txt");
+            let plaintext = b"harmless recovery interruption";
+            std::fs::write(&source, plaintext).unwrap();
+            let vault = Vault::new(&root.join("app"));
+            let before_remove = interruption == ControlledInterruption::JournalCommitted;
+            assert!(vault.quarantine_inner(&source, Some(interruption)).is_err());
+            assert_eq!(source.exists(), before_remove);
+            let reference = std::fs::read_dir(&vault.dir)
+                .unwrap()
+                .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+                .find(|name| name.ends_with(".qtn"))
+                .unwrap();
+            let summary = vault.recovery_summary(&reference).unwrap();
+            assert_eq!(
+                summary.phase,
+                crate::quarantine_journal::RecoveryPhase::RecoveryRequired
+            );
+            assert_eq!(summary.plaintext_bytes, plaintext.len().to_string());
+            let restored = root.join("explicit-new-target.txt");
+            vault.restore(&reference, &restored).unwrap();
+            assert_eq!(std::fs::read(&restored).unwrap(), plaintext);
+            std::fs::remove_dir_all(root).unwrap();
+        }
     }
 }

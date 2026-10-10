@@ -220,6 +220,46 @@ and native AV tests passed during development; final exact-head verifier/review
 must be recorded separately. Defender is unchanged and all paths are fresh temp
 fixtures, not E: or selected valuable files.
 
+## Encrypted recovery journal candidate
+
+After verifying the persisted encrypted blob, quarantine creates an exclusive
+`.qjr` journal and flushes authenticated encrypted source association, digest and
+byte count before disposing the held source. A second flushed record reports
+whether removal succeeded. Records use fresh AES-GCM nonces and bind to the exact
+vault reference as authenticated additional data. Reads cap the journal at 8192
+bytes and each encrypted frame at 2048 bytes; private source paths never appear
+in the native summary or diagnostic errors.
+
+Native signature: `Vault::recovery_summary(&self, vault_file: &str) ->
+Result<RecoverySummary, String>`. Use only the generated vault reference returned
+by quarantine, for example `0123456789abcdef0123456789abcdef.qtn`. The summary
+contains `vault_file`, `phase`, canonical decimal `plaintext_bytes` (for example
+`"24"`) and the SHA-256 hex digest. It grants no action authority and is not an
+exposed RPC or browser DTO. `RemovalRecorded` and `SourceRetainedRecorded` are
+historical authenticated receipts, not proof of current blob availability,
+current source state or protection. Restore/destroy do not yet write lifecycle
+receipts; their old journals remain and must not be presented as live inventory.
+
+A verified initial record without a valid terminal record returns
+`RecoveryRequired`, including truncated or corrupt trailing records. Missing,
+oversized, unauthenticated or cross-reference journals fail explicitly. Legacy
+blobs remain explicitly restorable without guessing their missing journal state.
+If terminal journal writing fails after removal, quarantine returns an error,
+but the verified blob and initial recovery record remain; consumers must inspect
+recovery rather than assume every error means the source was preserved.
+
+The native AV suite passed 40 tests and strict clippy passed. Controlled test-only
+returns immediately before and after held-source disposal both retained
+authenticated recovery and restored harmless bytes exactly to a new target.
+Journal tests cover encryption, reference binding, oversized input, tampering,
+truncated terminals, 1/2/3-byte trailing data and legacy missing journals. The
+trailing-data regression failed before correction. Supplemental independent
+review passed interruption and journal tests; designated B review remains due.
+These are controlled-return tests, not process-kill, filesystem directory-entry
+durability or power-loss evidence. Full exact-head verification is recorded
+separately after committing. Storage ACL/ancestry, quotas, recovery inventory,
+restore/destroy journal lifecycle and actual application acceptance remain open.
+
 ## Remaining concrete delivery work
 
 1. Retained source identity, bounded encrypted staging, verified on-disk bytes,

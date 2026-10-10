@@ -12,6 +12,7 @@ crate-type = ["rlib"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 sentinel-proto = { path = "../sentinel-proto" }
 rusqlite = { version = "0.32", features = ["bundled"] }
 yara-x = "1"

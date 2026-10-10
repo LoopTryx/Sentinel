@@ -2062,6 +2062,7 @@ dependencies = [
  "rusqlite",
  "sentinel-proto",
  "serde",
+ "serde_json",
  "sha2",
  "uuid",
  "walkdir",
