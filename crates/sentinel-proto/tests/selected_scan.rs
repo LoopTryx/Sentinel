@@ -6,11 +6,13 @@ fn requests_refuse_paths_owners_and_nonopaque_refs() {
         serde_json::from_str(r#"{"selectionRef":"selection_1"}"#).unwrap();
     assert!(request.validate().is_ok());
     for value in ["", "C:/private/file", "../file", "ref with space"] {
-        assert!(ScanStartRequest {
-            selection_ref: value.into()
-        }
-        .validate()
-        .is_err());
+        assert!(
+            ScanStartRequest {
+                selection_ref: value.into()
+            }
+            .validate()
+            .is_err()
+        );
     }
     for json in [
         r#"{"selectionRef":"selection_1","owner":"main"}"#,
