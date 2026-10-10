@@ -17,3 +17,9 @@ The owner's installed screenshot confirms the popup theme is loaded; WhatsApp re
 All61 extension tests pass again. Prior ca2efdd complete unchanged full verifier finished with All available T01 checks passed; follow-up gate rerun in extension-theme-v2-verify.log. Browser automation initialization still fails, so actual visual/accessibility acceptance remains unexecuted. User must reload the updated unpacked build AND refresh WhatsApp Web so its existing shadow-root content script is replaced. No detection capability change or production release claim.
 
 Follow-up unchanged tools/verify.ps1 completed exit0 / All available T01 checks passed (Rust formatting, strict lint, workspace tests, TypeScript checks/tests, builds, extension parity/smoke). Final added CSS-only reduced-transparency card fallback was packaged and diff checked; installed browser checks remain pending.
+
+## Flagged-message outline
+
+Owner requested a red outline around the whole supported rendered text message box. Added a2px bright-red outline with5px offset and rounded corners to data-pre-plain-text containers containing a direct Sentinel badge. CSS :has ties the outline to the current warning: removing a badge after message changes, direction changes, pruning or pause removes the outline automatically. The per-mount stylesheet is removed on stop. No WhatsApp inline styles are overwritten, no message DOM is wrapped/reparented, and outline does not change layout dimensions. Forced-colors uses CanvasText. Existing detection/opt-in bounds are unchanged.
+
+All61 extension tests, syntax, build and smoke pass; full unchanged verifier rerun tracked in extension-outline-verify.log. Installed browser visual acceptance remains unexecuted. Updated unpacked extension requires reload plus WhatsApp page refresh.

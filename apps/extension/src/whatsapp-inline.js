@@ -2,6 +2,11 @@ import {explainMessage} from './local-checks.js';
 const STYLE=`:host{display:block;margin:8px 0;color:#1b1e4a;font:13px/1.5 system-ui,sans-serif}button{cursor:pointer;border:1px solid #ff8379;border-radius:12px;background:linear-gradient(125deg,#e51c2a,#d21319 62%,#bd1036);color:#fff;padding:8px 13px;font:700 12px system-ui;box-shadow:inset 0 1px 0 #ffffff35,0 4px 12px #d2131930}button:hover{filter:brightness(1.08)}button:focus-visible{outline:3px solid #1b1e4a;outline-offset:3px}.detail{max-width:340px;margin-top:8px;padding:12px 14px;border:1px solid #afaea2;border-left:4px solid #d21319;border-radius:12px;background:linear-gradient(135deg,#fff9ed,#e5e1d5);box-shadow:0 6px 20px #0002}.detail strong{color:#1b1e4a;font-size:14px}p{margin:6px 0}ul{padding-left:18px;margin:8px 0}.muted{color:#474b5f;font-size:11px}@media(forced-colors:active){button,.detail{background:Canvas;color:CanvasText;border:1px solid CanvasText}.detail strong,.muted{color:CanvasText}}`;
 export function mountWhatsAppWarnings(doc){
  const win=doc.defaultView;
+ // The direct child badge owns the outline: recycled/cleared messages lose it automatically.
+ // Outline does not resize WhatsApp bubbles or overwrite page inline styles.
+ const bubbleStyle=doc.createElement('style');bubbleStyle.dataset.sentinelScam='';
+ bubbleStyle.textContent='[data-pre-plain-text]:has(> [data-sentinel-scam]){outline:2px solid #e51c2a;outline-offset:5px;border-radius:8px}@media(forced-colors:active){[data-pre-plain-text]:has(> [data-sentinel-scam]){outline-color:CanvasText}}';
+ doc.head.append(bubbleStyle);
  const records=new Map();let timer=null,stopped=false;
  function clearRecord(node){records.get(node)?.badge?.remove();records.delete(node);}
  function refresh(){
@@ -53,5 +58,5 @@ export function mountWhatsAppWarnings(doc){
   if(timer===null)timer=win.setTimeout(()=>{timer=null;refresh();},180);
  }
  const observer=new win.MutationObserver(schedule);observer.observe(doc.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['data-testid','data-icon','class']});refresh();
- return {refresh,stop(){stopped=true;observer.disconnect();if(timer!==null)win.clearTimeout(timer);for(const node of records.keys())clearRecord(node);}};
+ return {refresh,stop(){stopped=true;observer.disconnect();if(timer!==null)win.clearTimeout(timer);for(const node of records.keys())clearRecord(node);bubbleStyle.remove();}};
 }
