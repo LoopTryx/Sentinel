@@ -295,6 +295,47 @@ claimed; designated B security approval remains required.
 
 ## Remaining concrete delivery work
 
+### Explicit resumption candidate
+
+Native APIs: `Vault::resume_restore(&self, reference: &str, target: &Path) ->
+Result<(), String>` and `Vault::resume_destroy(&self, reference: &str) ->
+Result<(), String>`. These are explicit actions, not startup automation, RPC
+authority or UI integration. Example: pass the exact `.qtn` reference returned
+by quarantine and the explicitly selected absolute target previously recorded
+by the interrupted restore. No inferred target, overwrite or plaintext path is
+returned in the path-free historical summary.
+
+Resumption holds the bounded lifecycle journal exclusively for read/write and
+requires exactly one authenticated complete intent frame. The reference AAD,
+action stage, exact absolute association, byte count and fresh SHA-256 must
+match. Terminal, torn, trailing, malformed and different-subject records fail
+without journal truncation/replacement. Restore retains and freshly checks the
+existing destination bytes; an extant blob must authenticate and match those
+bytes before held-handle cleanup. If the blob was already removed, freshly
+verified destination bytes allow recording historical restore completion.
+Destroy resumption requires an extant authentic blob and refuses missing bytes;
+absence is not evidence of secure erasure. Non-Windows resumed cleanup fails
+explicitly. Ancestor/private storage authority and job/action binding still
+require their release gates.
+
+The live four-boundary test now exercises actual resume: both restore cases
+complete with unchanged bytes; pre-disposition destroy completes; missing-blob
+destroy stays recovery-required. Wrong target, changed destination and trailing
+intent are refused with receipt/blob state preserved. Test setup repairs only
+its own synthetic fixtures; production APIs never repair them implicitly.
+Offline AV44 tests passed in the normal sandbox, and supplemental independent
+review passed the focused adverse/resume test with no Windows regression found.
+The first test build failed because the resumption APIs were absent. The earlier
+sandbox/configuration access and automatic approval-review usage failures were
+recorded without claiming a successful verifier. Approval review has recovered:
+formatting, strict AV clippy and offline AV44 tests now pass. The previous pushed
+head 4033642 also has two completed successful GitHub verify checks; this does not
+verify the new edits. Full committed-head verification is recorded separately.
+Exact resumption claim: issue9 comment6096418233. Current owner instructions use
+Codex logic/runtime and GLM presentation, with independent GLM/coordinator review
+and actual native/Chrome acceptance still required. No peer presentation edit or
+main code integration accompanies this candidate.
+
 The follow-up Windows unit `interrupted_restore_and_destroy_preserve_exact_intent_boundary_state`
 executes restore and destroy with controlled returns at two live boundaries:
 immediately after flushed intent and immediately after held blob disposition,

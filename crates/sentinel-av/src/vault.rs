@@ -30,6 +30,22 @@ fn read_bounded_handle(
     limit: usize,
     delete_access: bool,
 ) -> Result<(std::fs::File, Vec<u8>), String> {
+    read_bounded_file(path, limit, delete_access, false)
+}
+
+pub(crate) fn read_bounded_mutable(
+    path: &Path,
+    limit: usize,
+) -> Result<(std::fs::File, Vec<u8>), String> {
+    read_bounded_file(path, limit, false, true)
+}
+
+fn read_bounded_file(
+    path: &Path,
+    limit: usize,
+    delete_access: bool,
+    write_access: bool,
+) -> Result<(std::fs::File, Vec<u8>), String> {
     let metadata =
         std::fs::symlink_metadata(path).map_err(|_| "quarantine input unavailable".to_string())?;
     if !metadata.is_file() || metadata.file_type().is_symlink() || metadata.len() > limit as u64 {
@@ -37,6 +53,7 @@ fn read_bounded_handle(
     }
     let mut options = std::fs::OpenOptions::new();
     options.read(true);
+    options.write(write_access);
     #[cfg(windows)]
     {
         use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
@@ -44,6 +61,9 @@ fn read_bounded_handle(
             return Err("quarantine reparse input unsupported".into());
         }
         options.share_mode(1).custom_flags(0x00200000);
+        if write_access {
+            options.share_mode(0);
+        }
         if delete_access {
             // Exclusive retention also excludes other readers that could keep
             // a successful delete disposition pending after this call closes.
@@ -120,6 +140,67 @@ pub struct QuarantineOutcome {
 }
 
 impl Vault {
+    /// Explicit reconciliation of a previously flushed restore intent. This
+    /// does not grant selection/action authority or overwrite any destination.
+    pub fn resume_restore(&self, reference: &str, target: &Path) -> Result<(), String> {
+        let blob_path = self.blob_path(reference)?;
+        let key = self.load_key()?;
+        let (target_handle, plaintext) = read_bounded_handle(target, MAX_PLAINTEXT_BYTES, false)?;
+        let mut journal = crate::quarantine_journal::Journal::resume_lifecycle(
+            &self.dir, reference, target, &plaintext, &key, false,
+        )?;
+        match std::fs::symlink_metadata(&blob_path) {
+            Ok(_) => {
+                let (blob_handle, blob) = read_bounded_handle(&blob_path, MAX_BLOB_BYTES, true)?;
+                if self.decrypt_blob(&blob, &key)? != plaintext {
+                    return Err("recovery blob does not match verified destination".into());
+                }
+                #[cfg(windows)]
+                {
+                    if !mark_retained_file_for_deletion(&blob_handle) {
+                        return Err("restored; recovery blob cleanup failed".into());
+                    }
+                    drop(blob_handle);
+                }
+                #[cfg(not(windows))]
+                {
+                    drop(blob_handle);
+                    return Err("recovery cleanup unsupported on this platform".into());
+                }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(_) => return Err("recovery blob state unavailable".into()),
+        }
+        journal.finish_lifecycle(&key)?;
+        drop(target_handle);
+        Ok(())
+    }
+
+    /// Resume only while the selected encrypted blob remains authenticatable.
+    /// Missing bytes cannot establish deletion or secure-erasure evidence.
+    pub fn resume_destroy(&self, reference: &str) -> Result<(), String> {
+        let path = self.blob_path(reference)?;
+        let key = self.load_key()?;
+        let (handle, blob) = read_bounded_handle(&path, MAX_BLOB_BYTES, true)?;
+        let plaintext = self.decrypt_blob(&blob, &key)?;
+        let mut journal = crate::quarantine_journal::Journal::resume_lifecycle(
+            &self.dir, reference, &self.dir, &plaintext, &key, true,
+        )?;
+        #[cfg(windows)]
+        {
+            if !mark_retained_file_for_deletion(&handle) {
+                return Err("quarantine blob cleanup failed".into());
+            }
+            drop(handle);
+            journal.finish_lifecycle(&key)
+        }
+        #[cfg(not(windows))]
+        {
+            drop(handle);
+            let _ = journal;
+            Err("recovery cleanup unsupported on this platform".into())
+        }
+    }
     pub fn recovery_summary(
         &self,
         vault_file: &str,
@@ -491,6 +572,50 @@ mod retained_source_tests {
                 let intent = std::fs::read(&journal).unwrap();
                 assert!(vault.destroy(&reference).is_err());
                 assert_eq!(std::fs::read(&journal).unwrap(), intent);
+                let mut torn = intent.clone();
+                torn.push(1);
+                std::fs::write(&journal, &torn).unwrap();
+                let refused = if destroy {
+                    vault.resume_destroy(&reference)
+                } else {
+                    vault.resume_restore(&reference, &target)
+                };
+                assert!(refused.is_err());
+                assert_eq!(std::fs::read(&journal).unwrap(), torn);
+                assert_eq!(vault.dir.join(&reference).exists(), before_disposition);
+                // Reset only this owned test fixture, never production recovery.
+                std::fs::write(&journal, &intent).unwrap();
+                if !destroy {
+                    let wrong_target = root.join("wrong-target.txt");
+                    std::fs::write(&wrong_target, plaintext).unwrap();
+                    assert!(vault.resume_restore(&reference, &wrong_target).is_err());
+                    std::fs::write(&target, b"changed harmless destination").unwrap();
+                    assert!(vault.resume_restore(&reference, &target).is_err());
+                    assert_eq!(
+                        std::fs::read(&target).unwrap(),
+                        b"changed harmless destination"
+                    );
+                    assert_eq!(std::fs::read(&journal).unwrap(), intent);
+                    assert_eq!(vault.dir.join(&reference).exists(), before_disposition);
+                    std::fs::write(&target, plaintext).unwrap();
+                    vault.resume_restore(&reference, &target).unwrap();
+                    assert_eq!(std::fs::read(&target).unwrap(), plaintext);
+                    assert!(!vault.dir.join(&reference).exists());
+                    assert_eq!(
+                        vault.recovery_summary(&reference).unwrap().phase,
+                        crate::quarantine_journal::RecoveryPhase::RestoredRecorded
+                    );
+                } else if before_disposition {
+                    vault.resume_destroy(&reference).unwrap();
+                    assert!(!vault.dir.join(&reference).exists());
+                    assert_eq!(
+                        vault.recovery_summary(&reference).unwrap().phase,
+                        crate::quarantine_journal::RecoveryPhase::DestroyedRecorded
+                    );
+                } else {
+                    assert!(vault.resume_destroy(&reference).is_err());
+                    assert_eq!(std::fs::read(&journal).unwrap(), intent);
+                }
                 std::fs::remove_dir_all(root).unwrap();
             }
         }

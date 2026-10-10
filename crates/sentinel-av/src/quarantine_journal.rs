@@ -73,6 +73,66 @@ fn journal_path(dir: &Path, reference: &str, lifecycle: bool) -> Result<PathBuf,
 }
 
 impl Journal {
+    pub(crate) fn resume_lifecycle(
+        dir: &Path,
+        reference: &str,
+        association: &Path,
+        plaintext: &[u8],
+        key: &[u8; 32],
+        destroy: bool,
+    ) -> Result<Self, String> {
+        let (file, bytes) =
+            crate::vault::read_bounded_mutable(&journal_path(dir, reference, true)?, MAX_JOURNAL)?;
+        // Resume only an exact, complete single intent. Never truncate/replace
+        // torn tails or reinterpret a completed/different action as admission.
+        if bytes.get(..4) != Some(MAGIC.as_slice()) || bytes.len() < 8 {
+            return Err("recovery intent invalid".into());
+        }
+        let length = u32::from_be_bytes(
+            bytes[4..8]
+                .try_into()
+                .map_err(|_| "recovery intent invalid")?,
+        ) as usize;
+        if !(29..=MAX_RECORD).contains(&length) || bytes.len() != 8 + length {
+            return Err("recovery intent incomplete or already terminal".into());
+        }
+        let frame = &bytes[8..];
+        let cipher = Aes256Gcm::new_from_slice(key).map_err(|_| "recovery journal key failed")?;
+        let clear = cipher
+            .decrypt(
+                Nonce::from_slice(&frame[..12]),
+                Payload {
+                    msg: &frame[12..],
+                    aad: reference.as_bytes(),
+                },
+            )
+            .map_err(|_| "recovery intent unauthenticated")?;
+        let record: Record =
+            serde_json::from_slice(&clear).map_err(|_| "recovery intent invalid")?;
+        let expected = if destroy {
+            Stage::DestroyPrepared
+        } else {
+            Stage::RestorePrepared
+        };
+        if record.stage != expected
+            || !association.is_absolute()
+            || record.source.len() > 1024
+            || record.source.contains('\0')
+            || association.to_str() != Some(record.source.as_str())
+            || plaintext.len() > 8 * 1024 * 1024
+            || record.bytes != plaintext.len() as u64
+            || record.sha256 != hex::encode(Sha256::digest(plaintext))
+        {
+            return Err("recovery intent subject or byte identity mismatch".into());
+        }
+        // read_bounded_mutable leaves the retained handle at EOF for append.
+        Ok(Self {
+            file,
+            reference: reference.into(),
+            record,
+        })
+    }
+
     pub(crate) fn create(
         dir: &Path,
         reference: &str,
