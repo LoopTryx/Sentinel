@@ -82,3 +82,18 @@ fn reservation_preflight_bounds_global_and_owner_usage_without_overflow() {
         Err(DownloadReservationError::InvalidUsage)
     );
 }
+
+#[test]
+fn usage_cannot_charge_bytes_without_corresponding_live_slots() {
+    use sentinel_agent::download_selection::{
+        DownloadReservationError, check_download_reservation,
+    };
+    assert_eq!(
+        check_download_reservation(0, 0, 1, 1),
+        Err(DownloadReservationError::InvalidUsage)
+    );
+    assert_eq!(
+        check_download_reservation(1, 1, 8 * 1024 * 1024 + 1, 1),
+        Err(DownloadReservationError::InvalidUsage)
+    );
+}

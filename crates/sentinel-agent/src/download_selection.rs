@@ -58,6 +58,7 @@ pub fn check_download_reservation(
         || owner_approvals > 8
         || global_approvals > 32
         || global_reserved_bytes > MAX_BYTES
+        || global_reserved_bytes > global_approvals as u64 * MAX_FILE
     {
         return Err(DownloadReservationError::InvalidUsage);
     }
