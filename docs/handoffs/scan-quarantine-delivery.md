@@ -293,6 +293,49 @@ head verification and independent review are recorded separately. No actual
 process termination, power-loss, storage ACL/ancestor or UI/browser acceptance is
 claimed; designated B security approval remains required.
 
+## Windows aggregate storage admission candidate
+
+All mutating quarantine/restore/destroy/resume entry points now retain an
+exclusive Windows `.admission.lock` regular zero-byte handle through writes and
+source/blob disposition. The handle uses no-follow and sharing zero; its own
+metadata rejects reparse/nonregular/nonempty input before enumeration. A held
+admission handle causes another mutation to refuse, rather than queue an
+unbounded job. The persistent infrastructure file is excluded only after this
+validation, including the fresh-key recovery check. It is never automatically
+removed or treated as evidence of process liveness.
+
+Admission enumerates at most 129 non-lock entries, rejects directories/symlinks/
+reparse children and traversal/metadata errors, counts all regular logical file
+sizes (including unknown files), and uses checked arithmetic. Limit: 64 MiB and
+128 projected entries. Each canonical blob lacking a lifecycle receipt reserves
+one future entry and 8192 bytes; existing lifecycle receipts reserve growth to
+8192 bytes. The selected lifecycle operation converts only its own future
+headroom into its current write reservation. New quarantine reserves blob bytes
+plus two 8192-byte journals and three entries. Restore/destroy reserve 8192 bytes
+and one lifecycle entry; resume reserves 2052 bytes, including the four-byte
+frame prefix. The retained admission handle serializes cooperating Windows
+writers. Non-Windows admission is explicitly unsupported.
+
+Capacity or admission errors preserve sources/recovery blobs without automatic
+cleanup. Normal app population retains recovery headroom; unknown external files
+can still exhaust it and make recovery refuse. Clients must show incomplete
+recovery and never assume a generic error means an earlier deletion did not
+happen. Private storage ACL/ancestor authority, filesystem free-space availability,
+process/power-loss evidence and selected subject/action authorization remain
+separate gates. No UI/RPC/permission change accompanies this runtime candidate.
+
+The initial quota regression was masked by missing-key refusal; with a known
+synthetic key it failed because a full store was accepted and the source removed.
+Full logical-byte and entry-count controls now preserve source/key. Four capacity
+cases also cover exclusive admission, unsupported children and restoring or
+destroying every accepted item near the entry limit. Independent review found
+normal-population recovery starvation and a missing four-byte frame prefix; both
+were reproduced red and corrected. The prefix boundary test refuses at 2051 bytes
+remaining and succeeds at 2052. AV49, formatting and strict lint passed.
+Supplemental independent review passed capacity 4/4, prefix 1/1 and interrupted
+resume 1/1, with no new accounting finding. Full exact-head repository verification
+and designated GLM/coordinator review remain separately recorded requirements.
+All fixtures are harmless owned temporary files; Defender unchanged, E: untouched.
 ## Remaining concrete delivery work
 
 ### Explicit resumption candidate

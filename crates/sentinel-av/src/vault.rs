@@ -140,10 +140,121 @@ pub struct QuarantineOutcome {
 }
 
 impl Vault {
+    fn admit_storage(
+        &self,
+        additional_bytes: u64,
+        additional_entries: usize,
+        lifecycle_reference: Option<&str>,
+    ) -> Result<std::fs::File, String> {
+        #[cfg(not(windows))]
+        {
+            let _ = (additional_bytes, additional_entries, lifecycle_reference);
+            Err("quarantine storage admission unsupported".into())
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
+            let handle = std::fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(false)
+                .share_mode(0)
+                .custom_flags(0x00200000)
+                .open(self.dir.join(".admission.lock"))
+                .map_err(|_| "quarantine storage admission busy or unavailable")?;
+            let lock_metadata = handle
+                .metadata()
+                .map_err(|_| "quarantine admission metadata failed")?;
+            if !lock_metadata.is_file()
+                || lock_metadata.len() != 0
+                || lock_metadata.file_attributes() & 0x400 != 0
+            {
+                return Err("quarantine admission file unsupported".into());
+            }
+            let mut files = std::collections::HashMap::new();
+            let mut entries = 0usize;
+            let mut bytes = 0u64;
+            for entry in
+                std::fs::read_dir(&self.dir).map_err(|_| "quarantine storage unavailable")?
+            {
+                let entry = entry.map_err(|_| "quarantine storage traversal failed")?;
+                if entry.file_name() == ".admission.lock" {
+                    continue;
+                }
+                entries += 1;
+                if entries > 128 {
+                    return Err("quarantine storage entry limit reached".into());
+                }
+                let metadata = std::fs::symlink_metadata(entry.path())
+                    .map_err(|_| "quarantine storage metadata failed")?;
+                if !metadata.is_file()
+                    || metadata.file_type().is_symlink()
+                    || metadata.file_attributes() & 0x400 != 0
+                {
+                    return Err("quarantine storage child unsupported".into());
+                }
+                bytes = bytes
+                    .checked_add(metadata.len())
+                    .ok_or("quarantine storage byte limit reached")?;
+                if bytes > 64 * 1024 * 1024 {
+                    return Err("quarantine storage byte limit reached".into());
+                }
+                files.insert(entry.file_name(), metadata.len());
+            }
+            let canonical = |name: &str, suffix: &str| {
+                name.strip_suffix(suffix).is_some_and(|id| {
+                    id.len() == 32
+                        && id
+                            .bytes()
+                            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+                })
+            };
+            let selected_journal =
+                lifecycle_reference.map(|reference| reference.replace(".qtn", ".qlj"));
+            // Account for future lifecycle capacity, not just current bytes.
+            // The selected operation converts its reservation into actual writes.
+            for (name, size) in &files {
+                let Some(name) = name.to_str() else {
+                    continue;
+                };
+                if canonical(name, ".qtn") && Some(name) != lifecycle_reference {
+                    let future = name.replace(".qtn", ".qlj");
+                    if !files.contains_key(std::ffi::OsStr::new(&future)) {
+                        entries = entries
+                            .checked_add(1)
+                            .ok_or("quarantine storage entry limit reached")?;
+                        bytes = bytes
+                            .checked_add(8192)
+                            .ok_or("quarantine storage byte limit reached")?;
+                    }
+                }
+                if canonical(name, ".qlj") && selected_journal.as_deref() != Some(name) {
+                    bytes = bytes
+                        .checked_add(8192u64.saturating_sub(*size))
+                        .ok_or("quarantine storage byte limit reached")?;
+                }
+            }
+            if entries
+                .checked_add(additional_entries)
+                .is_none_or(|count| count > 128)
+            {
+                return Err("quarantine storage entry limit reached".into());
+            }
+            if bytes
+                .checked_add(additional_bytes)
+                .is_none_or(|count| count > 64 * 1024 * 1024)
+            {
+                return Err("quarantine storage byte limit reached".into());
+            }
+            Ok(handle)
+        }
+    }
     /// Explicit reconciliation of a previously flushed restore intent. This
     /// does not grant selection/action authority or overwrite any destination.
     pub fn resume_restore(&self, reference: &str, target: &Path) -> Result<(), String> {
         let blob_path = self.blob_path(reference)?;
+        let _admission = self.admit_storage(2052, 0, Some(reference))?;
         let key = self.load_key()?;
         let (target_handle, plaintext) = read_bounded_handle(target, MAX_PLAINTEXT_BYTES, false)?;
         let mut journal = crate::quarantine_journal::Journal::resume_lifecycle(
@@ -180,6 +291,7 @@ impl Vault {
     /// Missing bytes cannot establish deletion or secure-erasure evidence.
     pub fn resume_destroy(&self, reference: &str) -> Result<(), String> {
         let path = self.blob_path(reference)?;
+        let _admission = self.admit_storage(2052, 0, Some(reference))?;
         let key = self.load_key()?;
         let (handle, blob) = read_bounded_handle(&path, MAX_BLOB_BYTES, true)?;
         let plaintext = self.decrypt_blob(&blob, &key)?;
@@ -228,7 +340,10 @@ impl Vault {
         // old key. A missing key requires recovery, not silent reinitialization.
         if std::fs::read_dir(&self.dir)
             .map_err(|_| "vault unavailable".to_string())?
-            .next()
+            .find(|entry| match entry {
+                Ok(entry) => entry.file_name() != ".admission.lock",
+                Err(_) => true,
+            })
             .is_some()
         {
             return Err("quarantine key missing; recovery required".into());
@@ -290,6 +405,7 @@ impl Vault {
         #[cfg(test)] interruption: Option<ControlledInterruption>,
     ) -> Result<QuarantineOutcome, String> {
         let (source_handle, plaintext) = read_bounded_handle(source, MAX_PLAINTEXT_BYTES, true)?;
+        let _admission = self.admit_storage(plaintext.len() as u64 + 28 + 2 * 8192, 3, None)?;
         let key_bytes = self.load_or_create_key()?;
 
         let key = Key::<Aes256Gcm>::from_slice(&key_bytes);
@@ -399,6 +515,7 @@ impl Vault {
         let key_bytes = self.load_key()?;
         let (blob_handle, blob) = read_bounded_handle(&vault_path, MAX_BLOB_BYTES, true)?;
         let plaintext = self.decrypt_blob(&blob, &key_bytes)?;
+        let _admission = self.admit_storage(8192, 1, Some(vault_file))?;
         if let Some(parent) = to_path.parent() {
             std::fs::create_dir_all(parent)
                 .map_err(|_| "restore directory unavailable".to_string())?;
@@ -478,6 +595,7 @@ impl Vault {
         let key_bytes = self.load_key()?;
         let (handle, bytes) = read_bounded_handle(&path, MAX_BLOB_BYTES, true)?;
         let plaintext = self.decrypt_blob(&bytes, &key_bytes)?;
+        let _admission = self.admit_storage(8192, 1, Some(vault_file))?;
         let mut journal = crate::quarantine_journal::Journal::prepare_lifecycle(
             &self.dir, vault_file, &self.dir, &plaintext, &key_bytes, true,
         )?;
@@ -639,6 +757,52 @@ mod retained_source_tests {
         assert_eq!(
             std::fs::read(&source).unwrap(),
             b"new harmless file after close"
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn resume_admission_reserves_the_four_byte_frame_prefix() {
+        let root =
+            std::env::temp_dir().join(format!("sentinel-prefix-budget-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&root).unwrap();
+        let vault = Vault::new(&root.join("app"));
+        let source = root.join("harmless.txt");
+        std::fs::write(&source, b"harmless prefix boundary bytes").unwrap();
+        let reference = vault.quarantine(&source).unwrap().vault_file;
+        let target = root.join("target.txt");
+        assert!(vault
+            .restore_inner(
+                &reference,
+                &target,
+                Some(ControlledLifecycleInterruption::IntentCommitted)
+            )
+            .is_err());
+        let current_bytes: u64 = std::fs::read_dir(&vault.dir)
+            .unwrap()
+            .map(|entry| entry.unwrap())
+            .filter(|entry| entry.file_name() != ".admission.lock")
+            .map(|entry| entry.metadata().unwrap().len())
+            .sum();
+        let filler = std::fs::File::create(vault.dir.join("harmless-sparse-budget")).unwrap();
+        let size = 64 * 1024 * 1024 - current_bytes - 2051;
+        filler.set_len(size).unwrap();
+        drop(filler);
+        let receipt = vault.dir.join(reference.replace(".qtn", ".qlj"));
+        let intent = std::fs::read(&receipt).unwrap();
+        assert!(vault.resume_restore(&reference, &target).is_err());
+        assert_eq!(std::fs::read(&receipt).unwrap(), intent);
+        assert!(vault.dir.join(&reference).exists());
+        let filler = std::fs::OpenOptions::new()
+            .write(true)
+            .open(vault.dir.join("harmless-sparse-budget"))
+            .unwrap();
+        filler.set_len(size - 1).unwrap();
+        drop(filler);
+        vault.resume_restore(&reference, &target).unwrap();
+        assert_eq!(
+            std::fs::read(&target).unwrap(),
+            b"harmless prefix boundary bytes"
         );
         std::fs::remove_dir_all(root).unwrap();
     }
