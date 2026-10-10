@@ -122,6 +122,15 @@ fn selected_file_is_retained_before_start_and_released_after_completion() {
         let snapshot = jobs.poll("trusted-main", &job).unwrap();
         if snapshot.finished {
             assert_eq!(snapshot.reports[0].bytes_inspected, bytes.len() as u64);
+            let wire = jobs.poll_wire("trusted-main", &job).unwrap();
+            assert_eq!(wire.selection_ref, selected);
+            assert_eq!(wire.job_ref, job);
+            assert_eq!(wire.reports[0].inspected_bytes, bytes.len().to_string());
+            assert!(wire.validate().is_ok());
+            assert!(jobs.poll_wire("foreign", &job).is_err());
+            let json = serde_json::to_string(&wire).unwrap();
+            assert!(!json.contains("ordinary.txt"));
+            assert!(!json.contains(&root.to_string_lossy().to_string()));
             assert_eq!(snapshot.reports[0].state, "completed");
             break;
         }

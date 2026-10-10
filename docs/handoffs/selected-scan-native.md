@@ -100,6 +100,23 @@ must not cross the wire. Ignore stale responses unless BOTH jobRef/selectionRef
 match the active operation. Report refs are scoped to that private association;
 they never authorize reopening/removing a file.
 
+Implemented internal bridge: `SelectedJobs::poll_wire(owner: &str, job_ref: &str)
+-> Result<ScanJobSnapshot, ScanError>`. It validates the reference, checks private
+owner/job association via poll, derives selectionRef from the consumed native
+selection retained with ActiveJob, and converts actual reports using scoped
+report_N references. Every nested report and final DTO is validated; bad conversion
+returns inspection_unavailable, malformed reference invalid_request, and foreign
+or obsolete job job_unavailable. No caller-provided selectionRef is used in output.
+The native owner parameter remains trusted adapter context, not browser input.
+
+Actual harmless Windows file job exercises this bridge: both references and real
+inspection byte count match, nested DTO validation passes, foreign caller refuses,
+and serialized output contains neither original file name nor parent path. Initial
+test failed because the bridge did not exist; seven selected-job tests pass after
+implementation. This proves library conversion, not registered Tauri/authenticated
+IPC or installed desktop/browser acceptance. Raw poll remains internal native use
+only; callers must use poll_wire for transport.
+
 Use one controller and a bounded idle maintenance timer, trusted native clocks,
 actual picker authorization and held subject identity. File handles are retained
 already; directory root/descendant and picker-to-open ancestry binding remain

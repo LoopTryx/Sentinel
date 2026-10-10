@@ -35,6 +35,7 @@ pub struct JobSnapshot {
 
 struct ActiveJob {
     reference: String,
+    selection_ref: String,
     owner: String,
     cancel: Arc<AtomicBool>,
     bytes: Arc<AtomicU64>,
@@ -164,6 +165,7 @@ impl SelectedJobs {
             return Err("selection expired");
         }
         let job_ref = uuid::Uuid::new_v4().simple().to_string();
+        let selection_ref = selected.reference.clone();
         let cancel = Arc::new(AtomicBool::new(false));
         let bytes = Arc::new(AtomicU64::new(0));
         let reports = Arc::new(Mutex::new(None));
@@ -210,6 +212,7 @@ impl SelectedJobs {
             .map_err(|_| "scan worker unavailable")?;
         self.job = Some(ActiveJob {
             reference: job_ref.clone(),
+            selection_ref,
             owner: owner.into(),
             cancel,
             bytes,
@@ -246,6 +249,62 @@ impl SelectedJobs {
             .ok_or("job unavailable")?;
         job.cancel.store(true, Ordering::Release);
         Ok(())
+    }
+
+    /// Canonical output from the privately correlated job. Native must derive
+    /// owner from authenticated caller context; references alone grant no access.
+    pub fn poll_wire(
+        &mut self,
+        owner: &str,
+        reference: &str,
+    ) -> Result<
+        sentinel_proto::selected_scan::ScanJobSnapshot,
+        sentinel_proto::selected_scan::ScanError,
+    > {
+        use sentinel_proto::selected_scan::{
+            ScanError, ScanErrorCode, ScanJobSnapshot, ScanWorkerState,
+        };
+        let request = sentinel_proto::selected_scan::ScanJobReference {
+            job_ref: reference.into(),
+        };
+        request.validate().map_err(|_| ScanError {
+            code: ScanErrorCode::InvalidRequest,
+        })?;
+        let snapshot = self.poll(owner, reference).map_err(|_| ScanError {
+            code: ScanErrorCode::JobUnavailable,
+        })?;
+        let job = self.job.as_ref().ok_or(ScanError {
+            code: ScanErrorCode::JobUnavailable,
+        })?;
+        let reports = snapshot
+            .reports
+            .iter()
+            .enumerate()
+            .map(|(index, report)| {
+                crate::inspection_wire::inspection_snapshot(&format!("report_{index}"), report)
+                    .map_err(|_| ScanError {
+                        code: ScanErrorCode::InspectionUnavailable,
+                    })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let wire = ScanJobSnapshot {
+            selection_ref: job.selection_ref.clone(),
+            job_ref: job.reference.clone(),
+            state: if snapshot.failed {
+                ScanWorkerState::Failed
+            } else if snapshot.finished {
+                ScanWorkerState::Finished
+            } else {
+                ScanWorkerState::Running
+            },
+            cancellation_requested: snapshot.cancellation_requested,
+            current_file_bytes: snapshot.current_file_bytes.to_string(),
+            reports,
+        };
+        wire.validate().map_err(|_| ScanError {
+            code: ScanErrorCode::InspectionUnavailable,
+        })?;
+        Ok(wire)
     }
 }
 
