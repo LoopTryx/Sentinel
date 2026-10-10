@@ -6,6 +6,7 @@ import {pathToFileURL} from 'node:url';
 import {generatePassword} from '../extension/src/password-generator.js';
 import {inspectWithClamAV} from './clamav.mjs';
 import {inspectNative} from './native-inspection.mjs';
+import {createNativeActionService} from './native-action-service.mjs';
 import {fileURLToPath} from 'node:url';
 
 const MARKER='SENTINEL_SYNTHETIC_TEST_ONLY_V1';
@@ -36,7 +37,7 @@ const allowedCodes=new Set(['http','credentials','ip','internationalized','port'
 function equal(a,b){return typeof a==='string'&&/^[a-f0-9]{64}$/.test(a)&&a.length===b.length&&timingSafeEqual(Buffer.from(a),Buffer.from(b));}
 function keys(body,list){return body&&typeof body==='object'&&!Array.isArray(body)&&Object.keys(body).every(k=>list.includes(k));}
 
-export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=null}={}) {
+export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=null,nativeAppDir=null}={}) {
  const desktopToken=randomBytes(32).toString('hex');
  let browserToken='',extensionId='',unlocked=false,scan=null,closed=false,revision=0,activeScan=Promise.resolve(),closing;
  const events=[];
@@ -49,11 +50,12 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
  function event(source,kind,codes=[]){events.unshift({id:randomBytes(8).toString('hex'),at:new Date().toISOString(),source,kind,codes});events.splice(64);}
  function state(){return {revision,mode:'synthetic_demo',connected:true,unlocked,extensionId,accounts:accounts.map(({password,...a})=>({...a,...auditPassword(password),reused:accounts.filter(b=>b.password===password).length>1})),events,scan:scan?Object.fromEntries(Object.entries(scan).filter(([k])=>k!=='cancel')):null};}
  let nativeSnapshot=null;
+ let nativeService=null;
  async function runNativeScan(path,current){
   try{
    const stat=await lstat(path);
    if(stat.isSymbolicLink()||(!stat.isFile()&&!stat.isDirectory()))throw new Error();
-   const result=await inspectNative({executable:nativeExecutable,path,kind:stat.isDirectory()?'folder':'file',cancelled:()=>closed||current.cancel,onSnapshot:next=>{
+   const receive=next=>{
     nativeSnapshot=next;
     current.visited=next.reports.length;
     current.checked=next.reports.filter(r=>r.state==='completed').length;
@@ -63,7 +65,14 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
     // Legacy UI requires a complete digest. Partial-byte evidence stays in the
     // canonical /inspection response until the shared UI contract is adopted.
     current.findings=next.reports.filter(r=>r.state==='completed').flatMap(r=>r.findings.map(kind=>({name:r.reportRef,kind,reason:'Bounded local indicator; review the inspection report. This does not prove malware.',sha256:r.sha256}))).slice(0,128);
-   }});
+   };
+   let result;
+   if(nativeAppDir){
+    if(nativeService)await nativeService.close();
+    if(closed||current.cancel){current.status='cancelled';return;}
+    nativeService=createNativeActionService({executable:nativeExecutable,path,kind:stat.isDirectory()?'folder':'file',appDir:nativeAppDir,onSnapshot:receive});
+    result=await nativeService.ready;
+   }else result=await inspectNative({executable:nativeExecutable,path,kind:stat.isDirectory()?'folder':'file',cancelled:()=>closed||current.cancel,onSnapshot:receive});
    current.status=result.status==='cancelled'||result.status==='timed_out'?result.status:result.status==='finished'?'partial':'failed';
    if(current.status==='failed')current.errors++;
    event('desktop',current.status==='failed'?'scan_failed':'scan_completed');
@@ -153,7 +162,7 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
    }
    return respond(200,{password:account.password,mode:'synthetic_demo'});
   }
-  if(req.url==='/cancel'&&desktop&&keys(body,[])){if(scan?.status==='running')scan.cancel=true;return respond(200,{ok:true});}
+  if(req.url==='/cancel'&&desktop&&keys(body,[])){if(scan?.status==='running')scan.cancel=true;nativeService?.cancel();return respond(200,{ok:true});}
   if(req.url==='/scan'&&desktop&&keys(body,['path'])){
    if(scan?.status==='running')return respond(409,{error:'scan_busy'});
    const ordinaryPath=typeof body.path==='string'&&(process.platform==='win32'?/^[a-df-z]:[\\/]/i.test(body.path):/^\/(?!\/)/.test(body.path));
@@ -168,12 +177,13 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
  });
  server.maxConnections=8;server.requestTimeout=5000;server.headersTimeout=5000;
  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});
- function close(){if(!closing){closed=true;if(scan)scan.cancel=true;closing=(async()=>{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));await activeScan;})();}return closing;}
+ function close(){if(!closing){closed=true;if(scan)scan.cancel=true;closing=(async()=>{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));if(nativeService)await nativeService.close();await activeScan;})();}return closing;}
  return {desktopToken,url:'http://127.0.0.1:'+server.address().port,port:server.address().port,close};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
  const nativeExecutable=fileURLToPath(new URL('../desktop/console-build/sentinel-inspect.exe',import.meta.url));
- const runtime=await startRuntime({onShutdown:()=>process.exit(0),nativeExecutable});
+ const nativeAppDir=process.env.LOCALAPPDATA?join(process.env.LOCALAPPDATA,'Sentinel-School-Demo','inspection-vault'):null;
+ const runtime=await startRuntime({onShutdown:()=>process.exit(0),nativeExecutable,nativeAppDir});
  await writeFile(new URL('../desktop/console-build/demo-runtime.json',import.meta.url),JSON.stringify({url:runtime.url,token:runtime.desktopToken}),{mode:0o600});
  process.on('SIGTERM',async()=>{await runtime.close();process.exit(0);});
 }
