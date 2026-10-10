@@ -4,6 +4,7 @@ import {spawn} from 'node:child_process';
 import {mkdtemp,writeFile,readFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {validSessionMessage} from './native-session-wire.mjs';
 
 test('actual retained native session quarantines and restores exact harmless bytes',async()=>{
  const root=await mkdtemp(join(tmpdir(),'sentinel-retained-session-'));
@@ -25,6 +26,7 @@ test('actual retained native session quarantines and restores exact harmless byt
      try {
       assert.ok(!line.includes('private-source'));
       const message=JSON.parse(line);
+      assert.equal(validSessionMessage(message),true,'actual child envelope matches closed native contract');
       if(message.type==='scan'&&message.data.state==='finished')send({op:'prepare_quarantine',reportRef:'report_0'});
       else if(message.type==='quarantine_preview')send({op:'confirm_quarantine',actionRef:message.data.actionRef});
       else if(message.type==='quarantine_receipt'){assert.equal(message.data.state,'quarantined');quarantined=true;send({op:'prepare_restore',quarantineActionRef:message.data.actionRef});}
