@@ -1,13 +1,21 @@
 use aes_gcm::aead::{Aead, KeyInit, Payload};
 use aes_gcm::{Aes256Gcm, Key, Nonce};
 use rand::RngCore;
-use std::io::{Read, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
 const MAX_PLAINTEXT_BYTES: usize = 8 * 1024 * 1024;
 const MAX_BLOB_BYTES: usize = MAX_PLAINTEXT_BYTES + 12 + 16;
 
 fn read_bounded(path: &Path, limit: usize) -> Result<Vec<u8>, String> {
+    read_bounded_handle(path, limit, false).map(|(_, bytes)| bytes)
+}
+
+fn read_bounded_handle(
+    path: &Path,
+    limit: usize,
+    delete_access: bool,
+) -> Result<(std::fs::File, Vec<u8>), String> {
     let metadata =
         std::fs::symlink_metadata(path).map_err(|_| "quarantine input unavailable".to_string())?;
     if !metadata.is_file() || metadata.file_type().is_symlink() || metadata.len() > limit as u64 {
@@ -22,7 +30,14 @@ fn read_bounded(path: &Path, limit: usize) -> Result<Vec<u8>, String> {
             return Err("quarantine reparse input unsupported".into());
         }
         options.share_mode(1).custom_flags(0x00200000);
+        if delete_access {
+            // Exclusive retention also excludes other readers that could keep
+            // a successful delete disposition pending after this call closes.
+            options.share_mode(0).access_mode(0x80000000 | 0x00010000);
+        }
     }
+    #[cfg(not(windows))]
+    let _ = delete_access;
     let file = options
         .open(path)
         .map_err(|_| "quarantine input open failed".to_string())?;
@@ -54,7 +69,28 @@ fn read_bounded(path: &Path, limit: usize) -> Result<Vec<u8>, String> {
     {
         return Err("quarantine input changed or exceeds byte limit".into());
     }
-    Ok(bytes)
+    Ok((file, bytes))
+}
+
+#[cfg(windows)]
+fn mark_retained_file_for_deletion(file: &std::fs::File) -> bool {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Storage::FileSystem::{
+        FileDispositionInfo, SetFileInformationByHandle, FILE_DISPOSITION_INFO,
+    };
+    let disposition = FILE_DISPOSITION_INFO { DeleteFile: true };
+    // SAFETY: File owns a live regular-file handle opened with DELETE access.
+    // The synchronous call receives the correctly sized, initialized Win32
+    // structure; its borrow and the handle remain live until the call returns.
+    // No pathname is reopened or passed to this removal operation.
+    unsafe {
+        SetFileInformationByHandle(
+            file.as_raw_handle(),
+            FileDispositionInfo,
+            (&disposition as *const FILE_DISPOSITION_INFO).cast(),
+            std::mem::size_of::<FILE_DISPOSITION_INFO>() as u32,
+        ) != 0
+    }
 }
 
 /// Local encrypted quarantine candidate. Encryption does not establish file
@@ -135,7 +171,7 @@ impl Vault {
     /// Encrypt the file and move it into the vault. The original is deleted
     /// only after the encrypted copy is fully written and verified readable.
     pub fn quarantine(&self, source: &Path) -> Result<QuarantineOutcome, String> {
-        let plaintext = read_bounded(source, MAX_PLAINTEXT_BYTES)?;
+        let (source_handle, plaintext) = read_bounded_handle(source, MAX_PLAINTEXT_BYTES, true)?;
         let key_bytes = self.load_or_create_key()?;
 
         let key = Key::<Aes256Gcm>::from_slice(&key_bytes);
@@ -160,9 +196,14 @@ impl Vault {
 
         let mut blob = nonce_bytes.to_vec();
         blob.extend_from_slice(&sealed);
-        let mut output = std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
+        let mut options = std::fs::OpenOptions::new();
+        options.read(true).write(true).create_new(true);
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::OpenOptionsExt;
+            options.share_mode(0).custom_flags(0x00200000);
+        }
+        let mut output = options
             .open(&vault_path)
             .map_err(|_| "quarantine blob creation failed".to_string())?;
         output
@@ -171,15 +212,28 @@ impl Vault {
         output
             .sync_all()
             .map_err(|_| "quarantine blob flush failed; original retained".to_string())?;
-        drop(output);
-
-        // Verify the blob decrypts back before touching the original.
-        let stored = read_bounded(&vault_path, MAX_BLOB_BYTES)?;
+        // Verify persisted bytes through the same exclusively held blob handle.
+        output
+            .seek(SeekFrom::Start(0))
+            .map_err(|_| "quarantine blob verification failed; original retained".to_string())?;
+        let mut stored = Vec::new();
+        (&mut output)
+            .take(MAX_BLOB_BYTES as u64 + 1)
+            .read_to_end(&mut stored)
+            .map_err(|_| "quarantine blob verification failed; original retained".to_string())?;
+        if stored.len() != blob.len() {
+            return Err("quarantine blob verification failed; original retained".into());
+        }
         let roundtrip = self.decrypt_blob(&stored, &key_bytes)?;
         if roundtrip != plaintext {
             return Err("post-encryption verification failed; original left in place".into());
         }
 
+        #[cfg(windows)]
+        let original_removed = mark_retained_file_for_deletion(&source_handle);
+        drop(source_handle);
+        drop(output);
+        #[cfg(not(windows))]
         let original_removed = std::fs::remove_file(source).is_ok();
         Ok(QuarantineOutcome {
             vault_file,
@@ -190,15 +244,20 @@ impl Vault {
     pub fn restore(&self, vault_file: &str, to_path: &Path) -> Result<(), String> {
         let vault_path = self.blob_path(vault_file)?;
         let key_bytes = self.load_key()?;
-        let blob = read_bounded(&vault_path, MAX_BLOB_BYTES)?;
+        let (blob_handle, blob) = read_bounded_handle(&vault_path, MAX_BLOB_BYTES, true)?;
         let plaintext = self.decrypt_blob(&blob, &key_bytes)?;
         if let Some(parent) = to_path.parent() {
             std::fs::create_dir_all(parent)
                 .map_err(|_| "restore directory unavailable".to_string())?;
         }
-        let mut output = std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::OpenOptionsExt;
+            options.share_mode(0).custom_flags(0x00200000);
+        }
+        let mut output = options
             .open(to_path)
             .map_err(|_| "restore destination unavailable or occupied".to_string())?;
         // On a partial write, preserve both the encrypted recovery blob and
@@ -209,14 +268,33 @@ impl Vault {
         output
             .sync_all()
             .map_err(|_| "restore flush failed; recovery blob retained".to_string())?;
+        #[cfg(windows)]
+        let cleaned = mark_retained_file_for_deletion(&blob_handle);
+        drop(blob_handle);
         drop(output);
+        #[cfg(windows)]
+        if !cleaned {
+            return Err("restored; recovery blob cleanup failed".into());
+        }
+        #[cfg(not(windows))]
         std::fs::remove_file(vault_path)
             .map_err(|_| "restored; recovery blob cleanup failed".to_string())?;
         Ok(())
     }
 
     pub fn destroy(&self, vault_file: &str) -> Result<(), String> {
-        std::fs::remove_file(self.blob_path(vault_file)?).map_err(|e| e.to_string())
+        let path = self.blob_path(vault_file)?;
+        #[cfg(windows)]
+        {
+            let (handle, _) = read_bounded_handle(&path, MAX_BLOB_BYTES, true)?;
+            if !mark_retained_file_for_deletion(&handle) {
+                return Err("quarantine blob cleanup failed".into());
+            }
+            drop(handle);
+            Ok(())
+        }
+        #[cfg(not(windows))]
+        std::fs::remove_file(path).map_err(|e| e.to_string())
     }
 
     fn decrypt_blob(&self, blob: &[u8], key_bytes: &[u8; 32]) -> Result<Vec<u8>, String> {
@@ -235,5 +313,51 @@ impl Vault {
                 },
             )
             .map_err(|_| "decryption failed".into())
+    }
+}
+
+#[cfg(all(test, windows))]
+mod retained_source_tests {
+    use super::*;
+
+    #[test]
+    fn retained_handle_denies_replacement_and_deletes_only_after_close() {
+        let root = std::env::temp_dir().join(format!("sentinel-held-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&root).unwrap();
+        let source = root.join("harmless.txt");
+        std::fs::write(&source, b"harmless retained bytes").unwrap();
+        let (handle, bytes) = read_bounded_handle(&source, MAX_PLAINTEXT_BYTES, true).unwrap();
+        assert_eq!(bytes, b"harmless retained bytes");
+        assert!(std::fs::File::open(&source).is_err());
+        assert!(std::fs::write(&source, b"replacement").is_err());
+        assert!(std::fs::rename(&source, root.join("renamed.txt")).is_err());
+        assert!(mark_retained_file_for_deletion(&handle));
+        drop(handle);
+        assert!(!source.exists());
+        std::fs::write(&source, b"new harmless file after close").unwrap();
+        assert_eq!(
+            std::fs::read(&source).unwrap(),
+            b"new harmless file after close"
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn existing_reader_blocks_destructive_admission_and_source_is_preserved() {
+        let root = std::env::temp_dir().join(format!("sentinel-reader-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&root).unwrap();
+        let source = root.join("harmless.txt");
+        std::fs::write(&source, b"keep while another reader holds it").unwrap();
+        let reader = std::fs::File::open(&source).unwrap();
+        assert!(read_bounded_handle(&source, MAX_PLAINTEXT_BYTES, true).is_err());
+        assert_eq!(
+            std::fs::read(&source).unwrap(),
+            b"keep while another reader holds it"
+        );
+        drop(reader);
+        let (handle, _) = read_bounded_handle(&source, MAX_PLAINTEXT_BYTES, true).unwrap();
+        drop(handle);
+        assert!(source.exists());
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

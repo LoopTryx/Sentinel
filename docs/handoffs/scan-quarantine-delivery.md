@@ -187,6 +187,39 @@ added boundary case; that boundary case also passed. Supplemental independent
 review found no introduced Windows leaf blocker and ran the earlier seven cases.
 This is not designated B security approval or actual application acceptance.
 
+## Windows retained-handle follow-up
+
+The next candidate supersedes the Windows source/cleanup pathname-removal gaps
+above: bounded destructive opens request read plus DELETE access, sharing mode
+zero and final-component no-follow. Quarantine keeps the exact source handle
+through encryption, then verifies flushed recovery bytes by seeking/rereading the
+same exclusive output handle. Only then does it mark the held source for deletion
+with `SetFileInformationByHandle(FileDispositionInfo)` and close it. No source
+pathname is reopened for removal. Disposition failure returns `original_removed`
+false with the verified blob retained; callers must show incomplete remediation.
+
+Restore retains the authenticated blob handle and the exclusively created output
+through write/flush and blob disposition. Cleanup failure returns the existing
+recovery error. Destroy uses a retained bounded blob handle. Existing readers,
+writers or deletion/rename handles prevent destructive admission; there is no
+privilege elevation or fallback pathname deletion on Windows. Ordinary read-only
+key input retains read-sharing. This API still lacks selected-subject/action
+authorization, ancestor/private-storage authority, quotas and crash journaling.
+Non-Windows inherited pathname cleanup remains unapproved for real remediation.
+Deleting one selected hard link does not remove all aliases or establish universal
+execution prevention. Windows-only enablement still requires B security review.
+
+The Microsoft contract requires DELETE access for the held-handle disposition:
+https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-setfileinformationbyhandle
+The direct Windows-only dependency is existing pinned `windows-sys` 0.61.2 with
+FileSystem features; no permissions, RPC or UI surface changes accompany it.
+The new harmless Windows held-handle test failed first with a deletion stub, then
+passed with actual disposition; another test proves existing readers refuse
+admission and unmarked handle close preserves the source. Recovery eight cases
+and native AV tests passed during development; final exact-head verifier/review
+must be recorded separately. Defender is unchanged and all paths are fresh temp
+fixtures, not E: or selected valuable files.
+
 ## Remaining concrete delivery work
 
 1. Retained source identity, bounded encrypted staging, verified on-disk bytes,
