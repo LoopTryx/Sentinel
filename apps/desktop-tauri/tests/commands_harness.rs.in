@@ -1,0 +1,123 @@
+// Unit API facade only: no Tauri IPC, installed UI, identity or containment evidence.
+#![allow(dead_code)]
+mod tauri {
+    use std::sync::{Arc, Mutex};
+    #[derive(Clone, Default)]
+    pub struct AppHandle(pub Arc<Mutex<Vec<serde_json::Value>>>);
+    pub trait Emitter {
+        fn emit<T: serde::Serialize>(&self, event: &str, payload: &T) -> Result<(), ()>;
+    }
+    impl Emitter for AppHandle {
+        fn emit<T: serde::Serialize>(&self, _: &str, payload: &T) -> Result<(), ()> {
+            self.0
+                .lock()
+                .unwrap()
+                .push(serde_json::to_value(payload).unwrap());
+            Ok(())
+        }
+    }
+    pub struct State<'a, T> {
+        value: &'a T,
+    }
+    impl<'a, T> State<'a, T> {
+        pub fn new(value: &'a T) -> Self {
+            Self { value }
+        }
+    }
+    impl<T> std::ops::Deref for State<'_, T> {
+        type Target = T;
+        fn deref(&self) -> &T {
+            self.value
+        }
+    }
+}
+mod commands;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sentinel_av::{db, engine::Engine, vault::Vault};
+    use std::sync::Mutex;
+    #[test]
+    fn real_benign_synthetic_detection_flags_without_source_disposition() {
+        let root =
+            std::env::temp_dir().join(format!("sentinel-native-benign-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&root).unwrap();
+        let app_data = root.join("app");
+        let vault = Vault::new(&app_data);
+        let conn = db::init(&app_data).unwrap();
+        let engine = Engine::new();
+        let file = root.join("ordinary.txt");
+        let bytes = b"ordinary harmless native regression bytes";
+        std::fs::write(&file, bytes).unwrap();
+        let hash = engine.scan_file(&file, &|_| None).sha256;
+        conn.execute("INSERT INTO signatures(hash,name,severity) VALUES(?1,'Harmless synthetic signature fixture','malicious')", [&hash]).unwrap();
+        let state = commands::AppState {
+            engine,
+            vault,
+            app_data: app_data.clone(),
+        };
+        let db = db::Db(Mutex::new(conn));
+        let app = tauri::AppHandle::default();
+        let result = commands::scan_path(
+            file.display().to_string(),
+            app,
+            tauri::State::new(&state),
+            tauri::State::new(&db),
+        )
+        .unwrap();
+        assert_eq!(result.malicious, 1);
+        assert_eq!(result.quarantined, 0);
+        assert_eq!(std::fs::read(&file).unwrap(), bytes);
+        assert!(!app_data.join("vault.key").exists());
+        let action: String =
+            db.0.lock()
+                .unwrap()
+                .query_row("SELECT action FROM threats", [], |row| row.get(0))
+                .unwrap();
+        assert_eq!(action, "flagged");
+        drop(db);
+        drop(state);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn real_locked_file_failure_is_visible_and_not_clean() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let root =
+            std::env::temp_dir().join(format!("sentinel-native-locked-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&root).unwrap();
+        let app_data = root.join("app");
+        let vault = Vault::new(&app_data);
+        let db = db::Db(Mutex::new(db::init(&app_data).unwrap()));
+        let state = commands::AppState {
+            engine: Engine::new(),
+            vault,
+            app_data,
+        };
+        let file = root.join("ordinary.txt");
+        std::fs::write(&file, b"ordinary harmless locked bytes").unwrap();
+        let held = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .share_mode(0)
+            .open(&file)
+            .unwrap();
+        let app = tauri::AppHandle::default();
+        let result = commands::scan_path(
+            file.display().to_string(),
+            app.clone(),
+            tauri::State::new(&state),
+            tauri::State::new(&db),
+        )
+        .unwrap();
+        assert_eq!(result.clean, 0);
+        assert_eq!(result.reports.len(), 1);
+        assert_eq!(result.reports[0].verdict, "unknown");
+        assert!(app.0.lock().unwrap().iter().any(|event| event["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("incomplete"))));
+        drop(held);
+        drop(db);
+        drop(state);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+}

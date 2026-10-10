@@ -1,3 +1,5 @@
+#[path = "scan_policy.rs"]
+mod scan_policy;
 use sentinel_av::db::{self, Db};
 use sentinel_av::engine::{self, Engine, ScanReport};
 use sentinel_av::vault::Vault;
@@ -14,8 +16,8 @@ pub struct AppState {
 
 #[derive(Clone, Serialize)]
 pub struct TelemetryEvent {
-    pub kind: String,   // scan-started | file-scanned | threat-found | quarantined | scan-done | system
-    pub level: String,  // info | warn | danger
+    pub kind: String, // scan-started | file-scanned | threat-found | quarantined | scan-done | system
+    pub level: String, // info | warn | danger
     pub message: String,
     pub detail: Option<String>,
     pub ts: String,
@@ -42,13 +44,24 @@ pub struct ScanOutcome {
 }
 
 #[tauri::command]
-pub fn scan_path(path: String, app: AppHandle, state: State<AppState>, db: State<Db>) -> Result<ScanOutcome, String> {
+pub fn scan_path(
+    path: String,
+    app: AppHandle,
+    state: State<AppState>,
+    db: State<Db>,
+) -> Result<ScanOutcome, String> {
     let target = PathBuf::from(&path);
     if !target.exists() {
         return Err(format!("Path not found: {}", path));
     }
 
-    emit(&app, "scan-started", "info", &format!("Scanning {}", path), None);
+    emit(
+        &app,
+        "scan-started",
+        "info",
+        &format!("Scanning {}", path),
+        None,
+    );
 
     let hash_lookup = |h: &str| db::lookup_hash(&db.0.lock().unwrap(), h);
     let reports: Vec<ScanReport> = if target.is_dir() {
@@ -60,7 +73,10 @@ pub fn scan_path(path: String, app: AppHandle, state: State<AppState>, db: State
     let mut outcome = ScanOutcome {
         malicious: reports.iter().filter(|r| r.verdict == "malicious").count(),
         suspicious: reports.iter().filter(|r| r.verdict == "suspicious").count(),
-        clean: reports.iter().filter(|r| r.verdict == "clean").count(),
+        clean: reports
+            .iter()
+            .filter(|r| scan_policy::confirmed_clean(&r.state, &r.verdict, r.content_complete))
+            .count(),
         quarantined: 0,
         reports: Vec::new(),
     };
@@ -72,7 +88,13 @@ pub fn scan_path(path: String, app: AppHandle, state: State<AppState>, db: State
                     &app,
                     "threat-found",
                     "danger",
-                    &format!("THREAT: {}", Path::new(&report.path).file_name().unwrap_or_default().to_string_lossy()),
+                    &format!(
+                        "Local detection (review required): {}",
+                        Path::new(&report.path)
+                            .file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                    ),
                     Some(
                         report
                             .detections
@@ -82,41 +104,19 @@ pub fn scan_path(path: String, app: AppHandle, state: State<AppState>, db: State
                             .join(" | "),
                     ),
                 );
-                // Auto-quarantine malicious files — the "neutralize" step.
-                match state.vault.quarantine(Path::new(&report.path)) {
-                    Ok(res) => {
-                        let detections_json = serde_json::to_string(&report.detections).unwrap_or_default();
-                        let conn = db.0.lock().unwrap();
-                        let threat = db::ThreatRecord {
-                            id: 0,
-                            detected_at: chrono::Local::now().to_rfc3339(),
-                            path: report.path.clone(),
-                            sha256: report.sha256.clone(),
-                            verdict: report.verdict.clone(),
-                            detections: detections_json,
-                            action: "quarantined".into(),
-                        };
-                        let threat_id = db::insert_threat(&conn, &threat).unwrap_or(0);
-                        let top_name = report
-                            .detections
-                            .first()
-                            .map(|d| d.name.clone())
-                            .unwrap_or_else(|| "Unknown".into());
-                        if db::insert_quarantine(&conn, threat_id, &res.vault_file, &report.path, &report.sha256, &top_name).is_ok() {
-                            drop(conn);
-                            outcome.quarantined += 1;
-                            emit(
-                                &app,
-                                "quarantined",
-                                "danger",
-                                &format!("Neutralized & encrypted in vault: {}", res.vault_file),
-                                Some(report.path.clone()),
-                            );
-                        }
-                    }
-                    Err(e) => {
-                        emit(&app, "threat-found", "warn", &format!("Quarantine failed: {}", e), Some(report.path.clone()));
-                    }
+                // Inspection evidence cannot authorize deletion of a reopened path.
+                let detections_json = serde_json::to_string(&report.detections).unwrap_or_default();
+                if let Ok(conn) = db.0.lock() {
+                    let threat = db::ThreatRecord {
+                        id: 0,
+                        detected_at: chrono::Local::now().to_rfc3339(),
+                        path: report.path.clone(),
+                        sha256: report.sha256.clone(),
+                        verdict: report.verdict.clone(),
+                        detections: detections_json,
+                        action: "flagged".into(),
+                    };
+                    db::insert_threat(&conn, &threat).ok();
                 }
             }
             "suspicious" => {
@@ -124,7 +124,13 @@ pub fn scan_path(path: String, app: AppHandle, state: State<AppState>, db: State
                     &app,
                     "threat-found",
                     "warn",
-                    &format!("Suspicious: {}", Path::new(&report.path).file_name().unwrap_or_default().to_string_lossy()),
+                    &format!(
+                        "Suspicious: {}",
+                        Path::new(&report.path)
+                            .file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                    ),
                     Some(
                         report
                             .detections
@@ -147,25 +153,51 @@ pub fn scan_path(path: String, app: AppHandle, state: State<AppState>, db: State
                 };
                 db::insert_threat(&conn, &threat).ok();
             }
+            "clean"
+                if scan_policy::confirmed_clean(
+                    &report.state,
+                    &report.verdict,
+                    report.content_complete,
+                ) =>
+            {
+                emit(
+                    &app,
+                    "file-scanned",
+                    "info",
+                    "No local indicators observed in completed inspection",
+                    None,
+                );
+            }
             _ => {
-                emit(&app, "file-scanned", "info", &format!("Clean: {}", Path::new(&report.path).file_name().unwrap_or_default().to_string_lossy()), None);
+                emit(
+                    &app,
+                    "file-scanned",
+                    "warn",
+                    "Inspection incomplete or unavailable",
+                    Some(report.state.clone()),
+                );
             }
         }
     }
 
     outcome.reports = reports
         .iter()
-        .filter(|r| r.verdict != "clean")
+        .filter(|r| !scan_policy::confirmed_clean(&r.state, &r.verdict, r.content_complete))
         .cloned()
         .collect(); // UI shows only notable results for clean scans
 
+    let complete = scan_policy::complete_scope(
+        reports
+            .iter()
+            .map(|r| (r.state.as_str(), r.content_complete)),
+    );
     emit(
         &app,
         "scan-done",
-        if outcome.malicious > 0 { "danger" } else if outcome.suspicious > 0 { "warn" } else { "info" },
+        if outcome.malicious > 0 { "danger" } else if outcome.suspicious > 0 || !complete { "warn" } else { "info" },
         &format!(
-            "Scan complete — {} clean, {} suspicious, {} malicious, {} quarantined",
-            outcome.clean, outcome.suspicious, outcome.malicious, outcome.quarantined
+            "Inspection {} — {} completed without local indicators, {} suspicious, {} detections, {} quarantined",
+            if complete { "completed" } else { "incomplete" }, outcome.clean, outcome.suspicious, outcome.malicious, outcome.quarantined
         ),
         None,
     );
@@ -173,47 +205,46 @@ pub fn scan_path(path: String, app: AppHandle, state: State<AppState>, db: State
 }
 
 #[tauri::command]
-pub fn simulate_attack(app: AppHandle, state: State<AppState>, db: State<Db>) -> Result<String, String> {
-    // Writes an EICAR test file into a temp folder and immediately scans it.
-    // Used by the demo "Attack Theater" and for rehearsal without a USB stick.
-    // If Windows Defender blocks the real EICAR string from hitting disk
-    // (OS error 225), we fall back to our Defender-independent CS_EICAR
-    // simulation marker, which the YARA engine flags as malicious too.
-    let dir = std::env::temp_dir().join(format!("cyber-shield-attack-{}", Uuid::new_v4()));
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let file = dir.join("eicar_test.com");
-    let real_eicar = "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*";
-    let sim_eicar = "CS-EICAR-SIMULATION :: Cyber Shield live demo payload :: detected by YARA rule CS_Sim_Eicar";
-
-    let mut used_fallback = false;
-    if let Err(e) = std::fs::write(&file, real_eicar) {
-        if e.raw_os_error() == Some(225) || e.kind() == std::io::ErrorKind::PermissionDenied {
-            used_fallback = true;
-            std::fs::write(&file, sim_eicar).map_err(|e2| e2.to_string())?;
-        } else {
-            return Err(e.to_string());
+pub fn simulate_attack(
+    app: AppHandle,
+    state: State<AppState>,
+    db: State<Db>,
+) -> Result<String, String> {
+    // Harmless labeled marker only; never stage real antivirus test signatures.
+    let dir = std::env::temp_dir().join(format!("sentinel-synthetic-{}", Uuid::new_v4()));
+    std::fs::create_dir(&dir).map_err(|_| "synthetic scenario staging unavailable")?;
+    let file = dir.join("synthetic-scenario.txt");
+    let mut created = false;
+    let staged = (|| -> Result<(), String> {
+        use std::io::Write;
+        let mut output = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&file)
+            .map_err(|_| "synthetic scenario staging unavailable")?;
+        created = true;
+        output
+            .write_all(b"CS-EICAR-SIMULATION :: harmless labeled Sentinel scenario")
+            .map_err(|_| "synthetic scenario staging unavailable".to_string())
+    })();
+    if let Err(error) = staged {
+        if created {
+            let _ = std::fs::remove_file(&file);
         }
+        let _ = std::fs::remove_dir(&dir);
+        return Err(error);
     }
-    // Defender may also delete silently after the write — verify.
-    if std::fs::read(&file).map(|b| b != real_eicar.as_bytes()).unwrap_or(true) {
-        used_fallback = true;
-        std::fs::write(&file, sim_eicar).map_err(|e2| e2.to_string())?;
-    }
-
     emit(
         &app,
         "system",
-        "warn",
-        if used_fallback {
-            "Simulated attack staged — Defender blocked raw EICAR, using CS simulation marker"
-        } else {
-            "Simulated attack staged — EICAR test file written"
-        },
-        Some(file.display().to_string()),
+        "info",
+        "Harmless synthetic scenario staged; no live malware or protection proof",
+        None,
     );
     let res = scan_path(file.display().to_string(), app, state, db);
-    std::fs::remove_dir_all(&dir).ok();
-    res.map(|_| "EICAR attack simulated and neutralized".into())
+    let _ = std::fs::remove_file(&file);
+    let _ = std::fs::remove_dir(&dir);
+    res.map(|_| "Harmless synthetic scenario inspected; no automatic remediation".into())
 }
 
 #[derive(Serialize)]

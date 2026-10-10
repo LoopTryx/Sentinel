@@ -2,6 +2,8 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::io::Read;
 use std::path::Path;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 /// YARA ruleset compiled once at startup. Kept small and fast;
 /// new rules go in this string (or extra-rules.yar in app data).
@@ -119,10 +121,30 @@ pub struct ScanReport {
     pub verdict: String, // "clean" | "suspicious" | "malicious"
     pub detections: Vec<Detection>,
     pub scan_ms: u128,
+    pub state: String,
+    pub bytes_inspected: u64,
+    pub content_complete: bool,
+    pub content_evidence: Option<crate::inspection::ContentEvidence>,
+    #[serde(skip)]
+    subject: Option<crate::InspectedSubject>,
+}
+
+impl ScanReport {
+    /// Private object/content association, not authorization or a wire DTO.
+    /// Only a complete successful inspection can produce this association.
+    pub fn inspected_subject(&self) -> Option<&crate::InspectedSubject> {
+        self.subject.as_ref()
+    }
+}
+
+struct Acquisition<'a> {
+    byte_budget: usize,
+    retained: Option<&'a std::fs::File>,
 }
 
 pub struct Engine {
     rules: yara_x::Rules,
+    admission: Mutex<()>,
 }
 
 impl Default for Engine {
@@ -139,6 +161,7 @@ impl Engine {
             .expect("built-in YARA ruleset must compile");
         Engine {
             rules: compiler.build(),
+            admission: Mutex::new(()),
         }
     }
 
@@ -147,44 +170,207 @@ impl Engine {
         path: &Path,
         hash_lookup: &dyn Fn(&str) -> Option<(String, String)>,
     ) -> ScanReport {
-        let start = std::time::Instant::now();
-        let mut report = ScanReport {
-            path: path.display().to_string(),
-            sha256: String::new(),
-            size: 0,
-            verdict: "clean".into(),
-            detections: vec![],
-            scan_ms: 0,
-        };
+        self.scan_file_with_control(
+            path,
+            hash_lookup,
+            &mut || false,
+            &mut |_| {},
+            Instant::now() + Duration::from_secs(30),
+        )
+    }
 
-        let Ok(mut file) = std::fs::File::open(path) else {
-            report.detections.push(Detection {
-                source: "heuristic".into(),
-                name: "Unreadable".into(),
-                detail: "File could not be opened for scanning".into(),
-            });
-            report.verdict = "suspicious".into();
-            report.scan_ms = start.elapsed().as_millis();
+    /// Read-only bounded candidate. Cooperative deadlines are not OS containment.
+    /// Progress counts acquired bytes, not completed engine inspection.
+    pub fn scan_file_with_control(
+        &self,
+        path: &Path,
+        hash_lookup: &dyn Fn(&str) -> Option<(String, String)>,
+        cancelled: &mut dyn FnMut() -> bool,
+        progress: &mut dyn FnMut(u64),
+        deadline: Instant,
+    ) -> ScanReport {
+        let Ok(_permit) = self.admission.try_lock() else {
+            return terminal_report(path, "busy");
+        };
+        self.scan_file_inner(
+            path,
+            hash_lookup,
+            cancelled,
+            progress,
+            deadline,
+            Acquisition {
+                byte_budget: 8 * 1024 * 1024,
+                retained: None,
+            },
+        )
+    }
+
+    /// Internal selected-file acquisition. The trusted job owns the original
+    /// read-only handle; a path is only the private label/heuristic context.
+    pub(crate) fn scan_retained_file_with_control(
+        &self,
+        subject: (&Path, &std::fs::File),
+        hash_lookup: &dyn Fn(&str) -> Option<(String, String)>,
+        cancelled: &mut dyn FnMut() -> bool,
+        progress: &mut dyn FnMut(u64),
+        deadline: Instant,
+    ) -> ScanReport {
+        let Ok(_permit) = self.admission.try_lock() else {
+            return terminal_report(subject.0, "busy");
+        };
+        self.scan_file_inner(
+            subject.0,
+            hash_lookup,
+            cancelled,
+            progress,
+            deadline,
+            Acquisition {
+                byte_budget: 8 * 1024 * 1024,
+                retained: Some(subject.1),
+            },
+        )
+    }
+
+    fn scan_file_inner(
+        &self,
+        path: &Path,
+        hash_lookup: &dyn Fn(&str) -> Option<(String, String)>,
+        cancelled: &mut dyn FnMut() -> bool,
+        progress: &mut dyn FnMut(u64),
+        deadline: Instant,
+        acquisition: Acquisition<'_>,
+    ) -> ScanReport {
+        let start = Instant::now();
+        let deadline = deadline.min(start + Duration::from_secs(30));
+        let mut report = terminal_report(path, "failed");
+        if cancelled() {
+            report.state = "cancelled".into();
+            return report;
+        }
+        if Instant::now() >= deadline {
+            report.state = "timed_out".into();
+            return report;
+        }
+        if !local_selection_path(path) {
+            report.state = "unsupported".into();
+            return report;
+        }
+        #[cfg(windows)]
+        let ancestry = if acquisition.retained.is_none() {
+            match crate::storage_path::retain_scan_ancestry(path, false) {
+                Ok(guard) => Some(guard),
+                Err(_) => return report,
+            }
+        } else {
+            None
+        };
+        #[cfg(windows)]
+        let read_path = if let Some(parent) = &ancestry {
+            let Some(name) = path.file_name() else {
+                report.state = "unsupported".into();
+                return report;
+            };
+            parent.path.join(name)
+        } else {
+            path.to_path_buf()
+        };
+        #[cfg(not(windows))]
+        let read_path = path.to_path_buf();
+        let opened = if let Some(retained) = acquisition.retained {
+            retained.try_clone()
+        } else {
+            let Ok(selected) = std::fs::symlink_metadata(&read_path) else {
+                return report;
+            };
+            if !selected.is_file() || is_reparse(&selected) {
+                report.state = "unsupported".into();
+                return report;
+            }
+            let mut options = std::fs::OpenOptions::new();
+            options.read(true);
+            #[cfg(windows)]
+            {
+                use std::os::windows::fs::OpenOptionsExt;
+                options.share_mode(1).custom_flags(0x0020_0000);
+            }
+            options.open(&read_path)
+        };
+        let Ok(mut file) = opened else {
             return report;
         };
-
-        // Cap read at 64 MB — demo-day USB sticks won't exceed this, and it
-        // keeps scans instant. Larger files are hashed from a streaming read.
-        const MAX_BUF: u64 = 64 * 1024 * 1024;
-        let mut buf = Vec::new();
-        let size = file.metadata().map(|m| m.len()).unwrap_or(0);
-        report.size = size;
-        let _ = (&mut file).take(MAX_BUF).read_to_end(&mut buf);
-
-        let mut hasher = Sha256::new();
-        hasher.update(&buf);
-        if size > MAX_BUF {
-            let _ = std::io::copy(&mut file, &mut hasher);
+        let Ok(before) = file.metadata() else {
+            return report;
+        };
+        if !before.is_file() || is_reparse(&before) {
+            report.state = "unsupported".into();
+            return report;
         }
-        report.sha256 = hex::encode(hasher.finalize());
+        let max_buf = acquisition.byte_budget.min(8 * 1024 * 1024);
+        let mut buf = Vec::new();
+        let size = before.len();
+        report.size = size;
+        let mut chunk = [0u8; 65536];
+        while buf.len() < max_buf {
+            if cancelled() {
+                report.state = "cancelled".into();
+                return report;
+            }
+            if Instant::now() >= deadline {
+                report.state = "timed_out".into();
+                return report;
+            }
+            let remaining = chunk.len().min(max_buf - buf.len());
+            let Ok(count) = file.read(&mut chunk[..remaining]) else {
+                return report;
+            };
+            if count == 0 {
+                break;
+            }
+            buf.extend_from_slice(&chunk[..count]);
+            progress(buf.len() as u64);
+        }
+        if cancelled() {
+            report.state = "cancelled".into();
+            return report;
+        }
+        if Instant::now() >= deadline {
+            report.state = "timed_out".into();
+            return report;
+        }
+        let Ok(after) = file.metadata() else {
+            return report;
+        };
+        if before.len() != after.len()
+            || before.modified().ok() != after.modified().ok()
+            || (size <= max_buf as u64 && buf.len() as u64 != size)
+        {
+            report.state = "changed".into();
+            return report;
+        }
+        report.bytes_inspected = buf.len() as u64;
+        report.content_evidence = Some(crate::inspection::inspect_content(&buf, size));
+        report.content_complete = size == report.bytes_inspected;
+        report.state = if report.content_complete {
+            "completed"
+        } else {
+            "partial"
+        }
+        .into();
+        report.verdict = if report.content_complete {
+            "clean"
+        } else {
+            "unknown"
+        }
+        .into();
+        if report.content_complete {
+            report.sha256 = hex::encode(Sha256::digest(&buf));
+        }
 
         // 1. Signature hash DB (highest confidence)
-        if let Some((name, severity)) = hash_lookup(&report.sha256) {
+        if let Some((name, severity)) = (!report.sha256.is_empty())
+            .then(|| hash_lookup(&report.sha256))
+            .flatten()
+        {
             report.detections.push(Detection {
                 source: "hash-db".into(),
                 name,
@@ -208,43 +394,100 @@ impl Engine {
 
         // 3. YARA rule scan
         let mut scanner = yara_x::Scanner::new(&self.rules);
-        if let Ok(results) = scanner.scan(&buf) {
-            for m in results.matching_rules() {
-                let name = m.identifier().to_string();
-                // Rules that mean "definitely bad", not just "look twice".
-                const MALICIOUS_RULES: &[&str] = &[
-                    "EICAR_Antivirus_Test_File",
-                    "CS_Sim_Eicar",
-                    "Sim_Trojan_TestDropper",
-                    "Sim_Ransomware_Demo",
-                ];
-                let severity = if MALICIOUS_RULES.contains(&name.as_str()) {
-                    "malicious"
-                } else {
-                    "suspicious"
-                };
-                let det = Detection {
-                    source: "yara".into(),
-                    name: name.clone(),
-                    detail: format!("YARA rule '{}' matched file content", name),
-                };
-                if !report
-                    .detections
-                    .iter()
-                    .any(|d| d.source == "yara" && d.name == name)
-                {
-                    report.detections.push(det);
+        scanner.set_timeout(deadline.saturating_duration_since(Instant::now()));
+        scanner.max_matches_per_pattern(256);
+        match scanner.scan(&buf) {
+            Ok(results) => {
+                for m in results.matching_rules() {
+                    let name = m.identifier().to_string();
+                    // Rules that mean "definitely bad", not just "look twice".
+                    const MALICIOUS_RULES: &[&str] = &[
+                        "EICAR_Antivirus_Test_File",
+                        "CS_Sim_Eicar",
+                        "Sim_Trojan_TestDropper",
+                        "Sim_Ransomware_Demo",
+                    ];
+                    let severity = if MALICIOUS_RULES.contains(&name.as_str()) {
+                        "malicious"
+                    } else {
+                        "suspicious"
+                    };
+                    let det = Detection {
+                        source: "yara".into(),
+                        name: name.clone(),
+                        detail: format!("YARA rule '{}' matched file content", name),
+                    };
+                    if !report
+                        .detections
+                        .iter()
+                        .any(|d| d.source == "yara" && d.name == name)
+                    {
+                        report.detections.push(det);
+                    }
+                    if severity == "malicious" {
+                        report.verdict = "malicious".into();
+                    } else if report.verdict != "malicious" {
+                        report.verdict = "suspicious".into();
+                    }
                 }
-                if severity == "malicious" {
-                    report.verdict = "malicious".into();
-                } else if report.verdict == "clean" {
-                    report.verdict = "suspicious".into();
-                }
+            }
+            Err(_) => {
+                report.state = "engine_failed".into();
+                report.content_complete = false;
+                report.verdict = "unknown".into();
+            }
+        }
+
+        let cancellation_requested = cancelled();
+        if cancellation_requested || Instant::now() >= deadline {
+            report.state = if cancellation_requested {
+                "cancelled"
+            } else {
+                "timed_out"
+            }
+            .into();
+            report.content_complete = false;
+            report.verdict = "unknown".into();
+            report.scan_ms = start.elapsed().as_millis();
+            return report;
+        }
+
+        let evidence = report
+            .content_evidence
+            .as_ref()
+            .expect("inspected bytes have evidence");
+        if evidence.mostly_empty_large_file {
+            report.detections.push(Detection {
+                source: "content-inspection".into(),
+                name: "LargeZeroFilledRange".into(),
+                detail: format!("{} of {} inspected bytes are zero; file size {} bytes. Only the inspected range is described. Sparse images and padding may be legitimate; this is not malware proof.", evidence.zero_bytes, evidence.inspected_bytes, evidence.logical_bytes),
+            });
+            if report.verdict != "malicious" {
+                report.verdict = "suspicious".into();
+            }
+        }
+        if evidence.executable_header
+            && path
+                .extension()
+                .and_then(|extension| extension.to_str())
+                .is_some_and(|extension| {
+                    ["pdf", "doc", "docx", "txt", "jpg", "png"]
+                        .iter()
+                        .any(|expected| extension.eq_ignore_ascii_case(expected))
+                })
+        {
+            report.detections.push(Detection {
+                source: "content-inspection".into(),
+                name: "DisguisedExecutableHeader".into(),
+                detail: "Inspected bytes contain MZ and a bounded PE header signature despite the document/image extension. This is a format clue, not proof of malicious behavior.".into(),
+            });
+            if report.verdict != "malicious" {
+                report.verdict = "suspicious".into();
             }
         }
 
         // 4. Static heuristics for files with no signature verdict
-        if report.verdict == "clean" {
+        if report.verdict != "malicious" {
             let heur = heuristic_checks(path, &buf, size);
             if let Some(det) = heur {
                 report.verdict = "suspicious".into();
@@ -252,8 +495,65 @@ impl Engine {
             }
         }
 
+        let cancellation_requested = cancelled();
+        if cancellation_requested || Instant::now() >= deadline {
+            report.state = if cancellation_requested {
+                "cancelled"
+            } else {
+                "timed_out"
+            }
+            .into();
+            report.content_complete = false;
+            report.verdict = "unknown".into();
+        }
         report.scan_ms = start.elapsed().as_millis();
+        if report.state == "completed" && report.content_complete {
+            report.subject = crate::InspectedSubject::capture(&file, &report.sha256, report.size);
+        }
         report
+    }
+}
+
+fn terminal_report(path: &Path, state: &str) -> ScanReport {
+    ScanReport {
+        path: path.display().to_string(),
+        sha256: String::new(),
+        size: 0,
+        verdict: "unknown".into(),
+        detections: vec![],
+        scan_ms: 0,
+        state: state.into(),
+        bytes_inspected: 0,
+        content_complete: false,
+        content_evidence: None,
+        subject: None,
+    }
+}
+
+pub(crate) fn is_reparse(metadata: &std::fs::Metadata) -> bool {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        metadata.file_attributes() & 0x400 != 0
+    }
+    #[cfg(not(windows))]
+    {
+        metadata.file_type().is_symlink()
+    }
+}
+
+pub(crate) fn local_selection_path(path: &Path) -> bool {
+    if !path.is_absolute() {
+        return false;
+    }
+    #[cfg(windows)]
+    {
+        use std::path::{Component, Prefix};
+        matches!(path.components().next(), Some(Component::Prefix(prefix)) if matches!(prefix.kind(), Prefix::Disk(drive) if !drive.eq_ignore_ascii_case(&b'E')))
+    }
+    #[cfg(not(windows))]
+    {
+        true
     }
 }
 
@@ -345,16 +645,206 @@ pub fn scan_directory(
     root: &Path,
     hash_lookup: &dyn Fn(&str) -> Option<(String, String)>,
 ) -> Vec<ScanReport> {
+    scan_directory_with_control(
+        engine,
+        root,
+        hash_lookup,
+        &mut || false,
+        &mut |_, _| {},
+        Instant::now() + Duration::from_secs(30),
+    )
+}
+
+/// One admitted scan per Engine; callers use the application singleton.
+/// Directory findings include explicit terminal records for incomplete traversal.
+/// No path/content callback may be forwarded into AI or public diagnostics.
+pub fn scan_directory_with_control(
+    engine: &Engine,
+    root: &Path,
+    hash_lookup: &dyn Fn(&str) -> Option<(String, String)>,
+    cancelled: &mut dyn FnMut() -> bool,
+    progress: &mut dyn FnMut(&Path, u64),
+    deadline: Instant,
+) -> Vec<ScanReport> {
+    scan_directory_inner(
+        engine,
+        root,
+        hash_lookup,
+        cancelled,
+        progress,
+        deadline,
+        None,
+    )
+}
+
+/// Trusted job retains the originally selected directory's volume address.
+/// The ordinary path is a private report label, never acquisition authority.
+#[cfg(windows)]
+pub(crate) fn scan_retained_directory_with_control(
+    engine: &Engine,
+    subject: (&Path, &crate::storage_path::DirectoryGuard),
+    hash_lookup: &dyn Fn(&str) -> Option<(String, String)>,
+    cancelled: &mut dyn FnMut() -> bool,
+    progress: &mut dyn FnMut(&Path, u64),
+    deadline: Instant,
+) -> Vec<ScanReport> {
+    scan_directory_inner(
+        engine,
+        subject.0,
+        hash_lookup,
+        cancelled,
+        progress,
+        deadline,
+        Some(subject.1),
+    )
+}
+
+fn scan_directory_inner(
+    engine: &Engine,
+    root: &Path,
+    hash_lookup: &dyn Fn(&str) -> Option<(String, String)>,
+    cancelled: &mut dyn FnMut() -> bool,
+    progress: &mut dyn FnMut(&Path, u64),
+    deadline: Instant,
+    retained_root: Option<&crate::storage_path::DirectoryGuard>,
+) -> Vec<ScanReport> {
+    if cancelled() {
+        return vec![terminal_report(root, "cancelled")];
+    }
+    if !local_selection_path(root) {
+        return vec![terminal_report(root, "unsupported")];
+    }
+    let Ok(_permit) = engine.admission.try_lock() else {
+        return vec![terminal_report(root, "busy")];
+    };
+    if Instant::now() >= deadline {
+        return vec![terminal_report(root, "timed_out")];
+    }
+    #[cfg(windows)]
+    let acquired_root = if retained_root.is_none() {
+        match crate::storage_path::retain_scan_ancestry(root, true) {
+            Ok(guard) => Some(guard),
+            Err(_) => return vec![terminal_report(root, "access_error")],
+        }
+    } else {
+        None
+    };
+    #[cfg(windows)]
+    let read_root = &retained_root
+        .or(acquired_root.as_ref())
+        .expect("retained scan root")
+        .path;
+    #[cfg(not(windows))]
+    let read_root = {
+        let _ = retained_root;
+        root
+    };
     let mut reports = Vec::new();
-    for entry in walkdir::WalkDir::new(root)
+    let deadline = deadline.min(Instant::now() + Duration::from_secs(30));
+    let mut bytes = 0;
+    let mut visited = 0;
+    let mut entries = walkdir::WalkDir::new(read_root)
         .max_depth(6)
+        // Keep every permitted depth open. A smaller WalkDir max_open causes
+        // eager collection of an ancestor's remaining entries, bypassing our
+        // entry/memory budget. Root plus six levels needs at most seven handles.
+        .max_open(7)
         .follow_links(false)
-        .into_iter()
-        .filter_map(Result::ok)
-    {
+        .follow_root_links(false)
+        .into_iter();
+    loop {
+        if cancelled() {
+            reports.push(terminal_report(root, "cancelled"));
+            break;
+        }
+        if Instant::now() >= deadline {
+            reports.push(terminal_report(root, "timed_out"));
+            break;
+        }
+        if reports.len() >= 64 || bytes >= 64 * 1024 * 1024 || visited >= 256 {
+            reports.push(terminal_report(root, "limit_reached"));
+            break;
+        }
+        let Some(entry) = entries.next() else {
+            break;
+        };
+        visited += 1;
+        if Instant::now() >= deadline {
+            reports.push(terminal_report(root, "timed_out"));
+            break;
+        }
+        let Ok(entry) = entry else {
+            reports.push(terminal_report(root, "access_error"));
+            continue;
+        };
+        let Ok(relative) = entry.path().strip_prefix(read_root) else {
+            reports.push(terminal_report(root, "access_error"));
+            break;
+        };
+        let report_path = root.join(relative);
+        if entry.file_type().is_symlink() {
+            reports.push(terminal_report(&report_path, "unsupported"));
+            continue;
+        }
+        if entry.depth() == 6 && entry.file_type().is_dir() {
+            reports.push(terminal_report(&report_path, "depth_limit"));
+        }
         if entry.file_type().is_file() {
-            reports.push(engine.scan_file(entry.path(), hash_lookup));
+            if cancelled() {
+                reports.push(terminal_report(root, "cancelled"));
+                break;
+            }
+            if Instant::now() >= deadline {
+                reports.push(terminal_report(root, "timed_out"));
+                break;
+            }
+            #[cfg(windows)]
+            let child_subject = match open_enumerated_file(entry.path()) {
+                Ok(subject) => subject,
+                Err(_) => {
+                    reports.push(terminal_report(&report_path, "access_error"));
+                    continue;
+                }
+            };
+            #[cfg(windows)]
+            let retained = Some(&child_subject.1);
+            #[cfg(not(windows))]
+            let retained = None;
+            let remaining = (64 * 1024 * 1024 - bytes) as usize;
+            let mut acquired = 0;
+            let report = engine.scan_file_inner(
+                &report_path,
+                hash_lookup,
+                cancelled,
+                &mut |count| {
+                    acquired = count;
+                    progress(&report_path, count);
+                },
+                deadline,
+                Acquisition {
+                    byte_budget: remaining,
+                    retained,
+                },
+            );
+            bytes += acquired;
+            reports.push(report);
         }
     }
     reports
+}
+
+#[cfg(windows)]
+fn open_enumerated_file(
+    path: &Path,
+) -> Result<(crate::storage_path::DirectoryGuard, std::fs::File), String> {
+    use std::os::windows::fs::OpenOptionsExt;
+    let parent = crate::storage_path::retain_scan_child_parent(path)?;
+    let name = path.file_name().ok_or("enumerated filename unavailable")?;
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .share_mode(1)
+        .custom_flags(0x0020_0000)
+        .open(parent.path.join(name))
+        .map_err(|_| "enumerated subject unavailable")?;
+    Ok((parent, file))
 }
