@@ -695,3 +695,33 @@ busy refusal until joined exit, then successful next-job admission and obsolete
 report refusal. The callback hold is a labeled lifecycle test boundary, not crash,
 native UI or worker-isolation evidence. New wire contracts wait for B's requested
 contract response; current UI scan capability remains unavailable for this API.
+
+
+## Existing native command safety prerequisite candidate
+
+Accepted commands.rs ownership covers removal of inherited automatic quarantine
+of reopened report paths. Detections are flagged, never neutralized by inspection
+alone; quarantine count stays zero. Clean counts/telemetry require completed
+state, complete content and clean verdict. Unknown/cancel/timeout/change/engine/
+access/unsupported/partial records remain visible and warn. Scope summaries are
+incomplete for missing/incomplete evidence, including empty report vectors.
+Two pure policy tests cover those conditions and nonempty complete scope.
+
+Simulation stages only the existing harmless synthetic marker in a new directory
+and create-new text file. Real EICAR staging, Defender fallback, recursive cleanup
+and neutralization claims are removed. Failed create-new does not authorize
+removing an existing file. No simulation command was executed; source inspection
+and standalone policy tests are not installed staging/prevention evidence.
+
+Owned commands/helper rustfmt and rustc --test scan_policy.rs pass. Initial test
+construction failed because helpers did not exist, not an executed legacy-native
+regression. Legacy default-Clean and automatic remediation were established from
+source. Native cargo check --locked --offline lacked cached tauri; online locked
+check resolved the index then refused stale apps/desktop-tauri/Cargo.lock. Native
+compilation did not run. Lock reconciliation requires shared-file coordination,
+then actual compile/harmless native acceptance. Root tools/verify.ps1 excludes
+this standalone crate and cannot clear that gate. Inherited main.rs formatting
+mismatch is outside this leaf; only owned commands/helper were formatted.
+Existing app_status/protection claims, unregistered job API, selected-path caller
+and subject authority, private-vault initialization and explicit quarantine/
+restore action binding remain native integration work before shipping/main.
