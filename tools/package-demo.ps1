@@ -1,3 +1,4 @@
+param([string]$NodeLicensePath,[switch]$IncludeLegacyClamAV)
 $ErrorActionPreference='Stop'
 $repo=Split-Path -Parent $PSScriptRoot
 $inspectionEngine=Join-Path $repo 'apps\desktop\console-build\sentinel-inspect.exe'
@@ -5,6 +6,11 @@ $inspectionReceipt=Join-Path $repo 'apps\desktop\console-build\inspection-engine
 if(-not(Test-Path -LiteralPath $inspectionEngine -PathType Leaf) -or -not(Test-Path -LiteralPath $inspectionReceipt -PathType Leaf)){throw 'Stage and verify the native inspection engine before packaging.'}
 $engineReceipt=Get-Content -LiteralPath $inspectionReceipt -Raw | ConvertFrom-Json
 if($engineReceipt.executable -ne 'sentinel-inspect.exe' -or $engineReceipt.sha256 -ne (Get-FileHash -LiteralPath $inspectionEngine -Algorithm SHA256).Hash.ToLowerInvariant()){throw 'Staged inspection engine differs from its build receipt.'}
+if(-not $NodeLicensePath){$NodeLicensePath=Join-Path $repo '.local-handoff\NODE-LICENSE.txt'}
+$nodeLicense=(Resolve-Path -LiteralPath $NodeLicensePath).Path
+foreach($required in @('apps\ui\dist\index.html','apps\extension\dist\manifest.json','apps\desktop\console-build\Sentinel.Glass.exe','apps\desktop\console-build\Microsoft.Web.WebView2.Core.dll','apps\desktop\console-build\Microsoft.Web.WebView2.Wpf.dll','apps\desktop\console-build\WebView2Loader.dll')){
+ if(-not(Test-Path -LiteralPath (Join-Path $repo $required) -PathType Leaf)){throw ('Build prerequisite missing: '+$required)}
+}
 $stage=Join-Path $repo ('artifacts\Sentinel-Demo-'+[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'))
 New-Item -ItemType Directory -Path $stage -Force | Out-Null
 function Copy-DemoFile([string]$Source,[string]$Relative){
@@ -21,6 +27,7 @@ foreach($file in Get-ChildItem -LiteralPath (Join-Path $repo 'apps\desktop\conso
  if($file.Extension -in @('.exe','.dll')){Copy-DemoFile $file.FullName ('apps\desktop\console-build\'+$file.Name)}
 }
 Copy-DemoFile $inspectionReceipt 'apps\desktop\console-build\inspection-engine.json'
+if($IncludeLegacyClamAV){
 $clam=Join-Path $repo '.local-handoff\clamav-1.5.4\portable\clamav-1.5.4.win.x64'
 New-Item -ItemType Directory -Path (Join-Path $stage '.local-handoff\clamav-1.5.4\portable\clamav-1.5.4.win.x64') -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $clam 'certs') -Destination (Join-Path $stage '.local-handoff\clamav-1.5.4\portable\clamav-1.5.4.win.x64\certs') -Recurse
@@ -28,12 +35,13 @@ foreach($file in Get-ChildItem -LiteralPath $clam -File){
  if($file.Extension -eq '.dll' -or $file.Name -in @('clamscan.exe','COPYING')){Copy-DemoFile $file.FullName ('.local-handoff\clamav-1.5.4\portable\clamav-1.5.4.win.x64\'+$file.Name)}
 }
 Copy-DemoFile (Join-Path $repo '.local-handoff\clamav-1.5.4\databases\daily.cvd') '.local-handoff\clamav-1.5.4\databases\daily.cvd'
+}
 Copy-DemoFile (Join-Path $repo 'tools\launch-demo.ps1') 'tools\launch-demo.ps1'
 Copy-DemoFile (Join-Path $repo 'apps\extension\src\password-generator.js') 'apps\extension\src\password-generator.js'
 Copy-DemoFile (Join-Path $repo 'docs\today-demo.md') 'DEMO-GUIDE.md'
 $node=(Get-Command node.exe).Source
 Copy-DemoFile $node 'tools\runtime\node.exe'
-Copy-DemoFile (Join-Path $repo '.local-handoff\NODE-LICENSE.txt') 'tools\runtime\NODE-LICENSE.txt'
+Copy-DemoFile $nodeLicense 'tools\runtime\NODE-LICENSE.txt'
 @'
 $ErrorActionPreference='Stop'
 & (Join-Path $PSScriptRoot 'tools\launch-demo.ps1')
@@ -44,7 +52,9 @@ Requires Windows, PowerShell 7, .NET Framework and installed WebView2 runtime.
 Run Start-Sentinel-Demo.ps1 in PowerShell 7. Load apps/extension/dist in Chrome.
 Pair through the demo connection controls. Dummy accounts reset on restart.
 Automatic URL warnings require explicit Chrome site-access opt-in.
-ClamAV is restricted to the included harmless samples. No malware or EICAR is included.
+The launched desktop uses bounded Rust byte inspection; reports remain partial coverage.
+No malware or EICAR is included. Native quarantine controls still await UI/review acceptance.
+Legacy ClamAV is optional and is not used by the launched Rust inspection path.
 Persistent encrypted vault, native messaging, cloud explanations,
 download scanning and automatic desktop redirect logging remain incomplete. Opted-in WhatsApp Web wording warnings are supported for bounded rendered messages. See DEMO-GUIDE.md.
 v1.0.0 school demo candidate; portable build, no installer. Refer to GitHub release for publication status.
