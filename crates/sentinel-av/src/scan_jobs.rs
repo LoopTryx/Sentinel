@@ -1,7 +1,9 @@
 //! Internal native-owned jobs. Caller association must come from the trusted
 //! adapter; a client supplied owner string is not authentication. Raw reports
 //! remain private and must pass the canonical output adapter before transport.
-use crate::engine::{scan_directory_with_control, Engine, ScanReport};
+#[cfg(not(windows))]
+use crate::engine::scan_directory_with_control;
+use crate::engine::{Engine, ScanReport};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -251,6 +253,18 @@ impl SelectedJobs {
                         &mut progress,
                         deadline,
                     )],
+                    #[cfg(windows)]
+                    SelectionKind::Directory => {
+                        crate::engine::scan_retained_directory_with_control(
+                            &engine,
+                            (&selected.path, &_ancestry),
+                            &*hash_lookup,
+                            &mut cancelled,
+                            &mut |_, count| progress(count),
+                            deadline,
+                        )
+                    }
+                    #[cfg(not(windows))]
                     SelectionKind::Directory => scan_directory_with_control(
                         &engine,
                         &selected.path,
@@ -426,5 +440,65 @@ impl Drop for SelectedJobs {
         }
         // Application teardown requests cancellation; cooperative deadline is
         // not OS containment. Native shutdown must reconcile worker completion.
+    }
+}
+
+#[cfg(all(test, windows))]
+mod retained_directory_tests {
+    use super::*;
+
+    #[test]
+    fn directory_worker_reads_retained_subject_not_private_path_label() {
+        let root =
+            std::env::temp_dir().join(format!("sentinel-dir-address-{}", uuid::Uuid::new_v4()));
+        let chosen = root.join("chosen");
+        let decoy = root.join("decoy");
+        std::fs::create_dir(&root).unwrap();
+        std::fs::create_dir(&chosen).unwrap();
+        std::fs::create_dir(&decoy).unwrap();
+        let original = b"harmless retained directory bytes";
+        std::fs::write(chosen.join("ordinary.txt"), original).unwrap();
+        std::fs::write(decoy.join("ordinary.txt"), b"decoy").unwrap();
+        let mut jobs = SelectedJobs::default();
+        let selection = jobs
+            .select(
+                "trusted-main",
+                chosen.clone(),
+                SelectionKind::Directory,
+                Instant::now(),
+            )
+            .unwrap();
+        // Private-label substitution exercises the acquisition boundary without
+        // mutating drive mappings. It is not an installed drive-remap test.
+        jobs.selection.as_mut().unwrap().path = decoy.clone();
+        let job = jobs
+            .start("trusted-main", &selection, Instant::now())
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let snapshot = loop {
+            let snapshot = jobs.poll_wire("trusted-main", &job).unwrap();
+            if snapshot.state == sentinel_proto::selected_scan::ScanWorkerState::Finished {
+                break snapshot;
+            }
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(10));
+        };
+        drop(jobs);
+        assert_eq!(
+            std::fs::read(chosen.join("ordinary.txt")).unwrap(),
+            original
+        );
+        assert_eq!(std::fs::read(decoy.join("ordinary.txt")).unwrap(), b"decoy");
+        for folder in [&chosen, &decoy] {
+            std::fs::remove_file(folder.join("ordinary.txt")).unwrap();
+            std::fs::remove_dir(folder).unwrap();
+        }
+        std::fs::remove_dir(root).unwrap();
+        assert_eq!(snapshot.selection_ref, selection);
+        assert_eq!(snapshot.reports.len(), 1);
+        assert_eq!(
+            snapshot.reports[0].inspected_bytes,
+            original.len().to_string()
+        );
     }
 }

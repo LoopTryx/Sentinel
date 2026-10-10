@@ -141,11 +141,10 @@ Actual harmless root-rename regression failed first, then eight job tests pass,
 including real directory bytes in a validated canonical report and successful
 rename after completion. No device policy or E: operation is involved.
 
-This root-handle retention does not bind every ancestor/descendant lookup: current
-directory traversal still enumerates the private path and opens bounded children.
-Parent alias/junction/rename races and descendant identity across each acquisition
-need further retained-ancestry/handle-bound traversal evidence. Do not treat this
-increment as full directory subject authorization or installed protection. Native
+Root retention alone was not sufficient to bind directory enumeration; the
+volume-addressed traversal increment below now uses the retained ancestry and
+held child acquisition. This remains a bounded dynamic traversal, not an immutable
+tree snapshot or installed protection. Native
 bootstrap/lock files remain part of active PR41 ownership, pending exact transfer;
 PR59 is verifier-only and PR62 does not edit those native files.
 
@@ -155,22 +154,22 @@ traversal and path/component limits refuse before issuing selection references.
 The leaf is opened through the resolved volume address; file engine acquisition
 continues from its retained leaf handle. Ancestor handles transfer into the worker
 lifetime and release with expiry/drop/worker exit. The original path is private
-label/traversal context, never quarantine authority or wire output.
+report context, never acquisition/quarantine authority or wire output.
 
 Read-only scanner ancestry permits fixed/removable volume types; all existing
 vault/storage wrappers keep their original fixed-disk restriction and never create
 scanner ancestry directories. No removable hardware journey was executed, and
 the existing E: refusal happens before ancestry access. Actual owned intermediate
 junction regression failed first for both file/folder selection; nine job checks
-now pass and harmless target bytes remain unchanged. Directory traversal still
-uses private paths: drive-map changes and descendant ancestry/acquisition binding
-need further evidence. Do not infer full tree identity, privileged device holds,
+now pass and harmless target bytes remain unchanged. The subsequent traversal
+increment below anchors enumeration and child reads to the volume address.
+Do not infer full tree identity, privileged device holds,
 quarantine authorization, native IPC or installed protection from this increment.
 
 Use one controller and a bounded idle maintenance timer, trusted native clocks,
 actual picker authorization and held subject identity. File handles are retained
-already; directory root/descendant and picker-to-open ancestry binding remain
-integration work. Native shutdown, bounded isolated worker execution and signature
+already, including directory roots/ancestors and each inspected child acquisition;
+actual picker-to-controller integration remains required. Native shutdown, bounded isolated worker execution and signature
 availability need evidence. No client-submitted owner/path/clock, autonomous cloud
 fallback or inspection-based automatic quarantine. Explicit quarantine/restore
 needs separately reviewed subject/action authorization.
@@ -203,8 +202,24 @@ inspection and cancellation controls. An initial bounds run failed creating larg
 fixtures because C: was full; after removing only this task's reproducible build
 executables, the same unchanged tests passed. No valuable data was removed.
 
-Enumeration still uses the private original directory path. Retained acquisition
-does not establish a complete immutable tree snapshot or eliminate drive mapping
-and descendant enumeration races. Mapped-drive refusal before root metadata,
+Windows directory enumeration now uses the retained root's resolved volume
+address. Selected jobs pass the original selected ancestry into the directory
+engine, so the worker does not resolve its private path label again. Each child
+file acquires bounded nofollow ancestry under that address and a read-sharing
+nofollow leaf handle; inspection clones that handle while the child ancestry is
+retained. Private report/progress labels remain under the original label, and
+canonical wire output remains path-free. Public requests still refuse volume
+GUID paths; this acquisition route is internal trusted job state only.
+
+The actual retained-subject regression first read5 decoy bytes instead of33
+selected bytes after a test-only private-label substitution. It now reads33
+selected bytes, preserves both harmless files and returns the selected job's
+correlated wire report. This tests the acquisition boundary without changing any
+drive mapping; it is not installed drive-remap acceptance. Ten job integration
+checks and seven bounds checks also pass, including explicit unsupported nested
+junction reports with no outside-target bytes read. Traversal remains dynamic;
+an ordinary uninspected descendant can change before it is opened, and this does
+not establish a complete immutable tree snapshot or privileged bypass protection.
+Mapped-drive refusal before root metadata,
 native registration/authorization, isolated execution, explicit action binding
 and installed download-byte/same-report journeys remain acceptance requirements.

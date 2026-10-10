@@ -97,6 +97,22 @@ pub(crate) fn retain_private_child_directory(path: &Path) -> Result<DirectoryGua
 /// quarantine storage policy remains fixed-disk-only. Caller rejects E: first.
 #[cfg(windows)]
 pub(crate) fn retain_scan_ancestry(path: &Path, directory: bool) -> Result<DirectoryGuard, String> {
+    retain_scan_ancestry_inner(path, directory, false)
+}
+
+/// Internal enumerated child of an already retained volume-addressed root.
+/// Never accept this path from a browser/native request.
+#[cfg(windows)]
+pub(crate) fn retain_scan_child_parent(path: &Path) -> Result<DirectoryGuard, String> {
+    retain_scan_ancestry_inner(path, false, true)
+}
+
+#[cfg(windows)]
+fn retain_scan_ancestry_inner(
+    path: &Path,
+    directory: bool,
+    pinned: bool,
+) -> Result<DirectoryGuard, String> {
     let (parent, name) = if directory {
         (path, None)
     } else {
@@ -107,7 +123,7 @@ pub(crate) fn retain_scan_ancestry(path: &Path, directory: bool) -> Result<Direc
             Some(name),
         )
     };
-    retain_directory_inner(parent, false, false, name, false, true)
+    retain_directory_inner(parent, false, pinned, name, false, true)
 }
 
 fn retain_directory_inner(

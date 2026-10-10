@@ -652,6 +652,48 @@ pub fn scan_directory_with_control(
     progress: &mut dyn FnMut(&Path, u64),
     deadline: Instant,
 ) -> Vec<ScanReport> {
+    scan_directory_inner(
+        engine,
+        root,
+        hash_lookup,
+        cancelled,
+        progress,
+        deadline,
+        None,
+    )
+}
+
+/// Trusted job retains the originally selected directory's volume address.
+/// The ordinary path is a private report label, never acquisition authority.
+#[cfg(windows)]
+pub(crate) fn scan_retained_directory_with_control(
+    engine: &Engine,
+    subject: (&Path, &crate::storage_path::DirectoryGuard),
+    hash_lookup: &dyn Fn(&str) -> Option<(String, String)>,
+    cancelled: &mut dyn FnMut() -> bool,
+    progress: &mut dyn FnMut(&Path, u64),
+    deadline: Instant,
+) -> Vec<ScanReport> {
+    scan_directory_inner(
+        engine,
+        subject.0,
+        hash_lookup,
+        cancelled,
+        progress,
+        deadline,
+        Some(subject.1),
+    )
+}
+
+fn scan_directory_inner(
+    engine: &Engine,
+    root: &Path,
+    hash_lookup: &dyn Fn(&str) -> Option<(String, String)>,
+    cancelled: &mut dyn FnMut() -> bool,
+    progress: &mut dyn FnMut(&Path, u64),
+    deadline: Instant,
+    retained_root: Option<&crate::storage_path::DirectoryGuard>,
+) -> Vec<ScanReport> {
     if cancelled() {
         return vec![terminal_report(root, "cancelled")];
     }
@@ -665,15 +707,29 @@ pub fn scan_directory_with_control(
         return vec![terminal_report(root, "timed_out")];
     }
     #[cfg(windows)]
-    let _ancestry = match crate::storage_path::retain_scan_ancestry(root, true) {
-        Ok(guard) => guard,
-        Err(_) => return vec![terminal_report(root, "access_error")],
+    let acquired_root = if retained_root.is_none() {
+        match crate::storage_path::retain_scan_ancestry(root, true) {
+            Ok(guard) => Some(guard),
+            Err(_) => return vec![terminal_report(root, "access_error")],
+        }
+    } else {
+        None
+    };
+    #[cfg(windows)]
+    let read_root = &retained_root
+        .or(acquired_root.as_ref())
+        .expect("retained scan root")
+        .path;
+    #[cfg(not(windows))]
+    let read_root = {
+        let _ = retained_root;
+        root
     };
     let mut reports = Vec::new();
     let deadline = deadline.min(Instant::now() + Duration::from_secs(30));
     let mut bytes = 0;
     let mut visited = 0;
-    let mut entries = walkdir::WalkDir::new(root)
+    let mut entries = walkdir::WalkDir::new(read_root)
         .max_depth(6)
         // Keep every permitted depth open. A smaller WalkDir max_open causes
         // eager collection of an ancestor's remaining entries, bypassing our
@@ -707,28 +763,53 @@ pub fn scan_directory_with_control(
             reports.push(terminal_report(root, "access_error"));
             continue;
         };
+        let Ok(relative) = entry.path().strip_prefix(read_root) else {
+            reports.push(terminal_report(root, "access_error"));
+            break;
+        };
+        let report_path = root.join(relative);
         if entry.file_type().is_symlink() {
-            reports.push(terminal_report(entry.path(), "unsupported"));
+            reports.push(terminal_report(&report_path, "unsupported"));
             continue;
         }
         if entry.depth() == 6 && entry.file_type().is_dir() {
-            reports.push(terminal_report(entry.path(), "depth_limit"));
+            reports.push(terminal_report(&report_path, "depth_limit"));
         }
         if entry.file_type().is_file() {
+            if cancelled() {
+                reports.push(terminal_report(root, "cancelled"));
+                break;
+            }
+            if Instant::now() >= deadline {
+                reports.push(terminal_report(root, "timed_out"));
+                break;
+            }
+            #[cfg(windows)]
+            let child_subject = match open_enumerated_file(entry.path()) {
+                Ok(subject) => subject,
+                Err(_) => {
+                    reports.push(terminal_report(&report_path, "access_error"));
+                    continue;
+                }
+            };
+            #[cfg(windows)]
+            let retained = Some(&child_subject.1);
+            #[cfg(not(windows))]
+            let retained = None;
             let remaining = (64 * 1024 * 1024 - bytes) as usize;
             let mut acquired = 0;
             let report = engine.scan_file_inner(
-                entry.path(),
+                &report_path,
                 hash_lookup,
                 cancelled,
                 &mut |count| {
                     acquired = count;
-                    progress(entry.path(), count);
+                    progress(&report_path, count);
                 },
                 deadline,
                 Acquisition {
                     byte_budget: remaining,
-                    retained: None,
+                    retained,
                 },
             );
             bytes += acquired;
@@ -736,4 +817,20 @@ pub fn scan_directory_with_control(
         }
     }
     reports
+}
+
+#[cfg(windows)]
+fn open_enumerated_file(
+    path: &Path,
+) -> Result<(crate::storage_path::DirectoryGuard, std::fs::File), String> {
+    use std::os::windows::fs::OpenOptionsExt;
+    let parent = crate::storage_path::retain_scan_child_parent(path)?;
+    let name = path.file_name().ok_or("enumerated filename unavailable")?;
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .share_mode(1)
+        .custom_flags(0x0020_0000)
+        .open(parent.path.join(name))
+        .map_err(|_| "enumerated subject unavailable")?;
+    Ok((parent, file))
 }

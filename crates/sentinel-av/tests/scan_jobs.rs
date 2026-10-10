@@ -3,6 +3,58 @@ use std::time::{Duration, Instant};
 
 #[cfg(windows)]
 #[test]
+fn directory_scan_marks_nested_junction_without_reading_its_target() {
+    let root =
+        std::env::temp_dir().join(format!("sentinel-tree-junction-{}", uuid::Uuid::new_v4()));
+    let chosen = root.join("chosen");
+    let outside = root.join("outside");
+    std::fs::create_dir(&root).unwrap();
+    std::fs::create_dir(&chosen).unwrap();
+    std::fs::create_dir(&outside).unwrap();
+    let ordinary = b"harmless chosen bytes";
+    std::fs::write(chosen.join("ordinary.txt"), ordinary).unwrap();
+    std::fs::write(outside.join("outside.txt"), b"outside selected tree").unwrap();
+    let link = chosen.join("link");
+    let result = std::process::Command::new("cmd")
+        .args(["/C", "mklink", "/J"])
+        .arg(&link)
+        .arg(&outside)
+        .output()
+        .unwrap();
+    assert!(result.status.success());
+    let reports = sentinel_av::engine::scan_directory(
+        &sentinel_av::engine::Engine::default(),
+        &chosen,
+        &|_| None,
+    );
+    std::fs::remove_dir(&link).unwrap();
+    assert_eq!(
+        std::fs::read(outside.join("outside.txt")).unwrap(),
+        b"outside selected tree"
+    );
+    for (folder, name) in [(&chosen, "ordinary.txt"), (&outside, "outside.txt")] {
+        std::fs::remove_file(folder.join(name)).unwrap();
+        std::fs::remove_dir(folder).unwrap();
+    }
+    std::fs::remove_dir(root).unwrap();
+    assert_eq!(reports.len(), 2);
+    assert_eq!(
+        reports
+            .iter()
+            .map(|report| report.bytes_inspected)
+            .sum::<u64>(),
+        ordinary.len() as u64
+    );
+    assert!(reports
+        .iter()
+        .any(|report| report.state == "unsupported" && std::path::Path::new(&report.path) == link));
+    assert!(reports
+        .iter()
+        .all(|report| std::path::Path::new(&report.path).starts_with(&chosen)));
+}
+
+#[cfg(windows)]
+#[test]
 fn selection_refuses_junction_ancestors_without_reading_outside_subject() {
     let root = std::env::temp_dir().join(format!("sentinel-job-junction-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir(&root).unwrap();
