@@ -2137,6 +2137,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "sentinel-usb"
+version = "0.1.0"
+dependencies = [
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "sentinel-worker"
 version = "0.1.0"
 dependencies = [
