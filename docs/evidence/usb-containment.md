@@ -31,8 +31,10 @@ The existing platform must keep host input denied throughout and after cleanup.
 - First test run7/8 passed: storage state expectation corrected from Observed to
   Gap because prior policy_lost intentionally marks both interfaces uncovered.
   Implementation was not weakened.
-- Full unchanged tools/verify.ps1: pending at initial publication; final result
-  must be recorded before calling the gate passed.
+- Full unchanged tools/verify.ps1 PASS, exit0, All available T01 checks passed.
+  First run was interrupted by tool reset. Next run hit UI worker startup
+  timeouts; direct unchanged retry26/26 PASS, then final unchanged full gate PASS.
+  Logs: D:/SENTINAL/hid-containment-tests.log and hid-containment-final-verify.log.
 
 ## Not implemented or verified
 
