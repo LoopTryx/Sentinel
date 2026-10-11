@@ -61,9 +61,9 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
   }
 
   return (
-    <>
+    <div className="dashboard-layout">
       {/* ── HERO — grainient gradient; title block left, status pill right ── */}
-      <section className="panel" style={{ padding: 0, overflow: "hidden", border: "none" }}>
+      <section className="panel dashboard-hero">
         <div style={{ position: "absolute", inset: 0, opacity: 0.9 }}>
           <Grainient
             color1={level === "danger" ? "#c2483c" : level === "warn" ? "#b3813a" : "#2f89e3"}
@@ -76,7 +76,7 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
             grainAnimated
           />
         </div>
-        <div className="hero-flex" style={{ position: "relative", zIndex: 1, padding: "34px 36px 30px" }}>
+        <div className="hero-flex dashboard-hero-content">
           <div style={{ minWidth: 0 }}>
             <div
               className="sticker-chip"
@@ -108,17 +108,7 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
               />
               {demo?'Local demo runtime connected':'Preview · no agent connection'}
             </div>
-            <h2
-              style={{
-                fontFamily: "var(--font-display)",
-                fontWeight: 700,
-                fontSize: 44,
-                letterSpacing: "0.02em",
-                margin: "14px 0 10px",
-                color: "#F4F7FF",
-                textShadow: "0 2px 24px rgba(10,14,31,0.6)",
-              }}
-            >
+            <h2 className="dashboard-title">
               SENTINEL
             </h2>
             <div
@@ -139,10 +129,10 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
         </div>
       </section>
 
-      <UsbCapabilityCard connected={demo!==null} onOpen={onOpenUsb}/>
+
 
       {/* ── STAT TILES — no backend in this preview, so honest em-dashes ── */}
-      <div className="stat-grid">
+      <div className="stat-grid dashboard-stats">
         <div className="stat">
           <div className="num">{demo?.scan?.checked??'—'}</div>
           <div className="label">FILES INSPECTED</div>
@@ -156,6 +146,8 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
           <div className="label">DEMO ACCOUNTS</div>
         </div>
       </div>
+
+      <UsbCapabilityCard connected={demo!==null} onOpen={onOpenUsb}/>
 
       {/* ── MAIN GRID — wide activity feed left, scenario rail right ── */}
       <div className="console-grid">
@@ -273,7 +265,7 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
           </h3>
         </div>
         <section className="panel">
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 14 }}>
+          <div className="dashboard-modules">
             {modules.map((g) => (
               <div
                 key={g.group}
@@ -297,7 +289,7 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
                 </div>
                 {g.modules.map((m) => (
                   <div key={m.name} style={{ padding: "8px 0", borderTop: "1px solid var(--grid-line)" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div className="dashboard-module-heading">
                       <span
                         style={{
                           width: 6,
@@ -331,7 +323,7 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
           </div>
         </section>
       </div>
-    </>
+    </div>
   );
 }
 
