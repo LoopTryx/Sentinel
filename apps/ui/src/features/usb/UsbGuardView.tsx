@@ -23,7 +23,7 @@ export default function UsbGuardView(){
     {['failed','cancelled','timed_out','partial'].includes(scan.status)&&<p>Incomplete check. Uninspected files remain unknown.</p>}
     {scan.status==='completed'&&!scan.findings.length&&<p>No test marker found. Safety remains unknown.</p>}
     {scan.findings.length>0&&<ul>{scan.findings.map((finding,i)=><li key={i}><strong>{finding.kind==='synthetic_test'||finding.kind==='provider_synthetic_match'?'Test finding':'Finding'} · {finding.name}</strong><p>{finding.reason}</p></li>)}</ul>}
-    <details><summary>Scan details</summary><p>{scan.engine}</p><p>Demo antivirus signatures cover known harmless samples; other files receive bounded byte checks. This scan does not approve USB input.</p>{scan.files.map((file,i)=><p key={i}>{file.name} · {file.bytes} bytes<br/><code>{file.sha256}</code></p>)}</details>
+    <details><summary>Scan details</summary><p>{scan.engine}</p><p>Rust inspection checks local signatures and bounded byte clues with partial coverage. This scan does not approve USB input.</p>{scan.files.map((file,i)=><p key={i}>{file.name} · {file.bytes} bytes<br/><code>{file.sha256}</code></p>)}</details>
    </div>}
   </section>
  </section>;

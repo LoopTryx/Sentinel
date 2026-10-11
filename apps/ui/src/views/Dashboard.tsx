@@ -43,7 +43,7 @@ const statusLabel =
 
 export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => void; onOpenUsb?:()=>void }) {
   const {state:demo}=useDemoState();
-  const modules=SHIELD_MODULES.map(g=>({...g,modules:g.modules.map(m=>demo&&m.name==='Antivirus Engine'?{...m,status:'BOUNDED DEMO',desc:'ClamAV harmless-sample scans · real reports · partial coverage'}:demo&&m.name==='Password Lab'?{...m,name:'Passwords',status:'SHARED DEMO',desc:'Invented shared accounts · weakness/reuse audit · generated replacements'}:m)}));
+  const modules=SHIELD_MODULES.map(g=>({...g,modules:g.modules.map(m=>demo&&m.name==='Antivirus Engine'?{...m,status:'BOUNDED DEMO',desc:'Rust byte inspection · real reports · partial coverage'}:demo&&m.name==='Password Lab'?{...m,name:'Passwords',status:'SHARED DEMO',desc:'Invented shared accounts · weakness/reuse audit · generated replacements'}:m)}));
   const { level, feed, setLevel, push } = useThreat();
 
   function simulateAttack() {

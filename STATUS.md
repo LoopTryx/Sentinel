@@ -93,3 +93,8 @@ Live WhatsApp follow-up: reproduced the missing badge against the current `msg-c
 ### Second-chat warning fix — 7 October 2026
 
 Fixed contextual claim/currency bait using "price" typo, while normal price discussion stays unknown. Added explicit Suspicious wording clues for supported tail-less/unknown-direction bubbles; incoming gets Potential scam, known outgoing excluded. Updated scope text and receipt-marker attribute refresh. Failing-first unit/browser tests, final 61 extension tests and repository verifier passed. Installed Chrome opt-in was off on retest; restored previously authorized toggle and observed both warning labels on the second chat's invented test messages. No raw chats/contacts published. Review/publication stays on the owned demo PR; no whole S1 completion claim.
+
+## Combined owner demo integration — 11 October 2026
+
+Engineer A scanner/native transport, Engineer B USB checker/dashboard and extension theme, and dormant USB gate source compiled together with complete local verifier PASS. See docs/evidence/combined-demo-2026-10-11.md. Quarantine remains disabled pending recovery lifetime; HID policy is not activated, and installed extension pairing/manual rehearsal remain pending. This is not S1 completion.
+
