@@ -7,6 +7,7 @@ import PasswordManagerView from "./views/PasswordManagerView";
 import QuarantineView from "./views/QuarantineView";
 import ThreatLogView from "./views/ThreatLogView";
 import WatchtowerView from "./views/WatchtowerView";
+import UsbGuardView from "./features/usb/UsbGuardView";
 import Dither from "./components/ui/Dither";
 import Icon from "./components/Icon";
 import "./theme.css";
@@ -15,6 +16,7 @@ type ViewId =
   | "dashboard"
   | "scan"
   | "watchtower"
+  | "usb"
   | "password"
   | "quarantine"
   | "log";
@@ -23,6 +25,7 @@ const NAV: { id: ViewId; label: string; icon: string }[] = [
   { id: "dashboard", label: "Console", icon: "shield" },
   { id: "scan", label: "Scan & Detect", icon: "scan" },
   { id: "watchtower", label: "Watchtower", icon: "wifi" },
+  { id: "usb", label: "USB Guard", icon: "shield" },
   { id: "password", label: "Passwords", icon: "key" },
   { id: "quarantine", label: "Quarantine", icon: "vault" },
   { id: "log", label: "Threat Log", icon: "list" },
@@ -32,6 +35,7 @@ const VIEW_TITLES: Record<ViewId, string> = {
   dashboard: "Console",
   scan: "Scan & Detect",
   watchtower: "Watchtower",
+  usb: "USB Guard",
   password: "Passwords",
   quarantine: "Quarantine",
   log: "Threat Log",
@@ -206,9 +210,10 @@ function Shell() {
           className="content"
           style={{ position: "relative", zIndex: 1, background: "transparent" }}
         >
-          {view === "dashboard" && <Dashboard onViewAll={() => setView("log")} />}
+          {view === "dashboard" && <Dashboard onViewAll={() => setView("log")} onOpenUsb={() => setView("usb")} />}
           {view === "scan" && <ScanView />}
           {view === "watchtower" && <WatchtowerView />}
+          {view === "usb" && <UsbGuardView />}
           {view === "password" && <PasswordManagerView />}
           {view === "quarantine" && <QuarantineView />}
           {view === "log" && <ThreatLogView />}
