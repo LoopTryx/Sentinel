@@ -1,6 +1,7 @@
 import http from 'node:http';
 import {observeWifi} from './wifi.mjs';
 import {observeUsb} from './usb-observe.mjs';
+import {createObservationMonitor} from './observation-monitor.mjs';
 import {randomBytes, createHash, webcrypto, timingSafeEqual} from 'node:crypto';
 import {lstat, open, opendir, realpath, writeFile} from 'node:fs/promises';
 import {basename, resolve, join} from 'node:path';
@@ -39,7 +40,9 @@ const allowedCodes=new Set(['http','credentials','ip','internationalized','port'
 function equal(a,b){return typeof a==='string'&&/^[a-f0-9]{64}$/.test(a)&&a.length===b.length&&timingSafeEqual(Buffer.from(a),Buffer.from(b));}
 function keys(body,list){return body&&typeof body==='object'&&!Array.isArray(body)&&Object.keys(body).every(k=>list.includes(k));}
 
-export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=null,nativeAppDir=null}={}) {
+export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=null,nativeAppDir=null,autoObserve=false}={}) {
+ const wifiMonitor=autoObserve?createObservationMonitor({collect:observeWifi,intervalMs:30000}):null;
+ const usbMonitor=autoObserve?createObservationMonitor({collect:observeUsb,intervalMs:15000}):null;
  const desktopToken=randomBytes(32).toString('hex');
  const nativeActionToken=randomBytes(32).toString('hex');
  let browserToken='',extensionId='',unlocked=false,scan=null,closed=false,revision=0,activeScan=Promise.resolve(),closing;
@@ -152,11 +155,11 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
   if(req.url==='/wifi'){
    if(!desktop)return respond(403,{error:'forbidden'});
    if(!keys(body,[]))return respond(400,{error:'invalid_request'});
-   try{return respond(200,await observeWifi());}catch(error){return respond(503,{error:['wifi_busy','wifi_unsupported'].includes(error.message)?error.message:'wifi_unavailable'});}
+   try{return respond(200,await (wifiMonitor?wifiMonitor.read():observeWifi()));}catch(error){return respond(503,{error:['wifi_busy','wifi_unsupported'].includes(error.message)?error.message:'wifi_unavailable'});}
   }
   if(req.url==='/usb'){
    if(!desktop)return respond(403,{error:'forbidden'});if(!keys(body,[]))return respond(400,{error:'invalid_request'});
-   try{return respond(200,await observeUsb());}catch(error){return respond(503,{error:['usb_busy','usb_unsupported'].includes(error.message)?error.message:'usb_unavailable'});}
+   try{return respond(200,await (usbMonitor?usbMonitor.read():observeUsb()));}catch(error){return respond(503,{error:['usb_busy','usb_unsupported'].includes(error.message)?error.message:'usb_unavailable'});}
   }
   const actionRoutes={
    '/quarantine-prepare':['reportRef',v=>nativeService.prepareQuarantine(v)],
@@ -215,13 +218,13 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
  });
  server.maxConnections=8;server.requestTimeout=5000;server.headersTimeout=5000;
  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});
- function close(){if(!closing){closed=true;if(scan)scan.cancel=true;closing=(async()=>{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));if(nativeService)await nativeService.close();await activeScan;})();}return closing;}
+ function close(){if(!closing){closed=true;if(scan)scan.cancel=true;closing=(async()=>{await Promise.all([wifiMonitor?.close(),usbMonitor?.close()]);server.closeAllConnections();await new Promise(resolve=>server.close(resolve));if(nativeService)await nativeService.close();await activeScan;})();}return closing;}
  return {desktopToken,nativeActionToken,url:'http://127.0.0.1:'+server.address().port,port:server.address().port,close};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
  const nativeExecutable=fileURLToPath(new URL('../desktop/console-build/sentinel-inspect.exe',import.meta.url));
  const nativeAppDir=process.env.LOCALAPPDATA?join(process.env.LOCALAPPDATA,'Sentinel-School-Demo','inspection-vault'):null;
- const runtime=await startRuntime({onShutdown:()=>process.exit(0),nativeExecutable,nativeAppDir});
+ const runtime=await startRuntime({onShutdown:()=>process.exit(0),nativeExecutable,nativeAppDir,autoObserve:true});
  await writeFile(new URL('../desktop/console-build/demo-runtime.json',import.meta.url),JSON.stringify({url:runtime.url,token:runtime.desktopToken,nativeActionToken:runtime.nativeActionToken}),{mode:0o600});
  process.on('SIGTERM',async()=>{await runtime.close();process.exit(0);});
 }

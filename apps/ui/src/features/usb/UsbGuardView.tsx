@@ -2,10 +2,12 @@ import {useState} from 'react';
 import {demoCall,useDemoState} from '../../demo-bridge';
 import './usb-guard.css';
 import {parseUsbInventory,type UsbInventory} from './inventory';
+import {useAutoRefresh} from '../../use-auto-refresh';
 export default function UsbGuardView(){
  const {state,error}=useDemoState();const [busy,setBusy]=useState(false);const [notice,setNotice]=useState('');
  const [inventory,setInventory]=useState<UsbInventory|null>(null);const [observing,setObserving]=useState(false);
- async function observe(){setObserving(true);setInventory(null);setNotice('');try{const result=await demoCall('usb.observe');const parsed=parseUsbInventory(JSON.stringify(result));if(!parsed)throw Error('Device report unavailable.');setInventory(parsed);}catch{setNotice('USB observations unavailable. Try again after the console connects.');}finally{setObserving(false);}}
+ async function observe(){setObserving(true);setNotice('');try{const result=await demoCall('usb.observe');const parsed=parseUsbInventory(JSON.stringify(result));if(!parsed)throw Error('Device report unavailable.');setInventory(parsed);}catch{setInventory(null);setNotice('USB observations unavailable. Try again after the console connects.');}finally{setObserving(false);}}
+ useAutoRefresh(observe,15000,!!state);
  const scan=state?.scan;const running=scan?.status==='running';
  async function choose(kind:'file'|'folder'){
   setBusy(true);setNotice('');

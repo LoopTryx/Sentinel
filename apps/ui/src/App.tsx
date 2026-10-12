@@ -155,7 +155,7 @@ function Shell() {
           <div className="brand-name">SENTINEL</div>
         </div>
 
-        {NAV.map((n) => (
+        <nav className="sidebar-nav" aria-label="Sentinel pages">{NAV.map((n) => (
           <Fragment key={n.id}>
           {n.id === "dashboard" && <div className="nav-label">Protect</div>}
           {n.id === "password" && <div className="nav-label">Tools</div>}
@@ -185,7 +185,7 @@ function Shell() {
             )}
           </button>
           </Fragment>
-        ))}
+        ))}</nav>
 
         <div className="sidebar-footer">
           <div className="sidebar-footer-text" style={{ color: "rgba(232,241,255,0.55)" }}>
