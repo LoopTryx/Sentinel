@@ -50,8 +50,8 @@ test('popup renders truthful states and a fixture-only toggle', async () => {
   assert.match(html, /id="harness-status"/);
   assert.match(html, /id="fixture-toggle"/);
   assert.match(html, /blocked\.sentinel\.invalid/);
-  assert.match(html, /In-memory storage resets/);
-  assert.match(html, /No download monitoring or real vault yet/);
+  assert.match(html, /Session workspace: sample logins reset when the console closes/);
+  assert.match(html, /Persistent storage, import and autofill are unavailable/);
 
   const script = await read('src/popup.js');
   assert.match(script, /statusLines/);

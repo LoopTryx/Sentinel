@@ -107,13 +107,13 @@ document.getElementById('password-length').addEventListener('input', event => {
 });
 document.getElementById('generate-password').addEventListener('click', () => {
  clearPassword();
- try {generated.value = generatePassword(Number(document.getElementById('password-length').value)); copy.disabled = false; feedback.textContent = 'Generated locally. Not saved.';}
+ try {generated.value = generatePassword(Number(document.getElementById('password-length').value)); copy.disabled = false; feedback.textContent = 'Ready to copy.';}
  catch {feedback.textContent = 'Generation unavailable. Try again.';}
 });
 reveal.addEventListener('click', () => {generated.type = generated.type === 'password' ? 'text' : 'password'; reveal.textContent = generated.type === 'password' ? 'Show' : 'Hide';});
 copy.addEventListener('click', async () => {
  const current = generation;
- try {await navigator.clipboard.writeText(generated.value); if (current === generation) feedback.textContent = 'Copied to clipboard. Other apps may read your clipboard.';}
+ try {await navigator.clipboard.writeText(generated.value); if (current === generation) feedback.textContent = 'Copied.';}
  catch {if (current === generation) feedback.textContent = 'Copy unavailable. Select and copy the generated password manually.';}
 });
 document.getElementById('clear-password').addEventListener('click', clearPassword);
