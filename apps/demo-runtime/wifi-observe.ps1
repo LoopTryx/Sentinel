@@ -1,4 +1,5 @@
 $ErrorActionPreference='Stop'
+. (Join-Path $PSScriptRoot 'wifi-security.ps1')
 $result=@{connection='unknown';profile='unknown';security='unknown';gateway='unknown';dns='unknown';vpn='unknown';proxy='unknown'}
 try {
  $profiles=@(Get-NetConnectionProfile -ErrorAction Stop)
@@ -18,8 +19,7 @@ if($result.connection -eq 'wifi'){
  try {
   $wireless=& (Join-Path $env:SystemRoot 'System32\netsh.exe') wlan show interfaces 2>$null
   # Only recognized security fields leave this process. Names, BSSIDs and addresses do not.
-  $auth=@($wireless | Where-Object {$_ -match '^\s*Authentication\s*:'})
-  if($auth.Count -eq 1){$value=($auth[0] -split ':',2)[1].Trim();if($value -eq 'Open'){$result.security='open'}elseif($value -match '^WPA3'){$result.security='wpa3'}elseif($value -match '^WPA2'){$result.security='wpa2'}elseif($value -eq 'WEP'){$result.security='wep'}}
+  $result.security=Get-SentinelWifiSecurity -Lines $wireless
  } catch {}
 }
 try {if(@(Get-NetAdapter -ErrorAction Stop | Where-Object {$_.Status -eq 'Up' -and $_.InterfaceDescription -match 'VPN|WireGuard|TAP|TUN'}).Count){$result.vpn='observed'}} catch {}

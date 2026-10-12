@@ -37,6 +37,10 @@ foreach($file in Get-ChildItem -LiteralPath $clam -File){
 Copy-DemoFile (Join-Path $repo '.local-handoff\clamav-1.5.4\databases\daily.cvd') '.local-handoff\clamav-1.5.4\databases\daily.cvd'
 }
 Copy-DemoFile (Join-Path $repo 'tools\launch-demo.ps1') 'tools\launch-demo.ps1'
+Copy-DemoFile (Join-Path $repo 'tools\usb\read-inventory.ps1') 'tools\usb\read-inventory.ps1'
+foreach($labFile in @('README.md','duck-code.py','test-guard.ps1')){
+ Copy-DemoFile (Join-Path $repo ('tools\usb\lab\'+$labFile)) ('tools\usb\lab\'+$labFile)
+}
 Copy-DemoFile (Join-Path $repo 'apps\extension\src\password-generator.js') 'apps\extension\src\password-generator.js'
 Copy-DemoFile (Join-Path $repo 'docs\today-demo.md') 'DEMO-GUIDE.md'
 New-Item -ItemType Directory -Path (Join-Path $stage 'samples') -Force | Out-Null

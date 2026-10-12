@@ -1,5 +1,6 @@
 import http from 'node:http';
 import {observeWifi} from './wifi.mjs';
+import {observeUsb} from './usb-observe.mjs';
 import {randomBytes, createHash, webcrypto, timingSafeEqual} from 'node:crypto';
 import {lstat, open, opendir, realpath, writeFile} from 'node:fs/promises';
 import {basename, resolve, join} from 'node:path';
@@ -152,6 +153,10 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
    if(!desktop)return respond(403,{error:'forbidden'});
    if(!keys(body,[]))return respond(400,{error:'invalid_request'});
    try{return respond(200,await observeWifi());}catch(error){return respond(503,{error:['wifi_busy','wifi_unsupported'].includes(error.message)?error.message:'wifi_unavailable'});}
+  }
+  if(req.url==='/usb'){
+   if(!desktop)return respond(403,{error:'forbidden'});if(!keys(body,[]))return respond(400,{error:'invalid_request'});
+   try{return respond(200,await observeUsb());}catch(error){return respond(503,{error:['usb_busy','usb_unsupported'].includes(error.message)?error.message:'usb_unavailable'});}
   }
   const actionRoutes={
    '/quarantine-prepare':['reportRef',v=>nativeService.prepareQuarantine(v)],

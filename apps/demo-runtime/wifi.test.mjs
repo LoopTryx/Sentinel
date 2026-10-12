@@ -7,6 +7,7 @@ test('unknown coverage creates no fictional threats and raw identities are refus
 test('paired browser cannot collect desktop network observations',async()=>{
  const runtime=await startRuntime();try{
   const id='c'.repeat(32);const pairing=await fetch(runtime.url+'/pair',{method:'POST',headers:{Authorization:'Bearer '+runtime.desktopToken,'Content-Type':'application/json'},body:JSON.stringify({extensionId:id})});const config=await pairing.json();
-  const response=await fetch(runtime.url+'/wifi',{method:'POST',headers:{Authorization:'Bearer '+config.token,'X-Sentinel-Extension':id,'Content-Type':'application/json'},body:'{}'});assert.equal(response.status,403);
+  for(const route of ['/wifi','/usb']){const response=await fetch(runtime.url+route,{method:'POST',headers:{Authorization:'Bearer '+config.token,'X-Sentinel-Extension':id,'Content-Type':'application/json'},body:'{}'});assert.equal(response.status,403);}
+  const invalid=await fetch(runtime.url+'/usb',{method:'POST',headers:{Authorization:'Bearer '+runtime.desktopToken,'Content-Type':'application/json'},body:JSON.stringify({instanceId:'not-accepted'})});assert.equal(invalid.status,400);
  }finally{await runtime.close();}
 });

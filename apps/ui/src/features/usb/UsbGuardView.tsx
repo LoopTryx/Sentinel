@@ -1,8 +1,11 @@
 import {useState} from 'react';
 import {demoCall,useDemoState} from '../../demo-bridge';
 import './usb-guard.css';
+import {parseUsbInventory,type UsbInventory} from './inventory';
 export default function UsbGuardView(){
  const {state,error}=useDemoState();const [busy,setBusy]=useState(false);const [notice,setNotice]=useState('');
+ const [inventory,setInventory]=useState<UsbInventory|null>(null);const [observing,setObserving]=useState(false);
+ async function observe(){setObserving(true);setInventory(null);setNotice('');try{const result=await demoCall('usb.observe');const parsed=parseUsbInventory(JSON.stringify(result));if(!parsed)throw Error('Device report unavailable.');setInventory(parsed);}catch{setNotice('USB observations unavailable. Try again after the console connects.');}finally{setObserving(false);}}
  const scan=state?.scan;const running=scan?.status==='running';
  async function choose(kind:'file'|'folder'){
   setBusy(true);setNotice('');
@@ -12,7 +15,7 @@ export default function UsbGuardView(){
  async function cancel(){try{await demoCall('cancel');}catch(e){setNotice(e instanceof Error?e.message:'Cancel unavailable.');}}
  return <section className="usb-guard usb-minimal" aria-labelledby="usb-heading">
   <div className="usb-page-heading"><h2 id="usb-heading">USB Guard</h2><span className="usb-mode">File checks only · HID blocking unavailable</span></div>
-  <section className="panel usb-recent" aria-labelledby="usb-recent-heading"><div className="usb-toolbar"><h3 id="usb-recent-heading">Recent attacks</h3><span className="usb-chip">Feed unavailable</span></div><div className="usb-empty"><span aria-hidden="true">—</span><p>No USB attack history available.</p></div></section>
+  <section className="panel usb-recent" aria-labelledby="usb-recent-heading"><div className="usb-toolbar"><h3 id="usb-recent-heading">Connected USB devices</h3><button className="btn ghost" disabled={observing||!state} onClick={()=>void observe()}>{observing?'Reading devices…':'Check devices'}</button></div>{inventory?<><p>{inventory.devices.length} device groups · {inventory.state} observation</p>{inventory.devices.map(device=><div key={device.ref} style={{padding:'12px 0',borderBottom:'1px solid var(--grid-line)'}}><strong>{device.ref}</strong><p>{device.interfaces.map(kind=>kind.replaceAll('_',' ')).join(' · ')}</p>{device.interfaces.includes('hid_keyboard')&&<p style={{color:'var(--warn)'}}>Keyboard input interface detected. Verify this device before trusting it.</p>}{device.interfaces.includes('hid_keyboard')&&device.interfaces.includes('storage')&&<p>Storage and keyboard interfaces share this device group.</p>}</div>)}{inventory.state==='partial'&&<p>Some devices could not be fully identified.</p>}</>:<p>Check the USB interfaces Windows currently reports.</p>}</section>
   <section className="panel usb-checker" aria-labelledby="usb-checker-heading"><div className="usb-toolbar"><h3 id="usb-checker-heading">USB file / folder checker</h3><span className="usb-chip">{state?'Connected':'Desktop disconnected'}</span></div>
    <p className="usb-check-note">Select a file or folder from your USB. Checks have partial coverage.</p>
    <div className="usb-check-actions"><button className="btn" disabled={!state||busy||running} onClick={()=>void choose('file')}>Choose file</button><button className="btn ghost" disabled={!state||busy||running} onClick={()=>void choose('folder')}>Choose folder</button>{running&&<button className="btn ghost" onClick={()=>void cancel()}>Cancel inspection</button>}</div>

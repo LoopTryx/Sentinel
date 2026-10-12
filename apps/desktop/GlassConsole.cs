@@ -197,6 +197,10 @@ public sealed class SentinelGlassConsole : Window
                 var empty = data as Dictionary<string, object>;
                 if (empty == null || empty.Count != 0) throw new InvalidOperationException();
                 route = "wifi";
+            } else if (method == "usb.observe") {
+                var empty = data as Dictionary<string, object>;
+                if (empty == null || empty.Count != 0) throw new InvalidOperationException();
+                route = "usb";
             } else if (method == "state" || method == "lock" || method == "unlock" || method == "rotate" || method == "reveal" || method == "cancel" || method == "pair") route = method;
             else throw new InvalidOperationException();
             requests++;
