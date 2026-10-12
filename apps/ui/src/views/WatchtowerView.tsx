@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Icon from "../components/Icon";
+import './glm-pages.css';
 
 interface WatchAlert {
   id: number;
@@ -85,11 +86,11 @@ export default function WatchtowerView() {
   }
 
   return (
-    <>
-      <section className="panel">
-        <h3 className="panel-title">Message checker</h3>
+    <div className="glm-watchtower">
+      <section className="panel glm-page">
+        <div className="glm-page-heading"><div><span className="pm-eyebrow">SENTINEL / WATCHTOWER</span><h3 className="panel-title">Scam Radar</h3></div><span className="badge">Local message checker</span></div>
         <p style={{ color: "var(--text-dim)", fontSize: 13, margin: "0 0 12px" }}>
-          Use invented messages only. Local pattern clues cannot verify senders or establish safety; no inbox or network monitoring is connected.
+          Check an invented message for local scam clues. Nothing is uploaded.
         </p>
         <textarea
           className="input"
@@ -99,11 +100,11 @@ export default function WatchtowerView() {
           onChange={(e) => { setText(e.target.value); setVerdict(null); }}
           style={{ resize: "vertical", fontFamily: "var(--font-body)" }}
         />
-        <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+        <div className="glm-toolbar">
           <button className="btn" onClick={check} disabled={!text.trim()}>
             <Icon name="radar" size={15} /> Check message
           </button>
-          {verdict && (
+          {text && (
             <button
               className="btn ghost"
               onClick={() => {
@@ -165,10 +166,11 @@ export default function WatchtowerView() {
             )}
           </div>
         )}
+        <details className="glm-details"><summary>Coverage & privacy</summary><p>Use invented messages only. Local pattern clues cannot verify senders or establish safety. No inbox or network monitoring is connected.</p></details>
       </section>
 
-      <section className="panel">
-        <h3 className="panel-title">Synthetic alert examples</h3>
+      <section className="panel glm-page">
+        <div className="glm-page-heading"><h3 className="panel-title">Alert Centre</h3><span className="badge">Synthetic examples · not live</span></div>
         {SAMPLE_ALERTS.map((a) => (
           <div
             key={a.id}
@@ -187,11 +189,9 @@ export default function WatchtowerView() {
             <span className="feed-ts">{a.source}</span>
           </div>
         ))}
-        <p style={{ color: "var(--text-faint)", fontSize: 12, fontFamily: "var(--font-mono)", margin: "4px 0 0" }}>
-          // wifi-guard auto-watch and toast alerts arrive in Phase B
-        </p>
+        <span className="glm-caption">Automatic network monitoring is unavailable.</span>
       </section>
-    </>
+    </div>
   );
 }
 

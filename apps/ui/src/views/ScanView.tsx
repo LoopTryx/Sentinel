@@ -2,6 +2,8 @@ import {useEffect,useState} from 'react';
 import type {ScanJobSnapshot} from '@sentinel/contracts/generated/ScanJobSnapshot';
 import {validSnapshot} from '../../../demo-runtime/inspection-wire.mjs';
 import {demoCall,useDemoState} from '../demo-bridge';
+import Icon from '../components/Icon';
+import './glm-pages.css';
 const retainedReceipts=new Set<string>();
 const quarantineAvailable=false; // Recovery must survive native worker expiry.
 let acceptedSelection:{id:string;kind:string}|null=null;
@@ -28,11 +30,10 @@ export default function ScanView(){
    retainedReceipts.delete(reference);setReceipts([...retainedReceipts]);setNotice('Original bytes restored.');
   }else setNotice('Operation not completed: '+(r.data?.code||r.type||'unavailable'));
  }catch(e){setNotice(e instanceof Error?e.message:'Native operation unavailable');}finally{setBusy(false);}}
- return <section className="panel"><span className="pm-eyebrow">SENTINEL / FILE INSPECTION</span><h3 className="panel-title">Scan & inspect</h3>
- <p>Read-only Rust byte inspection checks local signatures and structural clues, including zero-filled ranges and disguised executable headers. Indicators need review; they do not prove malware. Files are never executed. No automatic remediation or USB release.</p>
- <div className="badge">{state?'Desktop runtime connected · partial coverage':'Desktop scan adapter unavailable'}</div>
- <p>Bounded inspection reads up to 8 MiB per file and visits up to 64 files, 256 entries and four directory levels. Larger files receive partial reports with no full-file hash. Links are refused. Quarantine is unavailable until recovery survives the five-minute native worker expiry.</p>
- <div className="pm-actions"><button className="btn" disabled={!state||busy||running||receipts.length>0} onClick={()=>void select('file')}>Choose file</button><button className="btn ghost" disabled={!state||busy||running||receipts.length>0} onClick={()=>void select('folder')}>Choose folder</button><button className="btn ghost" disabled={busy||!running} onClick={()=>void demoCall('cancel').catch(e=>setNotice(e.message))}>Cancel inspection</button></div>
+ return <section className="panel glm-page"><div className="glm-page-heading"><div><span className="pm-eyebrow">SENTINEL / SCAN & DETECT</span><h3 className="panel-title">Virus Sample Detector</h3></div><span className="badge">{state?'Connected · partial coverage':'Scanner disconnected'}</span></div>
+ <div className="glm-scan-zone"><Icon name="scan" size={42}/><h2>Scan files & folders</h2><p>Choose a target for local, read-only inspection.</p><div className="glm-scan-actions"><button className="btn" disabled={!state||busy||running||receipts.length>0} onClick={()=>void select('file')}><Icon name="scan" size={18}/>Choose file</button><button className="btn ghost" disabled={!state||busy||running||receipts.length>0} onClick={()=>void select('folder')}><Icon name="vault" size={18}/>Choose folder</button></div><span className="glm-caption">Files stay on your device · never executed</span></div>
+ <div className="glm-toolbar"><span role="status">{busy?'Opening native picker…':running?'Inspection running':state?'Ready to inspect':'Connect the desktop runtime to scan'}</span><button className="btn ghost" disabled={busy||!running} onClick={()=>void demoCall('cancel').catch(e=>setNotice(e.message))}>Cancel inspection</button></div>
+ <details className="glm-details"><summary>Coverage & limits</summary><p>Read-only Rust byte inspection checks local signatures and structural clues. Indicators need review; they do not prove malware. No automatic remediation or USB release.</p><p>8 MiB per file · 64 files · 256 entries · four directory levels. Larger files receive partial reports with no full-file hash. Links are refused. Quarantine is unavailable until recovery survives the five-minute native worker expiry.</p></details>
  {(notice||error||inspectionError)&&<p role="status">{notice||error||inspectionError}</p>}
  {snapshot&&<section aria-live="polite"><h3>{snapshot.cancellationRequested?'Cancellation requested':snapshot.state} · partial coverage</h3>
  <p>Latest file bytes acquired: {snapshot.currentFileBytes}. Reports: {snapshot.reports.length}. No estimated percentage.</p>
