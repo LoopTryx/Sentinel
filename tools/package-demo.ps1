@@ -42,7 +42,7 @@ Copy-DemoFile (Join-Path $repo 'apps\desktop\console-build\Sentinel.exe') 'Senti
 Copy-DemoFile (Join-Path $repo 'apps\desktop\console-build\Setup.exe') 'Setup.exe'
 Copy-DemoFile (Join-Path $repo 'apps\desktop\console-build\Sentinel.NativeConnect.exe') 'apps\desktop\console-build\Sentinel.NativeConnect.exe'
 Copy-DemoFile (Join-Path $repo 'tools\usb\read-inventory.ps1') 'tools\usb\read-inventory.ps1'
-foreach($labFile in @('README.md','duck-code.py','test-guard.ps1')){
+foreach($labFile in @('README.md','duck-code.py','test-guard.ps1','Start-Typing-Test.ps1')){
  Copy-DemoFile (Join-Path $repo ('tools\usb\lab\'+$labFile)) ('tools\usb\lab\'+$labFile)
 }
 Copy-DemoFile (Join-Path $repo 'apps\extension\src\password-generator.js') 'apps\extension\src\password-generator.js'

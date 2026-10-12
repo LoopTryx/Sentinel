@@ -43,6 +43,9 @@ class PayloadTests(unittest.TestCase):
     def test_wrong_marker_never_types(self):
         self.assertEqual(self.run_payload('startup', 'wrong')[0], [])
 
+    def test_utf8_bom_approval_is_accepted(self):
+        self.assertEqual(len(self.run_payload('startup', '\ufeffSECONDARY-WINDOWS-NOTEPAD-TEST\r\n')[0]), 1)
+
     def test_approved_startup_types_once_and_releases_keys(self):
         sent, released, runtime = self.run_payload('startup', 'SECONDARY-WINDOWS-NOTEPAD-TEST')
         self.assertEqual(sent, ['QUACK! Sentinel USB typing test reached this window. (o<)'])

@@ -1,38 +1,39 @@
-"""Controlled typing test for the owner's secondary Windows laptop."""
+"""One explicitly armed text-only typing test; no shell or network actions."""
 import time
 import supervisor
 
-# Editing the drive must never launch a payload on the machine preparing it.
-if supervisor.runtime.run_reason != supervisor.RunReason.STARTUP:
-    raise SystemExit("Reconnect on the secondary test laptop to arm.")
 
-# Writing the approval marker must not restart this physical-startup run.
-supervisor.runtime.autoreload = False
-
-# No automatic typing on connection. The lab operator creates this marker only
-# after focusing Notepad on the secondary device. One run per physical connection.
-armed = False
-for _ in range(1800):
+def run():
+    if supervisor.runtime.run_reason != supervisor.RunReason.STARTUP:
+        print("Test idle. Reconnect before starting a typing test.")
+        return
+    supervisor.runtime.autoreload = False
+    print("Test ready. Run Start-Typing-Test from CIRCUITPY within three minutes.")
+    armed = False
+    for _ in range(1800):
+        try:
+            with open("/SENTINEL-LAB-ARM.txt", "r") as marker:
+                armed = marker.read(64).strip("\ufeff \t\r\n") == "SECONDARY-WINDOWS-NOTEPAD-TEST"
+        except OSError:
+            pass
+        if armed:
+            break
+        time.sleep(0.1)
+    if not armed:
+        print("Test finished without approval. No keys sent.")
+        return
+    import usb_hid
+    from adafruit_hid.keyboard import Keyboard
+    from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
+    keyboard = Keyboard(usb_hid.devices)
+    layout = KeyboardLayoutUS(keyboard)
+    print("Approved. Focus blank Notepad now. Typing in ten seconds.")
+    time.sleep(10)
     try:
-        with open("/SENTINEL-LAB-ARM.txt", "r") as marker:
-            armed = marker.read(64).strip() == "SECONDARY-WINDOWS-NOTEPAD-TEST"
-    except OSError:
-        pass
-    if armed:
-        break
-    time.sleep(0.1)
-if not armed:
-    raise SystemExit("No lab approval. No keys sent.")
+        layout.write("QUACK! Sentinel USB typing test reached this window. (o<)")
+    finally:
+        keyboard.release_all()
+    print("Typing test complete.")
 
-import usb_hid
-from adafruit_hid.keyboard import Keyboard
-from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
 
-keyboard = Keyboard(usb_hid.devices)
-layout = KeyboardLayoutUS(keyboard)
-time.sleep(5)  # Allow the operator to return focus to the blank Notepad document.
-try:
-    # Text only: no hotkeys, Enter key, shell commands, remote code or downloads.
-    layout.write("QUACK! Sentinel USB typing test reached this window. (o<)")
-finally:
-    keyboard.release_all()
+run()

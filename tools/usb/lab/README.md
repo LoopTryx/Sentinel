@@ -1,6 +1,10 @@
 # Controlled USB typing test — secondary Windows11 device only
 
 The RP2040 test types one short duck/message into a manually opened Notepad.
+For the text-only test, reconnect it, then double-click `Start-Typing-Test.cmd`
+on CIRCUITPY. Open a blank Notepad document, approve the helper prompt and
+focus Notepad within ten seconds. The helper writes/removes the one-run marker.
+It performs no device blocking. Blocking tests below remain secondary-only.
 It uses no hotkeys, commands, Enter key, network, downloads or account changes.
 The official Hak5 ASCII payload library inspired the visible-output test; this
 CircuitPython implementation is original and fits the mounted RP2040-Zero.
@@ -19,7 +23,7 @@ On the secondary machine, use a built-in keyboard/mouse as recovery input:
    -DailyComputerName PRIMARY_NAME -InstanceId 'HID\VID_...\...'`.
 4. Verify the tool reports disabled/code22. Open Notepad and focus its blank document.
 5. Within three minutes of connection, create `SENTINEL-LAB-ARM.txt` on CIRCUITPY with
-   exactly `SECONDARY-WINDOWS-NOTEPAD-TEST`. Return focus to Notepad within five seconds. No text should arrive.
+   exactly `SECONDARY-WINDOWS-NOTEPAD-TEST`. Return focus to Notepad within ten seconds. No text should arrive.
    This marker requires careful focus; do not create it on the daily laptop.
 6. Restore the exact device with `-Mode Restore` and the same arguments/receipt.
 7. Remove only the test arm marker; unplug/replug. Repeat the typing test without
