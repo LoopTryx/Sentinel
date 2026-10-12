@@ -1,8 +1,8 @@
 # Controlled USB typing test — secondary Windows11 device only
 
 The RP2040 test types one short duck/message into a manually opened Notepad.
-Current loader: physically reconnect, wait ten seconds, then it presses Win+R,
-types `notepad`, presses Enter, waits three seconds and types the QUACK message.
+Current loader: physically reconnect, wait two seconds, then it presses Win+R,
+waits 0.2 seconds, types `notepad`, presses Enter, waits 0.5 seconds and types the QUACK message.
 No approval marker or CMD helper is required. File edits and soft reloads do not
 trigger typing. It runs once per physical startup and releases keys on failure.
 It performs no device blocking. Blocking tests below remain secondary-only.

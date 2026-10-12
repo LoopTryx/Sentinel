@@ -39,7 +39,7 @@ class PayloadTests(unittest.TestCase):
 
     def test_startup_opens_notepad_and_types_once(self):
         events,runtime=self.run_payload('startup')
-        self.assertEqual(events,[('wait',10),('press',('WIN','R')),('release',),('wait',1),('write','notepad'),('press',('ENTER',)),('release',),('wait',3),('write','QUACK! Sentinel USB typing test reached this window. (o<)'),('release',)])
+        self.assertEqual(events,[('wait',2),('press',('WIN','R')),('release',),('wait',0.2),('write','notepad'),('press',('ENTER',)),('release',),('wait',0.5),('write','QUACK! Sentinel USB typing test reached this window. (o<)'),('release',)])
         self.assertFalse(runtime.autoreload)
 
     def test_failure_releases_all_keys(self):

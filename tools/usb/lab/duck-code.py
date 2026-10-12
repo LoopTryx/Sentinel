@@ -8,8 +8,8 @@ def run():
         print("Test idle. Reconnect before starting a typing test.")
         return
     supervisor.runtime.autoreload = False
-    print("Opening Notepad in ten seconds.")
-    time.sleep(10)
+    print("Opening Notepad in two seconds.")
+    time.sleep(2)
     import usb_hid
     from adafruit_hid.keyboard import Keyboard
     from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
@@ -19,11 +19,11 @@ def run():
     try:
         keyboard.press(Keycode.GUI, Keycode.R)
         keyboard.release_all()
-        time.sleep(1)
+        time.sleep(0.2)
         layout.write("notepad")
         keyboard.press(Keycode.ENTER)
         keyboard.release_all()
-        time.sleep(3)
+        time.sleep(0.5)
         layout.write("QUACK! Sentinel USB typing test reached this window. (o<)")
     finally:
         keyboard.release_all()
