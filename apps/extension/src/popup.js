@@ -82,8 +82,8 @@ function showResult(id, result) {
  const list=document.createElement('ul'); for(const reason of result.reasons){const item=document.createElement('li');item.textContent=reason.text;list.append(item);} target.append(list);
 }
 function errorResult(id,error){document.getElementById(id).textContent=error.message || 'Local check unavailable.';}
-document.getElementById('check-message').addEventListener('click',()=>{try{showResult('message-result',explainMessage(messageInput.value));}catch(error){errorResult('message-result',error);}});
-messageInput.addEventListener('input',()=>document.getElementById('message-result').replaceChildren());
+document.getElementById('check-message')?.addEventListener('click',()=>{try{showResult('message-result',explainMessage(messageInput.value));}catch(error){errorResult('message-result',error);}});
+messageInput?.addEventListener('input',()=>document.getElementById('message-result').replaceChildren());
 document.getElementById('open-dashboard').addEventListener('click',async()=>{try{await chrome.tabs.create({url:chrome.runtime.getURL('popup.html?view=dashboard')});}catch{document.getElementById('password-feedback').textContent='Dashboard unavailable.';}});
 document.getElementById('clear-inputs').addEventListener('click',()=>{messageInput.value='';document.getElementById('message-result').replaceChildren();});
 if(new URLSearchParams(location.search).get('view')==='dashboard') document.body.classList.add('dashboard');

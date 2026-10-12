@@ -1,4 +1,5 @@
 import {matchesAccount} from './account-search.js';
+import {parseConnectionCode} from './connection-code.js';
 const $=id=>document.getElementById(id);
 const call=async(method,data={})=>{const r=await chrome.runtime.sendMessage({kind:'demo_call',method,data});if(r?.error)throw new Error(r.error);return r?.data;};
 let epoch=0,lastRevision=-1,lastUnlocked=false,busy=false,lastSignature='',connectionError=false;
@@ -34,11 +35,11 @@ async function refresh(){
 $('account-search')?.addEventListener('input',()=>{clearSecrets();for(const item of document.querySelectorAll('#demo-accounts article'))item.hidden=!matchesAccount(JSON.parse(item.dataset.search),$('account-search').value);});
 $('demo-extension-id').textContent=chrome.runtime.id;
 $('demo-pair').onclick=async()=>{
- clearSecrets();const port=Number($('demo-port').value),token=$('demo-key').value.trim();
- if(!Number.isInteger(port)||port<1024||port>65535||!/^[a-f0-9]{64}$/.test(token)){ $('demo-pair-feedback').textContent='Enter the port and pairing key shown by the desktop.';return;}
+ clearSecrets();const parsed=parseConnectionCode($('connection-code').value);const port=parsed?.port,token=parsed?.token;
+ if(!parsed){ $('demo-pair-feedback').textContent='Paste the connection code from your console.';return;}
  try{
   const allowed=await chrome.permissions.request({origins:['http://127.0.0.1/*']});if(!allowed)throw new Error('Local connection permission was declined.');
-  await chrome.storage.session.set({sentinelDemoConnection:{port,token}});$('demo-key').value='';await refresh();$('demo-pair-feedback').textContent='Connected for this browser session.';
+  await chrome.storage.session.set({sentinelDemoConnection:{port,token}});$('connection-code').value='';await refresh();$('demo-pair-feedback').textContent='Connected for this browser session.';
  }catch(error){$('demo-pair-feedback').textContent=error.message;}
 };
 $('demo-disconnect').onclick=async()=>{clearSecrets();await chrome.storage.session.remove('sentinelDemoConnection');await refresh();};
@@ -46,3 +47,5 @@ $('demo-lock').onclick=async()=>{clearSecrets();try{await call(lastUnlocked?'loc
 window.addEventListener('sentinel-local-assessment',event=>{const result=event.detail;void call('event',{risk:result.risk,codes:result.reasons.map(r=>r.code)}).catch(()=>{});});
 window.addEventListener('pagehide',clearSecrets);document.addEventListener('visibilitychange',()=>{if(document.hidden)clearSecrets();});
 void refresh();setInterval(()=>{if(!document.hidden)void refresh();},1500);
+
+$('copy-extension-id').onclick=async()=>{try{await navigator.clipboard.writeText(chrome.runtime.id);$('copy-extension-id').textContent='Copied';}catch{$('copy-extension-id').textContent='Select ID to copy';}};
