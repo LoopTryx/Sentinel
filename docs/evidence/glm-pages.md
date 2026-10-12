@@ -6,6 +6,6 @@ Recovered the preserved GLM upload-panel, vault and Scam Radar/Alert Centre stru
 
 Checks: UI typecheck/build passed. All three pages rendered at 1440 and 768px without horizontal document overflow. Restored desktop window launched and connected using tools/launch-demo.ps1; native startup evidence records backend=demo_runtime. No hardware or E: testing.
 
-Current verification limits: UI test fork-worker startup timed out on two unchanged attempts; same suite with one worker is being checked. Full verifier stopped at the existing sentinel-av scan_bounds directory budget test (48 MiB acquired versus expected 64 MiB); an unchanged focused retry is being checked. Final results belong in the PR before review readiness. No assertions or deadlines weakened.
+Current verification limits: UI test fork-worker startup timed out on two unchanged attempts; same suite with one worker passed: 10 files, 26 tests. Full verifier stopped at the existing sentinel-av scan_bounds directory budget test (48 MiB acquired versus expected 64 MiB); a focused standalone retry triggered a separate dependency rebuild and was stopped without a test result. Final results belong in the PR before review readiness. No assertions or deadlines weakened.
 
 Reviewer Engineer A; coordinator integrates. These are actual production-source page replacements on the branch, not a separate mock page. Main is not yet integrated. Legacy dirty worktree preserved.
