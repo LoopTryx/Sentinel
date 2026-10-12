@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {observeWifi} from './wifi.mjs';
 import {randomBytes, createHash, webcrypto, timingSafeEqual} from 'node:crypto';
 import {lstat, open, opendir, realpath, writeFile} from 'node:fs/promises';
 import {basename, resolve, join} from 'node:path';
@@ -147,6 +148,11 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
   let body;
   try{let size=0;const chunks=[];for await(const c of req){size+=c.length;if(size>4096)return respond(413,{error:'request_too_large'});chunks.push(c);}body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{return respond(400,{error:'invalid_request'});}
   if(!keys(body,['id','path','extensionId','risk','codes','reportRef','actionRef','restoreRef']))return respond(400,{error:'invalid_request'});
+  if(req.url==='/wifi'){
+   if(!desktop)return respond(403,{error:'forbidden'});
+   if(!keys(body,[]))return respond(400,{error:'invalid_request'});
+   try{return respond(200,await observeWifi());}catch(error){return respond(503,{error:['wifi_busy','wifi_unsupported'].includes(error.message)?error.message:'wifi_unavailable'});}
+  }
   const actionRoutes={
    '/quarantine-prepare':['reportRef',v=>nativeService.prepareQuarantine(v)],
    '/quarantine-confirm':['actionRef',v=>nativeService.nativeQuarantineDecision(v,true)],
