@@ -36,7 +36,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["src/whatsapp-inline.js"],
+      "resources": ["src/whatsapp-inline.js", "src/message-detector.js", "src/message-feedback.js", "data/message-detector-config.js"],
       "matches": ["https://web.whatsapp.com/*"]
     },
     {
