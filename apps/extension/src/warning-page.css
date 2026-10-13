@@ -1,4 +1,4 @@
-:root { color-scheme:light; --ink:#1b1e4a; --paper:#fff5e9; --warning:#1b1e4a; --muted:#1b1e4a; }
+:root { color-scheme:light; --ink:#1b1e4a; --paper:#fff5e9; --warning:#9bddff; --muted:#a8ddff; }
 * { box-sizing:border-box; }
 body { margin:0; min-height:100vh; min-height:100dvh; background:hsla(0,100%,56%,1); background:linear-gradient(90deg,transparent 10%,#27000040 55%,#27000040),radial-gradient(circle,hsla(0,100%,56%,1) 0%,hsla(0,96%,27%,1) 100%); color:var(--ink); font:16px/1.6 "Segoe UI",system-ui,sans-serif; }
 [hidden] { display:none!important; }
@@ -39,3 +39,12 @@ h1 { margin:16px 0; font-size:clamp(34px,4vw,52px); line-height:1.12; letter-spa
  .warning-brand,.warning-label,#summary,.warning-advice,.warning-details,.warning-freshness { color:CanvasText; }
  .warning-action { background:ButtonFace; color:ButtonText; border-color:ButtonText; }
 }
+
+/* Owner-selected brighter blue foreground on the red warning surface. */
+.warning-copy { color:#9bddff; }
+.warning-brand { color:#9bddff; }
+.warning-label { color:#9bddff; }
+#summary,#reasons li,.warning-advice,.warning-freshness,.warning-details,.warning-details summary { color:#a8ddff; font-weight:600; }
+h1 { color:#9bddff; font-weight:800; }
+.warning-details { border-top-color:#9bddff66; }
+@media(forced-colors:active) { .warning-copy,h1,.warning-brand,.warning-label,#summary,#reasons li,.warning-advice,.warning-freshness,.warning-details,.warning-details summary { color:CanvasText; } }
