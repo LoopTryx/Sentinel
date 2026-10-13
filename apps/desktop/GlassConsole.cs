@@ -35,6 +35,7 @@ public sealed class SentinelGlassConsole : Window
     [DllImport("user32.dll")] static extern bool ReleaseCapture();
     [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr window,int message,IntPtr wParam,IntPtr lParam);
     bool dragging, nativeCorners;
+    readonly UsbInputMonitor inputMonitor=new UsbInputMonitor();
     readonly WebView2 view = new WebView2();
     readonly string assets, evidence;
     readonly bool smoke;
@@ -139,7 +140,7 @@ public sealed class SentinelGlassConsole : Window
         grid.Children.Add(header);
         view.DefaultBackgroundColor = System.Drawing.Color.Transparent;
         Grid.SetRow(view, 1); grid.Children.Add(view); Content = grid;
-        SourceInitialized += delegate { EnableBackdrop(); };
+        SourceInitialized += delegate { EnableBackdrop();var handle=new WindowInteropHelper(this).Handle;inputMonitor.Start(handle);HwndSource.FromHwnd(handle).AddHook(delegate(IntPtr hwnd,int message,IntPtr wParam,IntPtr lParam,ref bool handled){if(message==0x00FF)inputMonitor.Receive(lParam);if(message==0x00FE&&wParam.ToInt32()==2)inputMonitor.Removed(lParam);return IntPtr.Zero;}); };
         Loaded += Initialize;
         Loaded += delegate { Dispatcher.BeginInvoke(new Action(EnableBackdrop),DispatcherPriority.ContextIdle); };
         Loaded += delegate {
@@ -243,7 +244,8 @@ public sealed class SentinelGlassConsole : Window
                 try{ReleaseCapture();SendMessage(new WindowInteropHelper(this).Handle,0x00A1,new IntPtr(2),IntPtr.Zero);}
                 finally{dragging=false;}
                 return;
-            }            if(method=="window.hide"){var empty=data as Dictionary<string,object>;if(empty==null||empty.Count!=0)throw new InvalidOperationException();HideToTray();Reply(id,new{ok=true});return;}
+            }            if(method=="usb.activity"){var empty=data as Dictionary<string,object>;if(empty==null||empty.Count!=0)throw new InvalidOperationException();Reply(id,inputMonitor.Snapshot());return;}
+            if(method=="window.hide"){var empty=data as Dictionary<string,object>;if(empty==null||empty.Count!=0)throw new InvalidOperationException();HideToTray();Reply(id,new{ok=true});return;}
             if (method == "vault.copy" || method == "vault.rotate" || method=="vault.view" || method=="vault.remove" || method=="vault.add" || method=="vault.update") {
                 if(actionDialog||selectionRequest){Reply(id,new {error="action_busy"});return;}
                 var account=data as Dictionary<string,object>;

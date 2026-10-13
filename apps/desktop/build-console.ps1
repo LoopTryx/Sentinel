@@ -17,6 +17,7 @@ $arguments += $references | ForEach-Object { "/reference:$_" }
 $arguments += Join-Path $PSScriptRoot 'GlassConsole.cs'
 $arguments += Join-Path $PSScriptRoot 'NativeSelectionBinding.cs'
 $arguments += Join-Path $PSScriptRoot 'VaultApproval.cs'
+$arguments += Join-Path $PSScriptRoot 'UsbInputMonitor.cs'
 & (Join-Path $framework 'csc.exe') $arguments
 if ($LASTEXITCODE -ne 0) { throw 'GLM glass console build failed' }
 foreach ($file in @($core, $wpf, $loader)) { Copy-Item -LiteralPath $file -Destination $output -Force }
