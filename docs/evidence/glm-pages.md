@@ -21,3 +21,11 @@ Validation: full unchanged tools/verify.ps1 PASS (RUST_TEST_THREADS=1 to avoid c
 Actual CUA browser verification: scenario button expands/collapses; USB checker precedes log; labeled temporary synthetic fixture shows loading and clears it after state changes; evidence renders in two columns and switches to one at600px without horizontal overflow. Synthetic fixture was removed and is not included in the build/commit. Reduced-motion media rule is implemented; OS preference toggling was not performed. Local screenshots scan-feedback-running.png and scan-feedback-details.png are synthetic render evidence, not real detection proof.
 
 Refreshed actual desktop window confirmed native handle and backend=demo_runtime. Existing scan was checked idle before reopening. No USB/HID enforcement, hardware tests, real malware, E: access, native authority or remediation changes. Main integration remains coordinator-owned; Engineer A review requested.
+
+## Supplied background replacement — 2026-10-13
+
+Replaced the old OGL Dither implementation with the owner's supplied two-pass raw WebGL2 component. Wave evaluation uses the coarse pixel grid and a separate dither pass. App retains navy/azure and threat-state palettes. No dependency or runtime changes; Grainient hero remains separate.
+
+Performance guards: default/app24 FPS cap (component clamps1–60), DPR1 with at most1.5 million drawing-buffer pixels, texture-size limit, low-power context preference, no app pointer/ripple effects, immediate hidden/offscreen cancellation, live reduced-motion updates. Cleanups delete GPU resources and listeners. Normal cleanup intentionally does not lose the shared canvas context: supplied loseContext cleanup broke React StrictMode's setup/cleanup/setup cycle, observed as a washed-out dev preview. The regression test now exercises StrictMode with context-loss-sensitive mocks.
+
+Focused tests4 PASS and final UI production build/typecheck PASS. Earlier complete verifier PASS before the browser-discovered cleanup correction; final complete verifier is running. Browser actual shader rendering inspected after correction; temporary pixel/palette diagnostics removed. Screenshot D:/SENTINAL/replacement-dither.png. No GPU utilization or temperature benchmark on the owner's MX250 has been measured; no promised usage percentage. Native/release capabilities unchanged.

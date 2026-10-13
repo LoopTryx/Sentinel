@@ -140,8 +140,12 @@ function Shell() {
         <Dither
           waveColor={wave}
           backgroundColor={bg}
+          palette={["#050a19", "#0c1730", level === "danger" ? "#71322e" : level === "warn" ? "#765526" : "#163e6d", level === "danger" ? "#ff8a7a" : level === "warn" ? "#ffc46b" : "#2f89e3"]}
           colorNum={4}
           pixelSize={5}
+          dpr={1}
+          maxFps={24}
+          clickRipple={false}
           enableMouseInteraction={false}
         />
       </div>
