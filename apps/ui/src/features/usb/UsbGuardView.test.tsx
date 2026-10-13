@@ -1,14 +1,29 @@
 // @vitest-environment jsdom
-import {act} from 'react';import {createRoot} from 'react-dom/client';import {afterEach,beforeEach,expect,it,vi} from 'vitest';import UsbGuardView from './UsbGuardView';
-const bridge=vi.hoisted(()=>({state:null as unknown,error:'',call:vi.fn()}));vi.mock('../../demo-bridge',()=>({useDemoState:()=>({state:bridge.state,error:bridge.error}),demoCall:bridge.call}));
-(globalThis as Record<string,unknown>).IS_REACT_ACT_ENVIRONMENT=true;
-let root:ReturnType<typeof createRoot>;
-const snapshot=()=>({schemaVersion:1,mode:'observation_only',state:'partial',observedAt:new Date().toISOString(),omitted:0,devices:[{ref:'device-1',usbEvidence:'os_reported',interfaces:['storage','hid_keyboard']},{ref:'device-2',usbEvidence:'os_reported',interfaces:['other']},{ref:'device-3',usbEvidence:'unresolved',interfaces:['hid_keyboard']}]});
-beforeEach(()=>{bridge.state=null;bridge.error='';bridge.call.mockReset();bridge.call.mockResolvedValue(snapshot());});afterEach(async()=>{if(root)await act(()=>root.unmount());document.body.innerHTML='';});
-async function mount(){const host=document.createElement('div');document.body.append(host);root=createRoot(host);await act(async()=>{root.render(<UsbGuardView/>);await Promise.resolve();await Promise.resolve();});return host;}
-it('removes the manual picker and never counts all Windows groups as physical devices',async()=>{bridge.state={scan:null};const host=await mount();expect(host.textContent).toContain('1 input/storage entry');expect(host.textContent).toContain('Other interfaces (2)');expect(host.textContent).not.toContain('Choose file');expect(host.textContent).not.toContain('file / folder checker');expect(bridge.call).toHaveBeenCalledWith('usb.observe');expect(host.textContent).not.toContain('3 physical devices');});
-it('identifies HID plus storage without claiming an unperformed scan or quarantine',async()=>{bridge.state={scan:null};const host=await mount();expect(host.textContent).toContain('HID input and storage share');expect(host.textContent).toContain('mounted volume is verified');expect(host.textContent).toContain('Quarantine and HID blocking are not enabled');});
-it('clears old observations on failure',async()=>{bridge.state={scan:null};const host=await mount();bridge.call.mockRejectedValue(Error('private failure'));await act(async()=>{host.querySelector('button')!.click();});expect(host.textContent).not.toContain('device-1');expect(host.textContent).toContain('USB observations unavailable');expect(host.textContent).not.toContain('private failure');});
-it('rejects injected authority or raw identities',async()=>{bridge.state={scan:null};bridge.call.mockResolvedValue({...snapshot(),hidBlocked:true,instanceId:'private'});const host=await mount();expect(host.textContent).toContain('USB observations unavailable');expect(host.textContent).not.toContain('private');});
-it('shows a Windows-reported name instead of inventing a model',async()=>{bridge.state={scan:null};const report=snapshot();bridge.call.mockResolvedValue({...report,devices:[{...report.devices[0],name:'Example USB board'}]});const host=await mount();expect(host.querySelector('.usb-device-row strong')?.textContent).toBe('Example USB board');expect(host.textContent).toContain('Keyboard + storage');});
-it('four anonymous HID entries make one count row, not four identical cards',async()=>{bridge.state={scan:null};bridge.call.mockResolvedValue({...snapshot(),devices:Array.from({length:4},(_,i)=>({ref:'device-'+(i+1),usbEvidence:'os_reported',interfaces:['hid_other']}))});const host=await mount();expect(host.querySelectorAll('.usb-device-row')).toHaveLength(1);expect(host.textContent).toContain('Unnamed input/storage interfaces');expect(host.querySelector('.usb-device-row .usb-chip')?.textContent).toBe('4');});
+import {act} from 'react';
+import {createRoot} from 'react-dom/client';
+import {expect,it,vi} from 'vitest';
+import UsbGuardView from './UsbGuardView';
+import {demoCall,useDemoState} from '../../demo-bridge';
+vi.mock('../../demo-bridge',()=>({demoCall:vi.fn(),useDemoState:vi.fn()}));
+vi.mock('./UsbActivityPanel',()=>({default:()=>null}));
+(globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;
+it('shows every HID group including unnamed and unresolved groups without inventing a hold',async()=>{
+ vi.mocked(useDemoState).mockReturnValue({state:{} as any,error:''});
+ vi.mocked(demoCall).mockResolvedValue({schemaVersion:1,mode:'observation_only',state:'partial',observedAt:new Date().toISOString(),omitted:0,devices:[
+  {ref:'device-1',usbEvidence:'os_reported',interfaces:['hid_keyboard','storage'],name:'Example board'},
+  {ref:'device-2',usbEvidence:'os_reported',interfaces:['hid_mouse']},
+  {ref:'device-3',usbEvidence:'unresolved',interfaces:['hid_keyboard']}
+ ]});
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ try{await act(async()=>{root.render(<UsbGuardView/>);await Promise.resolve();});expect(host.querySelectorAll('[data-usb-device]')).toHaveLength(3);expect(host.textContent).toContain('HID keyboard');expect(host.textContent).toContain('HID mouse');expect(host.textContent).toContain('USB ancestry unknown');expect(host.textContent).toContain('Input quarantine');expect(host.textContent).toContain('Unavailable');expect(host.textContent).not.toContain('Unnamed input/storage interfaces');expect(host.textContent).not.toContain('Held');
+ await act(()=>{vi.mocked(useDemoState).mockReturnValue({state:null,error:''});root.render(<UsbGuardView/>);});expect(host.querySelectorAll('[data-usb-device]')).toHaveLength(0);
+ }finally{await act(()=>root.unmount());host.remove();}
+});
+it('keeps the latest inventory when manual and automatic refreshes finish out of order',async()=>{
+ vi.useFakeTimers();vi.mocked(useDemoState).mockReturnValue({state:{} as any,error:''});
+ const snapshot=(name:string)=>({schemaVersion:1,mode:'observation_only',state:'observed',observedAt:new Date().toISOString(),omitted:0,devices:[{ref:'device-1',usbEvidence:'os_reported',interfaces:['hid_keyboard'],name}]});
+ let old!:(v:unknown)=>void,newer!:(v:unknown)=>void;
+ vi.mocked(demoCall).mockResolvedValueOnce(snapshot('First')).mockImplementationOnce(()=>new Promise(resolve=>{old=resolve;})).mockImplementationOnce(()=>new Promise(resolve=>{newer=resolve;}));
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ try{await act(async()=>{root.render(<UsbGuardView/>);await Promise.resolve();});await act(()=>host.querySelector('button')!.click());await act(async()=>{vi.advanceTimersByTime(5000);await Promise.resolve();});await act(async()=>newer(snapshot('Newest')));await act(async()=>old(snapshot('Outdated')));expect(host.textContent).toContain('Newest');expect(host.textContent).not.toContain('Outdated');}finally{await act(()=>root.unmount());host.remove();vi.useRealTimers();}
+});
