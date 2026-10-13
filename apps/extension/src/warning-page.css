@@ -63,6 +63,6 @@ h1 { color:#9bddff; font-weight:800; }
  .mascot-sprite { filter:none; }
 }
 
-.mascot-wink { position:absolute; inset:0; width:100%; height:100%; opacity:0; pointer-events:none; animation:mascot-wink 1.4s cubic-bezier(.23,1,.32,1) .6s 1; }
-@keyframes mascot-wink { 0%,35%,65%,100% { opacity:0; } 40%,60% { opacity:1; } }
+.mascot-wink { position:absolute; inset:0; width:100%; height:100%; opacity:0; pointer-events:none; animation:mascot-wink 4s cubic-bezier(.23,1,.32,1) .6s infinite; }
+@keyframes mascot-wink { 0%,12%,20%,100% { opacity:0; } 14%,18% { opacity:1; } }
 @media(prefers-reduced-motion:reduce) { .mascot-wink { animation:none; opacity:0; } }
