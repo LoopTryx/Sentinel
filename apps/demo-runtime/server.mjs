@@ -151,7 +151,22 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
   req.setTimeout(5000,()=>req.destroy());
   let body;
   try{let size=0;const chunks=[];for await(const c of req){size+=c.length;if(size>4096)return respond(413,{error:'request_too_large'});chunks.push(c);}body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{return respond(400,{error:'invalid_request'});}
-  if(!keys(body,['id','path','extensionId','risk','codes','reportRef','actionRef','restoreRef']))return respond(400,{error:'invalid_request'});
+  if(!keys(body,['id','path','extensionId','risk','codes','reportRef','actionRef','restoreRef','name','user','host']))return respond(400,{error:'invalid_request'});
+  if(req.url==='/account-add'||req.url==='/account-remove'){
+   if(!desktop||!equal(req.headers['x-sentinel-native-action'],nativeActionToken))return respond(403,{error:'native_approval_required'});
+   if(req.url==='/account-remove'){
+    if(!keys(body,['id'])||typeof body.id!=='string')return respond(400,{error:'invalid_account'});
+    const index=accounts.findIndex(a=>a.id===body.id);if(index<0)return respond(400,{error:'invalid_account'});
+    accounts.splice(index,1);revision++;event('desktop','account_removed');return respond(200,{ok:true});
+   }
+   const text=(value,max)=>typeof value==='string'&&value.trim().length>0&&value.length<=max&&!/[\x00-\x1f\x7f]/.test(value);
+   if(!keys(body,['name','user','host'])||!text(body.name,80)||!text(body.user,254)||!text(body.host,253)||!/^[a-zA-Z0-9.-]+$/.test(body.host))return respond(400,{error:'invalid_login'});
+   if(accounts.length>=128)return respond(409,{error:'account_limit'});
+   if(accounts.some(a=>a.user===body.user.trim()&&a.host.toLowerCase()===body.host.toLowerCase()))return respond(409,{error:'account_exists'});
+   let password='';for(let attempt=0;attempt<32;attempt++){const candidate=generatePassword(24,webcrypto);if(auditPassword(candidate).health==='Stronger'&&!accounts.some(a=>a.password===candidate)){password=candidate;break;}}
+   if(!password)return respond(503,{error:'generation_unavailable'});
+   const id='account_'+randomBytes(8).toString('hex');accounts.push({id,name:body.name.trim(),user:body.user.trim(),host:body.host.toLowerCase(),password});revision++;event('desktop','account_added');return respond(200,{ok:true,id});
+  }
   if(req.url==='/wifi'){
    if(!desktop)return respond(403,{error:'forbidden'});
    if(!keys(body,[]))return respond(400,{error:'invalid_request'});

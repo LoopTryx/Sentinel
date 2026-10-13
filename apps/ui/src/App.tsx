@@ -126,6 +126,7 @@ function Shell() {
 
   return (
     <div className={`shell${view === "password" ? " password-shell" : ""}`}>
+      <div className="window-actions"><button aria-label="Minimize to tray" onClick={()=>void import('./demo-bridge').then(m=>m.demoCall('window.hide')).catch(()=>{})}>−</button><button aria-label="Close to tray" onClick={()=>void import('./demo-bridge').then(m=>m.demoCall('window.hide')).catch(()=>{})}>×</button></div>
       {/* Living dither backdrop — spans the WHOLE app (sidebar included) and
           recolors with the threat state. The sidebar's liquid glass blurs it. */}
       <div

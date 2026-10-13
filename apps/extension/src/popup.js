@@ -1,4 +1,6 @@
 import { statusLines } from './status.js';
+document.addEventListener('contextmenu',event=>event.preventDefault());
+document.addEventListener('dragstart',event=>event.preventDefault());
 
 
 const statusList = document.getElementById('harness-status');

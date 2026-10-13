@@ -803,3 +803,5 @@ body[data-threat="danger"] .led { animation-duration: 0.7s; }
 /* Keep small status text legible over the animated hero and glass cards. */
 .dashboard-hero .protection-pill { background: #08162deb; }
 .dashboard-stats .label { color: #b2c2dc; opacity: 1; line-height: 1.5; }
+body{-webkit-user-select:none;user-select:none}input,textarea,[contenteditable=true]{-webkit-user-select:text;user-select:text}img,a{-webkit-user-drag:none}
+.window-actions{position:fixed;top:8px;right:10px;z-index:1000;display:flex;gap:4px}.window-actions button{width:32px;height:28px;color:var(--chrome-hi);background:#0b172b99;border:1px solid #47618366;border-radius:6px;font-size:19px;cursor:pointer}.window-actions button:hover{background:#315578}.topbar{padding-right:90px!important}
