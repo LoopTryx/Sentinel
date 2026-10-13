@@ -3,6 +3,7 @@ import {demoCall,useDemoState} from '../../demo-bridge';
 import {useAutoRefresh} from '../../use-auto-refresh';
 import {parseUsbInventory,type UsbInventory} from './inventory';
 import './usb-guard.css';
+import UsbActivityPanel from './UsbActivityPanel';
 function deviceName(interfaces:string[]){
  const keyboard=interfaces.includes('hid_keyboard'),mouse=interfaces.includes('hid_mouse'),storage=interfaces.includes('storage');
  const input=keyboard&&mouse?'Keyboard + mouse':keyboard?'Keyboard':mouse?'Mouse':interfaces.includes('hid_other')?'Input device':'';
@@ -30,5 +31,6 @@ export default function UsbGuardView(){
    <details><summary>Detection details</summary><p>{inventory.state} observation. Names are Windows-reported descriptions, not authenticated identity. Unnamed interfaces are combined into a count, not presented as separate physical devices. HID input and storage share a group only when Windows reports both together. Storage inspection is unavailable until its mounted volume is verified. External versus internal placement is not verified. Reading storage cannot establish HID safety. Quarantine and HID blocking are not enabled.</p></details>
    </>:<p>{state?'Reading USB interfaces…':'Open the desktop connection to receive observations.'}</p>}
   </section>
+  <UsbActivityPanel enabled={!!state}/>
  </section>;
 }

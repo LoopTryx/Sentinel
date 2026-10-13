@@ -8,3 +8,4 @@ pub mod restore_action;
 pub mod rpc;
 pub mod selected_scan;
 pub mod status;
+pub mod usb_activity;
