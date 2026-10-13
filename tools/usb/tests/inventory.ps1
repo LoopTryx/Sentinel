@@ -3,9 +3,9 @@ $ErrorActionPreference='Stop'
 function Assert($condition,$message){if(-not $condition){throw $message}}
 $at=[datetime]::SpecifyKind([datetime]'2026-10-10T12:00:00',[DateTimeKind]::Utc)
 $rows=@(
-    [pscustomobject]@{Id='USB\root-secret';Parent='';Container='11111111-1111-1111-1111-111111111111';Class='USB'},
-    [pscustomobject]@{Id='USBSTOR\serial-secret';Parent='USB\root-secret';Container='11111111-1111-1111-1111-111111111111';Class='DiskDrive'},
-    [pscustomobject]@{Id='HID\serial-secret';Parent='USB\root-secret';Container='11111111-1111-1111-1111-111111111111';Class='Keyboard'},
+    [pscustomobject]@{Id='USB\VID_1234&PID_5678\root-secret';Parent='';Container='11111111-1111-1111-1111-111111111111';Class='USB'},
+    [pscustomobject]@{Id='USBSTOR\serial-secret';Parent='USB\VID_1234&PID_5678\root-secret';Container='11111111-1111-1111-1111-111111111111';Class='DiskDrive'},
+    [pscustomobject]@{Id='HID\serial-secret';Parent='USB\VID_1234&PID_5678\root-secret';Container='11111111-1111-1111-1111-111111111111';Class='Keyboard'},
     [pscustomobject]@{Id='HID\bluetooth';Parent='BTH\parent';Container='22222222-2222-2222-2222-222222222222';Class='Mouse'},
     [pscustomobject]@{Id='BTH\parent';Parent='';Container='';Class='Bluetooth'}
 )
@@ -35,3 +35,18 @@ Assert (-not $generic.devices[0].PSObject.Properties['name']) 'Generic descripto
 
 $wild=ConvertTo-SentinelUsbSnapshot -Rows @([pscustomobject]@{Id='USB\*';Parent='';Container='';Class='USB'}) -ObservedAt $at
 Assert ($wild.state -eq 'partial' -and $wild.devices.Count -eq 0) 'Wildcard identifiers must not reach device queries or reports.'
+
+# Physical-root grouping must not depend on a device's reported container GUID.
+$rootRows=@(
+ [pscustomobject]@{Id='USB\VID_1111&PID_2222\root';Parent='';Container='';Class='USB';DisplayName='Example composite'},
+ [pscustomobject]@{Id='USB\VID_1111&PID_2222&MI_00\function';Parent='USB\VID_1111&PID_2222\root';Container='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';Class='USB'},
+ [pscustomobject]@{Id='HID\kbd\1';Parent='USB\VID_1111&PID_2222&MI_00\function';Container='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';Class='Keyboard'},
+ [pscustomobject]@{Id='HID\mouse\1';Parent='USB\VID_1111&PID_2222&MI_00\function';Container='cccccccc-cccc-cccc-cccc-cccccccccccc';Class='Mouse'}
+)
+$rootGrouped=ConvertTo-SentinelUsbSnapshot -Rows $rootRows -ObservedAt $at
+Assert ($rootGrouped.devices.Count -eq 1) 'One physical USB parent must have one row even with different container claims.'
+Assert ($rootGrouped.devices[0].interfaces -contains 'hid_keyboard' -and $rootGrouped.devices[0].interfaces -contains 'hid_mouse') 'Physical group must retain both input capabilities.'
+$otherRoot=[pscustomobject]@{Id='USB\VID_1111&PID_3333\other';Parent='';Container='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';Class='Keyboard'}
+$separate=ConvertTo-SentinelUsbSnapshot -Rows @($rootRows[0],$rootRows[1],$otherRoot) -ObservedAt $at
+Assert ($separate.devices.Count -eq 2) 'A shared container claim must not merge different physical USB roots.'
+Assert (-not ((ConvertTo-Json $rootGrouped -Depth 6 -Compress) -match 'VID_|root|function|aaaa')) 'Private root IDs must never enter the report.'

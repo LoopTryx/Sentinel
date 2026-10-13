@@ -244,7 +244,7 @@ public sealed class SentinelGlassConsole : Window
                 try{ReleaseCapture();SendMessage(new WindowInteropHelper(this).Handle,0x00A1,new IntPtr(2),IntPtr.Zero);}
                 finally{dragging=false;}
                 return;
-            }            if(method=="usb.activity"){var empty=data as Dictionary<string,object>;if(empty==null||empty.Count!=0)throw new InvalidOperationException();Reply(id,inputMonitor.Snapshot());return;}
+            }            if(method=="usb.observe"){var empty=data as Dictionary<string,object>;if(empty==null||empty.Count!=0)throw new InvalidOperationException();Reply(id,UsbDeviceInventory.Snapshot());return;} if(method=="usb.activity"){var empty=data as Dictionary<string,object>;if(empty==null||empty.Count!=0)throw new InvalidOperationException();Reply(id,inputMonitor.Snapshot());return;}
             if(method=="window.hide"){var empty=data as Dictionary<string,object>;if(empty==null||empty.Count!=0)throw new InvalidOperationException();HideToTray();Reply(id,new{ok=true});return;}
             if (method == "vault.copy" || method == "vault.rotate" || method=="vault.view" || method=="vault.remove" || method=="vault.add" || method=="vault.update") {
                 if(actionDialog||selectionRequest){Reply(id,new {error="action_busy"});return;}
@@ -319,10 +319,7 @@ public sealed class SentinelGlassConsole : Window
                 var empty = data as Dictionary<string, object>;
                 if (empty == null || empty.Count != 0) throw new InvalidOperationException();
                 route = "wifi";
-            } else if (method == "usb.observe") {
-                var empty = data as Dictionary<string, object>;
-                if (empty == null || empty.Count != 0) throw new InvalidOperationException();
-                route = "usb";
+
             } else if (method == "state" || method == "lock" || method == "unlock" || method == "cancel" || method == "pair") route = method;
             else throw new InvalidOperationException();
             requests++;

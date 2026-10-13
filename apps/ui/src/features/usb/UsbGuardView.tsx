@@ -18,7 +18,7 @@ export default function UsbGuardView(){
  async function observe(){const generation=epoch.current,request=++sequence.current;setObserving(true);setNotice('');try{const parsed=parseUsbInventory(JSON.stringify(await demoCall('usb.observe')));if(!parsed)throw Error();if(active.current&&generation===epoch.current&&request===sequence.current)setInventory(parsed);}catch{if(active.current&&generation===epoch.current&&request===sequence.current){setInventory(null);setNotice('Device inventory unavailable.');}}finally{if(generation===epoch.current&&request===sequence.current)setObserving(false);}}
  useAutoRefresh(observe,5000,!!state);
  const snapshot=state?inventory:null;
- const useful=snapshot?.devices.filter(d=>d.interfaces.some(i=>i==='storage'||i.startsWith('hid_')))??[];
+ const useful=snapshot?.devices.filter(d=>d.usbEvidence==='os_reported'&&d.interfaces.some(i=>i==='storage'||i==='hid_keyboard'||i==='hid_mouse'))??[];
  const other=snapshot?.devices.filter(d=>!useful.includes(d))??[];
  return <section className="usb-guard usb-minimal" aria-labelledby="usb-heading">
   <div className="usb-page-heading"><h2 id="usb-heading">USB Guard</h2><span className="usb-mode">{state?'Monitoring connected devices':'Desktop disconnected'}</span></div>
@@ -31,11 +31,10 @@ export default function UsbGuardView(){
      <div className="usb-interface-tags">{device.interfaces.filter(i=>i!=='other').map(i=><span key={i}>{labels[i]}</span>)}</div>
      <dl className="usb-device-facts"><div><dt>Input access</dt><dd>{device.interfaces.some(i=>i.startsWith('hid_'))?'Not blocked':'No HID reported'}</dd></div><div><dt>Storage inspection</dt><dd>{device.interfaces.includes('storage')?'Not scanned':'No storage reported'}</dd></div><div><dt>Trust</dt><dd>Not enrolled</dd></div></dl>
     </article>)}</div>{!useful.length&&<p>No input or storage groups reported.</p>}
-    <details><summary>Other interfaces ({other.length})</summary>{other.map(d=><p key={d.ref}>{d.name||fallbackName(d.interfaces)} · {d.ref.replace('device-','Group ')}</p>)}</details>
+    <details><summary>Auxiliary and unresolved interfaces ({other.length})</summary>{other.map(d=><p key={d.ref}>{d.name||fallbackName(d.interfaces)} · {d.interfaces.map(i=>labels[i]).join(', ')} · {d.usbEvidence==='unresolved'?'USB ancestry unknown':'USB reported'}</p>)}</details>
     <details><summary>Device information</summary><p>Windows groups interfaces by reported identity. USB-connected built-in devices may appear here. Names do not establish trust. Missing records: {snapshot.omitted}.</p></details>
    </>:<p>{!state?'Desktop disconnected.':notice||snapshot?.state==='unavailable'?'Device inventory unavailable.':'Reading connected devices…'}</p>}
   </section>
   <UsbActivityPanel enabled={!!state}/>
  </section>;
 }
-

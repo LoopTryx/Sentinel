@@ -15,7 +15,7 @@ it('shows every HID group including unnamed and unresolved groups without invent
   {ref:'device-3',usbEvidence:'unresolved',interfaces:['hid_keyboard']}
  ]});
  const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
- try{await act(async()=>{root.render(<UsbGuardView/>);await Promise.resolve();});expect(host.querySelectorAll('[data-usb-device]')).toHaveLength(3);expect(host.textContent).toContain('HID keyboard');expect(host.textContent).toContain('HID mouse');expect(host.textContent).toContain('USB ancestry unknown');expect(host.textContent).toContain('Input quarantine');expect(host.textContent).toContain('Unavailable');expect(host.textContent).not.toContain('Unnamed input/storage interfaces');expect(host.textContent).not.toContain('Held');
+ try{await act(async()=>{root.render(<UsbGuardView/>);await Promise.resolve();});expect(host.querySelectorAll('[data-usb-device]')).toHaveLength(2);expect(host.textContent).toContain('HID keyboard');expect(host.textContent).toContain('HID mouse');expect(host.textContent).toContain('USB ancestry unknown');expect(host.querySelector('details')?.textContent).toContain('HID keyboard');expect(host.textContent).toContain('Input quarantine');expect(host.textContent).toContain('Unavailable');expect(host.textContent).not.toContain('Unnamed input/storage interfaces');expect(host.textContent).not.toContain('Held');
  await act(()=>{vi.mocked(useDemoState).mockReturnValue({state:null,error:''});root.render(<UsbGuardView/>);});expect(host.querySelectorAll('[data-usb-device]')).toHaveLength(0);
  }finally{await act(()=>root.unmount());host.remove();}
 });
