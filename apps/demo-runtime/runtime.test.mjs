@@ -26,8 +26,8 @@ test('actual shared runtime: authentication, computed dummy audit, edits and red
   assert.equal(state.accounts.length,4); assert.equal(state.accounts[0].health,'Very weak');
   assert.equal(state.accounts.filter(a=>a.reused).length,2);
   assert.ok(!JSON.stringify(state).includes('password123'));
-  assert.equal((await call('/rotate',{id:'school'})).status,423);
-  await call('/unlock'); await call('/rotate',{id:'school'});
+  assert.equal((await call('/rotate',{id:'school'})).status,403);
+  await call('/rotate',{id:'school'},r.desktopToken,{'X-Sentinel-Native-Action':r.nativeActionToken});
   state=await (await call('/state')).json(); assert.equal(state.accounts.filter(a=>a.reused).length,0);
   assert.equal(state.accounts.find(a=>a.id==='school').health,'Stronger');
   const pairing=await (await call('/pair',{extensionId:'a'.repeat(32)})).json();
@@ -77,8 +77,9 @@ test('browser edits are shared, scan details stay desktop-only and old pairing k
  const call=async(route,body={},token=r.desktopToken,headers={})=>fetch(r.url+route,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',...headers},body:JSON.stringify(body)});
  try{
   const pair=await (await call('/pair',{extensionId:id})).json();const headers={'X-Sentinel-Extension':id,Origin:'chrome-extension://'+id};
-  await call('/unlock',{},pair.token,headers);await call('/rotate',{id:'mail'},pair.token,headers);
-  const desktop=await (await call('/state')).json();assert.equal(desktop.revision,1);assert.ok(desktop.events.some(e=>e.source==='browser'));
+  assert.equal((await call('/rotate',{id:'mail'},pair.token,headers)).status,403);
+  await call('/rotate',{id:'mail'},r.desktopToken,{'X-Sentinel-Native-Action':r.nativeActionToken});
+  const desktop=await (await call('/state')).json();assert.equal(desktop.revision,1);assert.ok(desktop.events.some(e=>e.source==='desktop'));
   const browser=await (await call('/state',{},pair.token,headers)).json();assert.equal(browser.scan,null);
   await call('/pair',{extensionId:id});assert.equal((await call('/state',{},pair.token,headers)).status,403);
   assert.equal((await call('/state',{},'é'.repeat(64))).status,403);

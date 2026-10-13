@@ -50,8 +50,10 @@ test('popup renders truthful states and a fixture-only toggle', async () => {
   assert.match(html, /id="harness-status"/);
   assert.match(html, /id="fixture-toggle"/);
   assert.match(html, /blocked\.sentinel\.invalid/);
-  assert.match(html, /Session workspace: sample logins reset when the console closes/);
-  assert.match(html, /Persistent storage, import and autofill are unavailable/);
+  assert.match(html, /Session accounts reset when the console closes/);
+  assert.match(html, /Persistent encrypted storage, import, account editing and autofill are unavailable/);
+  assert.match(html, /id="check-accounts"/);
+  assert.doesNotMatch(html, /id="demo-lock"|id="generate-password"/);
 
   const script = await read('src/popup.js');
   assert.match(script, /statusLines/);

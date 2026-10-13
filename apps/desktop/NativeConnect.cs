@@ -12,7 +12,7 @@ public static class SentinelNativeConnect {
     static readonly JavaScriptSerializer Json=new JavaScriptSerializer { MaxJsonLength=4096 };
     static string Here { get { return AppDomain.CurrentDomain.BaseDirectory; } }
     static byte[] ReadExact(Stream input,int count) { var bytes=new byte[count];int offset=0;while(offset<count){int read=input.Read(bytes,offset,count-offset);if(read==0)throw new EndOfStreamException();offset+=read;}return bytes; }
-    public static int Main(string[] args) {
+    [STAThread] public static int Main(string[] args) {
         object reply;
         try {
             if(args.Length<1 || !Regex.IsMatch(args[0],"^chrome-extension://[a-p]{32}/$"))throw new InvalidOperationException();
@@ -22,12 +22,39 @@ public static class SentinelNativeConnect {
             var input=Console.OpenStandardInput();int length=BitConverter.ToInt32(ReadExact(input,4),0);
             if(length<1 || length>1024)throw new InvalidOperationException();
             var request=Json.Deserialize<Dictionary<string,object>>(Encoding.UTF8.GetString(ReadExact(input,length)));
-            if(request.Count!=1 || !request.ContainsKey("operation") || (string)request["operation"]!="connect")throw new InvalidOperationException();
             string id=args[0].Substring(19,32);
-            reply=Pair(id);
+            if(request.Count==1&&request.ContainsKey("operation")&&(string)request["operation"]=="connect")reply=Pair(id);
+            else if(request.Count==2&&request.ContainsKey("operation")&&request.ContainsKey("id")&&((string)request["operation"]=="copy"||(string)request["operation"]=="rotate"))reply=PasswordAction((string)request["operation"],request["id"] as string);
+            else throw new InvalidOperationException();
         } catch { reply=new {error="connection_unavailable"}; }
         byte[] response=Encoding.UTF8.GetBytes(Json.Serialize(reply));
         var output=Console.OpenStandardOutput();output.Write(BitConverter.GetBytes(response.Length),0,4);output.Write(response,0,response.Length);output.Flush();return 0;
+    }
+    static object PasswordAction(string operation,string accountId) {
+        using(var lease=PasswordActionLease.TryAcquire()) {
+        if(lease==null)return new {error="action_busy"};
+        if(!Regex.IsMatch(accountId??"","^[a-zA-Z0-9_-]{1,64}$"))throw new InvalidOperationException();
+        // Capture the runtime authority before approval. Restart invalidates it.
+        string path=Path.Combine(Here,"demo-runtime.json");
+        if(new FileInfo(path).Length>4096)throw new InvalidOperationException();
+        var config=Json.Deserialize<Dictionary<string,string>>(File.ReadAllText(path));Uri uri;
+        if(!Uri.TryCreate(config["url"],UriKind.Absolute,out uri)||uri.Scheme!="http"||uri.Host!="127.0.0.1"||uri.Port<1024||uri.Port>65535||uri.AbsolutePath!="/"||uri.Query.Length!=0||uri.UserInfo.Length!=0||!Regex.IsMatch(config["token"],"^[a-f0-9]{64}$")||!Regex.IsMatch(config["nativeActionToken"],"^[a-f0-9]{64}$"))throw new InvalidOperationException();
+        if(!VaultApproval.Approve(operation,accountId))return new {error="Windows approval declined or unavailable."};
+        using(var client=new HttpClient(new HttpClientHandler {AllowAutoRedirect=false,UseProxy=false})) {
+            client.Timeout=TimeSpan.FromSeconds(5);client.MaxResponseContentBufferSize=4096;
+            client.DefaultRequestHeaders.Authorization=new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer",config["token"]);
+            client.DefaultRequestHeaders.Add("X-Sentinel-Native-Action",config["nativeActionToken"]);
+            using(var response=client.PostAsync(config["url"]+(operation=="copy"?"/reveal":"/rotate"),new StringContent(Json.Serialize(new {id=accountId}),Encoding.UTF8,"application/json")).GetAwaiter().GetResult()) {
+                response.EnsureSuccessStatusCode();
+                if(operation=="copy") {
+                    var result=Json.Deserialize<Dictionary<string,object>>(response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+                    if((string)result["mode"]!="synthetic_demo")throw new InvalidOperationException();
+                    System.Windows.Forms.Clipboard.SetText((string)result["password"]);
+                }
+                return new {ok=true};
+            }
+        }
+        }
     }
     static object Pair(string id) {
         try { return RequestPair(id); } catch { }

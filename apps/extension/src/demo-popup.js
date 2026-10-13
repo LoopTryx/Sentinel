@@ -1,51 +1,30 @@
-import {matchesAccount} from './account-search.js';
-import {parseConnectionCode} from './connection-code.js';
 const $=id=>document.getElementById(id);
-const call=async(method,data={})=>{const r=await chrome.runtime.sendMessage({kind:'demo_call',method,data});if(r?.error)throw new Error(r.error);return r?.data;};
-let epoch=0,lastRevision=-1,lastUnlocked=false,busy=false,lastSignature='',connectionError=false;
-function clearSecrets(){epoch++;document.querySelectorAll('.demo-secret').forEach(e=>e.textContent='••••••••');}
-async function refresh(){
- if(busy)return;busy=true;
- try{
-  const state=await call('state');if(state?.mode!=='synthetic_demo'||!Array.isArray(state.accounts)||state.accounts.length>128)throw new Error('Invalid demo state.');
-  if(connectionError){$('demo-feedback').textContent='';connectionError=false;}
-  if(lastRevision!==state.revision||lastUnlocked!==state.unlocked)clearSecrets();lastRevision=state.revision;lastUnlocked=state.unlocked;
-  $('desktop-status').textContent='Console connected';document.body.dataset.connected='true';$('demo-lock').textContent=state.unlocked?'Lock':'Unlock';$('demo-lock').disabled=false;
-  const signature=JSON.stringify([state.accounts,state.unlocked,state.revision]);
-  if(signature===lastSignature)return;lastSignature=signature;
-  const list=$('demo-accounts');list.replaceChildren();
-  for(const account of state.accounts){
-   const item=document.createElement('article');item.className='vault-card';
-   item.dataset.search=JSON.stringify({name:account.name,user:account.user,host:account.host});
-   item.hidden=!matchesAccount(account,$('account-search')?.value??'');
-   const heading=document.createElement('strong');heading.textContent=account.name;
-   const identity=document.createElement('p');identity.textContent=`${account.user} · ${account.host}`;
-   const reasons=document.createElement('p');reasons.className='account-health';reasons.textContent=account.health+(account.reused?' · Reused':'');reasons.title=account.reasons.join(' ');
-   const secret=document.createElement('code');secret.className='demo-secret';secret.textContent='••••••••';
-   const reveal=document.createElement('button');reveal.textContent='Reveal';reveal.disabled=!state.unlocked;
-   reveal.onclick=async()=>{const turn=++epoch;try{const r=await call('reveal',{id:account.id});if(turn===epoch&&lastUnlocked&&secret.isConnected)secret.textContent=r.password;}catch{ $('demo-feedback').textContent='Reveal unavailable.';}};
-   const rotate=document.createElement('button');rotate.textContent='Replace saved password';rotate.disabled=!state.unlocked;
-   rotate.onclick=async()=>{clearSecrets();try{await call('rotate',{id:account.id});$('demo-feedback').textContent='Saved for this session.';await refresh();}catch{$('demo-feedback').textContent='Replacement unavailable.';}};
-   const actions=document.createElement('div');actions.className='actions';actions.append(reveal,rotate);
-   item.append(heading,identity,reasons,secret,actions);list.append(item);
-  }
- }catch(error){clearSecrets();lastUnlocked=false;lastSignature='';connectionError=true;document.body.dataset.connected='false';$('desktop-status').textContent='Connect console';$('demo-lock').disabled=true;$('demo-accounts').replaceChildren();$('demo-feedback').textContent='Open Settings to connect your console.';}
- finally{busy=false;}
-}
-$('account-search')?.addEventListener('input',()=>{clearSecrets();for(const item of document.querySelectorAll('#demo-accounts article'))item.hidden=!matchesAccount(JSON.parse(item.dataset.search),$('account-search').value);});
+const call=async(method,data={})=>{const r=await chrome.runtime.sendMessage({kind:'demo_call',method,data});if(r?.error)throw Error(r.error);return r?.data;};
+let busy=false,lastSignature='',checking=false;
+function priority(a){return a.reused||['Weak','Very weak'].includes(a.health)?'high':a.health==='Stronger'?'low':['Moderate','Fair','Good'].includes(a.health)?'medium':'unknown';}
+function paint(){for(const card of document.querySelectorAll('.vault-card'))card.dataset.priority=checking?card.dataset.audit:'';$('check-accounts').setAttribute('aria-pressed',String(checking));$('demo-accounts').classList.toggle('checking',checking);}
+async function refresh(){if(busy)return;busy=true;try{
+ const state=await call('state');if(state?.mode!=='synthetic_demo'||!Array.isArray(state.accounts)||state.accounts.length>128)throw Error('Invalid state');
+ $('desktop-status').textContent='Console connected';document.body.dataset.connected='true';
+ const signature=JSON.stringify([state.accounts,state.revision]);if(signature===lastSignature)return;lastSignature=signature;
+ const list=$('demo-accounts');list.replaceChildren();
+ for(const account of state.accounts){const card=document.createElement('article');card.className='vault-card';card.dataset.audit=priority(account);card.dataset.search=JSON.stringify([account.name,account.user,account.host]).toLowerCase();
+  const heading=document.createElement('strong');heading.textContent=account.name;
+  const fields=document.createElement('div');fields.className='account-fields';
+  for(const [label,value] of [['Email',account.user],['Website',account.host],['Password','••••••••••••']]){const wrapper=document.createElement('label');wrapper.textContent=label;const field=document.createElement('input');field.readOnly=true;field.value=value;field.setAttribute('aria-label',label);if(label==='Password')field.type='password';wrapper.append(field);fields.append(wrapper);}
+  const health=document.createElement('p');health.className='account-health';health.textContent=account.health+(account.reused?' · Reused':'');health.title=account.reasons.join(' ');
+  const actions=document.createElement('div');actions.className='actions';
+  for(const [label,method] of [['Copy password','vault.copy'],['Generate Replacement','vault.rotate']]){const button=document.createElement('button');button.textContent=label;button.onclick=async()=>{if(busy)return;busy=true;actions.querySelectorAll('button').forEach(b=>b.disabled=true);$('demo-feedback').textContent='Approve the Windows prompt to continue.';try{await call(method,{id:account.id});$('demo-feedback').textContent=method==='vault.copy'?'Password copied.':'Replacement saved.';lastSignature='';}catch{$('demo-feedback').textContent='Windows approval declined or action unavailable.';}finally{busy=false;actions.querySelectorAll('button').forEach(b=>b.disabled=false);void refresh();}};actions.append(button);}
+  card.append(heading,fields,health,actions);list.append(card);
+ }
+ paint();filter();
+ }catch{$('desktop-status').textContent='Waiting for console';document.body.dataset.connected='false';lastSignature='';$('demo-accounts').replaceChildren();$('demo-feedback').textContent='Automatic connection unavailable. Open Sentinel and reload this extension.';}finally{busy=false;}}
+function filter(){const query=$('account-search').value.toLowerCase();for(const card of document.querySelectorAll('.vault-card'))card.hidden=!card.dataset.search.includes(query);}
+$('account-search').addEventListener('input',filter);
+$('check-accounts').onclick=()=>{checking=!checking;paint();};
+for(const tab of document.querySelectorAll('[data-view]'))tab.addEventListener('click',()=>{checking=false;paint();});
 $('demo-extension-id').textContent=chrome.runtime.id;
-$('demo-pair').onclick=async()=>{
- clearSecrets();const parsed=parseConnectionCode($('connection-code').value);const port=parsed?.port,token=parsed?.token;
- if(!parsed){ $('demo-pair-feedback').textContent='Paste the connection code from your console.';return;}
- try{
-  const allowed=await chrome.permissions.request({origins:['http://127.0.0.1/*']});if(!allowed)throw new Error('Local connection permission was declined.');
-  await chrome.storage.session.set({sentinelDemoConnection:{port,token}});$('connection-code').value='';await refresh();$('demo-pair-feedback').textContent='Connected for this browser session.';
- }catch(error){$('demo-pair-feedback').textContent=error.message;}
-};
-$('demo-disconnect').onclick=async()=>{clearSecrets();await chrome.storage.session.remove('sentinelDemoConnection');await refresh();};
-$('demo-lock').onclick=async()=>{clearSecrets();try{await call(lastUnlocked?'lock':'unlock');await refresh();}catch{$('demo-feedback').textContent='Desktop unavailable.';}};
-window.addEventListener('sentinel-local-assessment',event=>{const result=event.detail;void call('event',{risk:result.risk,codes:result.reasons.map(r=>r.code)}).catch(()=>{});});
-window.addEventListener('pagehide',clearSecrets);document.addEventListener('visibilitychange',()=>{if(document.hidden)clearSecrets();});
+$('copy-extension-id').onclick=async()=>{await navigator.clipboard.writeText(chrome.runtime.id);$('copy-extension-id').textContent='Copied';};
+$('demo-reconnect').onclick=()=>{lastSignature='';void refresh();};
+window.addEventListener('pagehide',()=>{checking=false;});
 void refresh();setInterval(()=>{if(!document.hidden)void refresh();},1500);
-
-$('copy-extension-id').onclick=async()=>{try{await navigator.clipboard.writeText(chrome.runtime.id);$('copy-extension-id').textContent='Copied';}catch{$('copy-extension-id').textContent='Select ID to copy';}};

@@ -27,6 +27,9 @@ public sealed class SentinelGlassConsole : Window
     static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
     [DllImport("dwmapi.dll")]
     static extern int DwmExtendFrameIntoClientArea(IntPtr window, ref Margins margins);
+    [DllImport("gdi32.dll")] static extern IntPtr CreateRoundRectRgn(int left,int top,int right,int bottom,int width,int height);
+    [DllImport("user32.dll")] static extern int SetWindowRgn(IntPtr window,IntPtr region,bool redraw);
+    [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr value);
 
     readonly WebView2 view = new WebView2();
     readonly string assets, evidence;
@@ -120,8 +123,6 @@ public sealed class SentinelGlassConsole : Window
         var header = new DockPanel { Background = new SolidColorBrush(Color.FromArgb(95, 13, 24, 48)), LastChildFill = true };
         var controls = new StackPanel { Orientation = Orientation.Horizontal };
         DockPanel.SetDock(controls, Dock.Right);
-        controls.Children.Add(WindowButton("−", "Minimize to tray", delegate { HideToTray(); }));
-        controls.Children.Add(WindowButton("×", "Close", delegate { SystemCommands.CloseWindow(this); }));
         StateChanged += delegate {
             if(WindowState==WindowState.Minimized) HideToTray();
             if(WindowState==WindowState.Maximized) WindowState=WindowState.Normal;
@@ -136,6 +137,12 @@ public sealed class SentinelGlassConsole : Window
         Grid.SetRow(view, 1); grid.Children.Add(view); Content = grid;
         SourceInitialized += delegate { EnableBackdrop(); };
         Loaded += Initialize;
+        Loaded += delegate {
+            var handle=new WindowInteropHelper(this).Handle;
+            var transform=HwndSource.FromHwnd(handle).CompositionTarget.TransformToDevice;
+            var region=CreateRoundRectRgn(0,0,(int)Math.Ceiling(ActualWidth*transform.M11)+1,(int)Math.Ceiling(ActualHeight*transform.M22)+1,(int)Math.Ceiling(20*transform.M11),(int)Math.Ceiling(20*transform.M22));
+            if(region!=IntPtr.Zero&&SetWindowRgn(handle,region,true)==0)DeleteObject(region);
+        };
         deadline.Interval = TimeSpan.FromSeconds(30);
         deadline.Tick += delegate { Fail("initialization_timeout"); };
         if(!smoke) {
@@ -146,6 +153,7 @@ public sealed class SentinelGlassConsole : Window
             tray.ContextMenuStrip=menu;
             tray.DoubleClick += delegate { Dispatcher.Invoke(new Action(OpenFromTray)); };
             Closing += delegate(object sender,System.ComponentModel.CancelEventArgs e) { if(!quitting) { e.Cancel=true; HideToTray(); } };
+            Deactivated += delegate { Dispatcher.BeginInvoke(new Action(delegate { if(!IsActive&&!actionDialog&&!selectionRequest&&!quitting) HideToTray(); }),DispatcherPriority.Background); };
         }
         var openSignal=new EventWaitHandle(false,EventResetMode.AutoReset,AppEventName);
         var openTimer=new DispatcherTimer { Interval=TimeSpan.FromMilliseconds(300) };
@@ -179,6 +187,8 @@ public sealed class SentinelGlassConsole : Window
     {
         try {
             var handle = new WindowInteropHelper(this).Handle;
+            int rounded = 2;
+            DwmSetWindowAttribute(handle, 33, ref rounded, sizeof(int));
             int acrylic = 3;
             if (DwmSetWindowAttribute(handle, 38, ref acrylic, sizeof(int)) != 0) return;
             var margins = new Margins { Left = -1, Right = -1, Top = -1, Bottom = -1 };
@@ -214,7 +224,33 @@ public sealed class SentinelGlassConsole : Window
             if (id == null || !System.Text.RegularExpressions.Regex.IsMatch(id, "^[a-zA-Z0-9_-]{1,64}$")) return;
             string route = null;
             object data = request["data"];
-            if (method == "quarantine.request" || method == "restore.request") {
+            if (method == "vault.copy" || method == "vault.rotate") {
+                if(actionDialog||selectionRequest){Reply(id,new {error="action_busy"});return;}
+                var account=data as Dictionary<string,object>;
+                if(account==null||account.Count!=1||!account.ContainsKey("id"))throw new InvalidOperationException();
+                string accountId=account["id"] as string;
+                if(!System.Text.RegularExpressions.Regex.IsMatch(accountId??"","^[a-zA-Z0-9_-]{1,64}$"))throw new InvalidOperationException();
+                actionDialog=true;requests++;
+                try {
+                    using(var lease=PasswordActionLease.TryAcquire()) {
+                    if(lease==null){Reply(id,new {error="action_busy"});return;}
+                    bool copy=method=="vault.copy";
+                    bool approved=await Task.Run(()=>VaultApproval.Approve(copy?"copy":"rotate",accountId));
+                    if(!approved){Reply(id,new {error="Windows approval declined or unavailable."});return;}
+                    using(var message=new HttpRequestMessage(HttpMethod.Post,runtimeUrl+(copy?"/reveal":"/rotate"))) {
+                        message.Headers.Authorization=new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer",runtimeToken);
+                        message.Headers.Add("X-Sentinel-Native-Action",runtimeActionToken);
+                        message.Content=new StringContent(json.Serialize(new {id=accountId}),Encoding.UTF8,"application/json");
+                        using(var response=await runtimeClient.SendAsync(message)) {
+                            response.EnsureSuccessStatusCode();
+                            if(copy){var result=json.Deserialize<Dictionary<string,object>>(await response.Content.ReadAsStringAsync());if((string)result["mode"]!="synthetic_demo")throw new InvalidOperationException();Clipboard.SetText((string)result["password"]);}
+                            Reply(id,new {ok=true});
+                        }
+                    }
+                    }
+                }finally{actionDialog=false;requests--;}
+                return;
+            } else if (method == "quarantine.request" || method == "restore.request") {
                 if (actionDialog || selectionRequest) { Reply(id, new { error = "action_busy" }); return; }
                 var action = data as Dictionary<string, object>;
                 bool restore = method == "restore.request";
@@ -260,7 +296,7 @@ public sealed class SentinelGlassConsole : Window
                 var empty = data as Dictionary<string, object>;
                 if (empty == null || empty.Count != 0) throw new InvalidOperationException();
                 route = "usb";
-            } else if (method == "state" || method == "lock" || method == "unlock" || method == "rotate" || method == "reveal" || method == "cancel" || method == "pair") route = method;
+            } else if (method == "state" || method == "lock" || method == "unlock" || method == "cancel" || method == "pair") route = method;
             else throw new InvalidOperationException();
             requests++;
             try {

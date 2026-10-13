@@ -16,12 +16,15 @@ $references += @((Join-Path $framework 'System.Net.Http.dll'), (Join-Path $frame
 $arguments += $references | ForEach-Object { "/reference:$_" }
 $arguments += Join-Path $PSScriptRoot 'GlassConsole.cs'
 $arguments += Join-Path $PSScriptRoot 'NativeSelectionBinding.cs'
+$arguments += Join-Path $PSScriptRoot 'VaultApproval.cs'
 & (Join-Path $framework 'csc.exe') $arguments
 if ($LASTEXITCODE -ne 0) { throw 'GLM glass console build failed' }
 foreach ($file in @($core, $wpf, $loader)) { Copy-Item -LiteralPath $file -Destination $output -Force }
 Write-Output ('Built ' + (Join-Path $output 'Sentinel.Glass.exe'))
-& (Join-Path $framework 'csc.exe') /nologo /target:exe /platform:x64 ('/out:'+(Join-Path $output 'Sentinel.NativeConnect.exe')) ('/reference:'+(Join-Path $framework 'System.Net.Http.dll')) ('/reference:'+(Join-Path $framework 'System.Web.Extensions.dll')) (Join-Path $PSScriptRoot 'NativeConnect.cs')
+& (Join-Path $framework 'csc.exe') /nologo /target:exe /platform:x64 ('/out:'+(Join-Path $output 'Sentinel.NativeConnect.exe')) ('/reference:'+(Join-Path $framework 'System.Net.Http.dll')) ('/reference:'+(Join-Path $framework 'System.Web.Extensions.dll')) ('/reference:'+(Join-Path $framework 'System.Windows.Forms.dll')) (Join-Path $PSScriptRoot 'NativeConnect.cs') (Join-Path $PSScriptRoot 'VaultApproval.cs')
 if($LASTEXITCODE -ne 0){throw 'Native connection bridge build failed'}
+& (Join-Path $framework 'csc.exe') /nologo /target:winexe /platform:x64 ('/out:'+(Join-Path $output 'Sentinel.PasswordApproval.exe')) ('/win32manifest:'+(Join-Path $PSScriptRoot 'password-approval.manifest')) (Join-Path $PSScriptRoot 'PasswordApproval.cs')
+if($LASTEXITCODE -ne 0){throw 'Password approval helper build failed'}
 & (Join-Path $framework 'csc.exe') /nologo /target:winexe /platform:x64 ('/out:'+(Join-Path $output 'Sentinel.exe')) ('/reference:'+(Join-Path $framework 'System.Windows.Forms.dll')) (Join-Path $PSScriptRoot 'AppLauncher.cs')
 if($LASTEXITCODE -ne 0){throw 'Desktop launcher build failed'}
 & (Join-Path $framework 'csc.exe') /nologo /target:winexe /platform:x64 ('/out:'+(Join-Path $output 'Setup.exe')) ('/reference:'+(Join-Path $framework 'System.Windows.Forms.dll')) (Join-Path $PSScriptRoot 'SetupLauncher.cs')

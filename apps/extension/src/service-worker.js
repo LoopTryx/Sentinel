@@ -3,8 +3,12 @@ import {whatsAppStatus,setWhatsAppWarnings} from './whatsapp-control.js';
 import {installOmnibox} from './omnibox.js';
 import { FIXTURE_RULESET_ID, computeStatus } from './status.js';
 import {demoRequest} from './demo-transport.js';
+import {autoConnect} from './auto-connect.js';
 
 const STATUS_KEY = 'harnessStatus';
+// Existing nativeMessaging permission; no network or vault operation is replayed.
+const connectDesktop=()=>{if(typeof chrome.runtime.sendNativeMessage==='function')void autoConnect().catch(()=>{});};
+connectDesktop();chrome.runtime.onStartup?.addListener(connectDesktop);
 
 function warn(scope, error) {
   console.warn(`Sentinel harness: ${scope}`, error);

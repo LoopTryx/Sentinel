@@ -23,4 +23,7 @@
 .glm-watchtower .feed-line { grid-template-columns: 24px minmax(0, 1fr) auto; }
 .glm-watchtower .feed-ts { overflow-wrap: anywhere; }
 .glm-page :focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+.scenario-toggle { margin-top:16px; min-height:44px; }
+#presentation-scenarios { margin-top:20px; }
+#presentation-scenarios[hidden] { display:none; }
 @media(max-width: 700px) { .glm-page { padding: 20px; } .glm-watchtower .feed-line { grid-template-columns: 24px minmax(0, 1fr); } .glm-watchtower .feed-ts { grid-column: 2; } .glm-scan-actions { width: 100%; } .glm-scan-actions .btn { flex: 1 1 160px; } }

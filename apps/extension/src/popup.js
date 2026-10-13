@@ -1,5 +1,5 @@
 import { statusLines } from './status.js';
-import { generatePassword } from './password-generator.js';
+
 
 const statusList = document.getElementById('harness-status');
 const toggleButton = document.getElementById('fixture-toggle');
@@ -69,53 +69,7 @@ toggleButton.addEventListener('click', async () => {
 
 requestStatus();
 
-// On-demand local tools. Keep inputs in this document only, never in background storage.
-import { explainMessage } from './local-checks.js';
-const messageInput=document.getElementById('message-input');
-function showResult(id, result) {
- window.dispatchEvent(new CustomEvent('sentinel-local-assessment',{detail:result}));
- const target=document.getElementById(id); target.replaceChildren();
- const heading=document.createElement('strong');
- heading.textContent=result.host ? `Destination: ${result.host} (${result.scheme}, port ${result.port})` : 'Message warning signs';
- target.append(heading);
- const note=document.createElement('p'); note.textContent=result.risk==='unknown' ? 'No local warning clues · unknown. This does not establish safety.' : 'Review these local clues · partial coverage. This is not a malware verdict.'; target.append(note);
- const list=document.createElement('ul'); for(const reason of result.reasons){const item=document.createElement('li');item.textContent=reason.text;list.append(item);} target.append(list);
-}
-function errorResult(id,error){document.getElementById(id).textContent=error.message || 'Local check unavailable.';}
-document.getElementById('check-message')?.addEventListener('click',()=>{try{showResult('message-result',explainMessage(messageInput.value));}catch(error){errorResult('message-result',error);}});
-messageInput?.addEventListener('input',()=>document.getElementById('message-result').replaceChildren());
-document.getElementById('open-dashboard').addEventListener('click',async()=>{try{await chrome.tabs.create({url:chrome.runtime.getURL('popup.html?view=dashboard')});}catch{document.getElementById('password-feedback').textContent='Dashboard unavailable.';}});
-document.getElementById('clear-inputs').addEventListener('click',()=>{messageInput.value='';document.getElementById('message-result').replaceChildren();});
-if(new URLSearchParams(location.search).get('view')==='dashboard') document.body.classList.add('dashboard');
 
-const generated = document.getElementById('generated-password');
-const copy = document.getElementById('copy-password');
-const reveal = document.getElementById('reveal-password');
-const feedback = document.getElementById('password-feedback');
-let generation = 0;
-function clearPassword() {
- generation++; generated.value = ''; generated.type = 'password'; copy.disabled = true;
- reveal.textContent = 'Show'; feedback.textContent = '';
-}
-for (const button of document.querySelectorAll('[data-view]')) button.addEventListener('click', () => {
- clearPassword();
- for (const tab of document.querySelectorAll('[data-view]')) tab.setAttribute('aria-pressed', String(tab === button));
- for (const panel of document.querySelectorAll('[data-panel]')) panel.hidden = panel.dataset.panel !== button.dataset.view;
-});
-document.getElementById('password-length').addEventListener('input', event => {
- document.getElementById('length-value').textContent = event.target.value; clearPassword();
-});
-document.getElementById('generate-password').addEventListener('click', () => {
- clearPassword();
- try {generated.value = generatePassword(Number(document.getElementById('password-length').value)); copy.disabled = false; feedback.textContent = 'Ready to copy.';}
- catch {feedback.textContent = 'Generation unavailable. Try again.';}
-});
-reveal.addEventListener('click', () => {generated.type = generated.type === 'password' ? 'text' : 'password'; reveal.textContent = generated.type === 'password' ? 'Show' : 'Hide';});
-copy.addEventListener('click', async () => {
- const current = generation;
- try {await navigator.clipboard.writeText(generated.value); if (current === generation) feedback.textContent = 'Copied.';}
- catch {if (current === generation) feedback.textContent = 'Copy unavailable. Select and copy the generated password manually.';}
-});
-document.getElementById('clear-password').addEventListener('click', clearPassword);
-document.getElementById('clear-inputs').addEventListener('click', clearPassword);
-window.addEventListener('pagehide', clearPassword);
+for(const button of document.querySelectorAll('[data-view]'))button.addEventListener('click',()=>{for(const tab of document.querySelectorAll('[data-view]'))tab.setAttribute('aria-pressed',String(tab===button));for(const panel of document.querySelectorAll('[data-panel]'))panel.hidden=panel.dataset.panel!==button.dataset.view;});
+document.getElementById('open-dashboard').onclick=()=>chrome.tabs.create({url:chrome.runtime.getURL('popup.html?view=dashboard')});
+if(new URLSearchParams(location.search).get('view')==='dashboard')document.body.classList.add('dashboard');

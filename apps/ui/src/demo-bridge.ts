@@ -11,7 +11,7 @@ export function demoCall(method:string,data:Record<string,unknown>={}):Promise<a
  if(!listening){native.addEventListener('message',e=>{const message=e.data as {id?:string;data?:unknown};if(typeof message?.id!=='string')return;const request=pending.get(message.id);if(!request)return;clearTimeout(request.timer);pending.delete(message.id);const value=message.data as {error?:string};if(typeof value?.error==='string')request.reject(new Error(value.error));else request.resolve(value);});listening=true;}
  if(pending.size>=4)return Promise.reject(new Error('Desktop busy. Try again.'));
  const id='demo_'+(++serial);
- return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{pending.delete(id);reject(new Error('Desktop connection timed out.'));},method==='scan.select'?300000:method==='quarantine.request'||method==='restore.request'?60000:10000);pending.set(id,{resolve,reject,timer});try{native.postMessage(JSON.stringify({id,method,data}));}catch{clearTimeout(timer);pending.delete(id);reject(new Error('Desktop unavailable.'));}});
+ return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{pending.delete(id);reject(new Error('Desktop connection timed out.'));},method==='scan.select'?300000:method==='quarantine.request'||method==='restore.request'||method.startsWith('vault.')?75000:10000);pending.set(id,{resolve,reject,timer});try{native.postMessage(JSON.stringify({id,method,data}));}catch{clearTimeout(timer);pending.delete(id);reject(new Error('Desktop unavailable.'));}});
 }
 export function useDemoState(){
  const [state,setState]=useState<DemoState|null>(null);

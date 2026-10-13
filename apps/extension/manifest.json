@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Sentinel Browser Companion",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "optional_permissions": ["scripting"],
   "host_permissions": ["http://127.0.0.1/*"],
   "optional_host_permissions": [
@@ -9,7 +9,7 @@
     "http://*/*",
     "https://*/*"
   ],
-  "description": "Address-bar Link X-Ray, local scam-message checks and paired desktop demo tools.",
+  "description": "Local link warnings and automatically connected Sentinel account tools.",
   "permissions": [
     "declarativeNetRequest",
     "storage",

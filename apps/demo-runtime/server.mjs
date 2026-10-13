@@ -191,7 +191,7 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
   if(req.url==='/unlock'&&keys(body,[])){unlocked=true;return respond(200,{ok:true});}
   if(req.url==='/lock'&&keys(body,[])){unlocked=false;return respond(200,{ok:true});}
   if(['/rotate','/reveal'].includes(req.url)&&keys(body,['id'])){
-   if(!unlocked)return respond(423,{error:'demo_locked'});
+   if(!desktop||!equal(req.headers['x-sentinel-native-action'],nativeActionToken))return respond(403,{error:'native_approval_required'});
    const account=accounts.find(a=>a.id===body.id);if(!account)return respond(400,{error:'invalid_account'});
    if(req.url==='/rotate'){
     let generated='';
