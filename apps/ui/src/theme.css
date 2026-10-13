@@ -111,21 +111,6 @@ body[data-threat="warn"] { --wash-a: rgba(255,196,107,0.08); --wash-b: rgba(255,
 body[data-threat="danger"] { --wash-a: rgba(255,138,122,0.11); --wash-b: rgba(255,138,122,0.07); }
 body[data-threat="preview"]::before, body[data-threat="warn"]::before, body[data-threat="danger"]::before { opacity: 1; }
 
-/* CRT scanline texture over everything, very subtle */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent 0px,
-    transparent 3px,
-    rgba(255, 255, 255, 0.012) 3px,
-    rgba(255, 255, 255, 0.012) 4px
-  );
-  z-index: 999;
-}
 
 /* ---- layout shell ---- */
 .shell {
@@ -313,16 +298,12 @@ body::after {
 
 /* ---- main area ---- */
 .main {
-  /* anchors its own grid overlay + sits above the app-wide dither backdrop */
+  /* sits above the app-wide dither backdrop */
   position: relative;
   z-index: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background-image:
-    linear-gradient(var(--grid-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-  background-size: 44px 44px;
 }
 
 /* the living backdrop is decoration only — it must never catch clicks
