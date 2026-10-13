@@ -36,3 +36,9 @@ if($LASTEXITCODE -ne 0){throw 'Password approval helper build failed'}
 if($LASTEXITCODE -ne 0){throw 'Desktop launcher build failed'}
 & (Join-Path $framework 'csc.exe') /nologo /target:winexe /platform:x64 ('/out:'+(Join-Path $output 'Setup.exe')) ('/reference:'+(Join-Path $framework 'System.Windows.Forms.dll')) (Join-Path $PSScriptRoot 'SetupLauncher.cs')
 if($LASTEXITCODE -ne 0){throw 'Setup launcher build failed'}
+foreach($hostName in @('UsbBootstrap','UsbRecoveryHost')){
+ $binary=if($hostName -eq 'UsbBootstrap'){'Sentinel.UsbBootstrap.exe'}else{'Sentinel.UsbBroker.exe'}
+ & (Join-Path $framework 'csc.exe') /nologo /target:exe /platform:x64 ('/out:'+(Join-Path $output $binary)) ('/win32manifest:'+(Join-Path $PSScriptRoot 'password-approval.manifest')) (Join-Path $PSScriptRoot ($hostName+'.cs')) (Join-Path $PSScriptRoot 'ProtectedUsbJournal.cs') (Join-Path $PSScriptRoot 'UsbJournalTransport.cs')
+ if($LASTEXITCODE -ne 0){throw 'USB recovery host build failed'}
+}
+& (Join-Path $PSScriptRoot '..\..\tools\build-usb-broker.ps1')

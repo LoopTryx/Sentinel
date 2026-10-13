@@ -10,7 +10,7 @@ using Microsoft.Win32.SafeHandles;
 // Provisioning only. No device/registry changes and no UI-callable path selector.
 // Machine directory installation, inherited-handle broker wiring and startup recovery
 // remain separate gates. Scratch factories are internal native-test entry points.
-internal sealed class ProtectedUsbJournal : IDisposable {
+internal sealed partial class ProtectedUsbJournal : IDisposable {
  const uint Reparse=0x400,DirectoryAttribute=0x10;
  const long MaxLength=4140;
  [StructLayout(LayoutKind.Sequential)]struct Attributes {public int Length;public IntPtr Descriptor;public int Inherit;}
