@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sentinel · Synthetic message preview</title>
+<style>body{margin:0;background:#eee9df;color:#1b1e4a;font:16px/1.5 system-ui}main{max-width:700px;margin:32px auto;padding:24px}h1{font-size:22px}.message-in{margin:24px 0;max-width:500px}[data-pre-plain-text]{background:#fff;padding:16px;border-radius:12px}.fixture-note{font-size:13px;color:#474b5f}</style>
+<main><h1>Local message warning preview</h1><p class="fixture-note">Invented messages only. This preview does not validate installed WhatsApp support.</p>
+<div class="message-in"><div data-pre-plain-text><span class="selectable-text">Urgent! Claim your lottery prize at https://bit.ly/example</span></div></div>
+<div class="message-in"><div data-pre-plain-text><span class="selectable-text">Your OTP is 246810. Never share your OTP.</span></div></div>
+<div class="message-in"><div data-pre-plain-text><span class="selectable-text" dir="auto">عاجل أرسل رمز التحقق</span></div></div>
+</main><script type="module">import {mountWhatsAppWarnings} from '../../src/whatsapp-inline.js';const controller=mountWhatsAppWarnings(document);window.addEventListener('pagehide',()=>controller.stop(),{once:true});</script></html>

@@ -1,0 +1,150 @@
+[
+  {
+    "split": "tune",
+    "before": {
+      "total": 40,
+      "scams": 20,
+      "legitimate": 20,
+      "truePositive": 16,
+      "trueNegative": 9,
+      "falsePositive": 11,
+      "falseNegative": 4,
+      "wrongIds": [
+        "t01",
+        "t02",
+        "t03",
+        "t04",
+        "t07",
+        "t08",
+        "t09",
+        "t13",
+        "t14",
+        "t19",
+        "t20",
+        "t32",
+        "t35",
+        "t36",
+        "t37"
+      ],
+      "falsePositiveRate": 0.55,
+      "falseNegativeRate": 0.2
+    },
+    "after": {
+      "total": 40,
+      "scams": 20,
+      "legitimate": 20,
+      "truePositive": 20,
+      "trueNegative": 20,
+      "falsePositive": 0,
+      "falseNegative": 0,
+      "wrongIds": [],
+      "falsePositiveRate": 0,
+      "falseNegativeRate": 0
+    }
+  },
+  {
+    "split": "holdout",
+    "before": {
+      "total": 40,
+      "scams": 20,
+      "legitimate": 20,
+      "truePositive": 15,
+      "trueNegative": 10,
+      "falsePositive": 10,
+      "falseNegative": 5,
+      "wrongIds": [
+        "h01",
+        "h07",
+        "h09",
+        "h10",
+        "h11",
+        "h15",
+        "h16",
+        "h17",
+        "h19",
+        "h20",
+        "h22",
+        "h25",
+        "h29",
+        "h30",
+        "h33"
+      ],
+      "falsePositiveRate": 0.5,
+      "falseNegativeRate": 0.25
+    },
+    "after": {
+      "total": 40,
+      "scams": 20,
+      "legitimate": 20,
+      "truePositive": 20,
+      "trueNegative": 19,
+      "falsePositive": 1,
+      "falseNegative": 0,
+      "wrongIds": [
+        "h15"
+      ],
+      "falsePositiveRate": 0.05,
+      "falseNegativeRate": 0
+    }
+  },
+  {
+    "split": "all",
+    "before": {
+      "total": 80,
+      "scams": 40,
+      "legitimate": 40,
+      "truePositive": 31,
+      "trueNegative": 19,
+      "falsePositive": 21,
+      "falseNegative": 9,
+      "wrongIds": [
+        "t01",
+        "t02",
+        "t03",
+        "t04",
+        "t07",
+        "t08",
+        "t09",
+        "t13",
+        "t14",
+        "t19",
+        "t20",
+        "t32",
+        "t35",
+        "t36",
+        "t37",
+        "h01",
+        "h07",
+        "h09",
+        "h10",
+        "h11",
+        "h15",
+        "h16",
+        "h17",
+        "h19",
+        "h20",
+        "h22",
+        "h25",
+        "h29",
+        "h30",
+        "h33"
+      ],
+      "falsePositiveRate": 0.525,
+      "falseNegativeRate": 0.225
+    },
+    "after": {
+      "total": 80,
+      "scams": 40,
+      "legitimate": 40,
+      "truePositive": 40,
+      "trueNegative": 39,
+      "falsePositive": 1,
+      "falseNegative": 0,
+      "wrongIds": [
+        "h15"
+      ],
+      "falsePositiveRate": 0.025,
+      "falseNegativeRate": 0
+    }
+  }
+]

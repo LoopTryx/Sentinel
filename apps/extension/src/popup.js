@@ -71,18 +71,27 @@ requestStatus();
 
 // On-demand local tools. Keep inputs in this document only, never in background storage.
 import { explainMessage } from './local-checks.js';
+import {createMessageFeedback} from './message-feedback.js';
 const messageInput=document.getElementById('message-input');
+const messageFeedback=createMessageFeedback();
+const senderRow=document.createElement('label');senderRow.textContent='Sender context: ';
+const senderSelect=document.createElement('select');senderSelect.setAttribute('aria-label','Sender context for local message check');
+for(const [value,label] of [['unknown','Unknown'],['unsaved','Not saved'],['saved','Saved contact']]){const option=document.createElement('option');option.value=value;option.textContent=label;senderSelect.append(option);}senderRow.append(senderSelect);
+messageInput.insertAdjacentElement('afterend',senderRow);
+senderSelect.onchange=()=>document.getElementById('message-result').replaceChildren();
 function showResult(id, result) {
- window.dispatchEvent(new CustomEvent('sentinel-local-assessment',{detail:result}));
+ // Preserve the paired desktop's existing allowlisted event contract.
+ window.dispatchEvent(new CustomEvent('sentinel-local-assessment',{detail:{risk:result.risk,reasons:(result.eventCodes || result.reasons.map(r=>r.code)).map(code=>({code}))}}));
  const target=document.getElementById(id); target.replaceChildren();
  const heading=document.createElement('strong');
- heading.textContent=result.host ? `Destination: ${result.host} (${result.scheme}, port ${result.port})` : 'Message warning signs';
+ heading.textContent=result.host ? `Destination: ${result.host} (${result.scheme}, port ${result.port})` : `${result.tier} · local message check`;
  target.append(heading);
- const note=document.createElement('p'); note.textContent=result.risk==='unknown' ? 'No local warning clues · unknown. This does not establish safety.' : 'Review these local clues · partial coverage. This is not a malware verdict.'; target.append(note);
+ const note=document.createElement('p'); note.textContent=result.disclaimer || (result.risk==='unknown' ? 'No local warning clues · unknown. This does not establish safety.' : 'Review these local clues · partial coverage. This is not a malware verdict.'); target.append(note);
  const list=document.createElement('ul'); for(const reason of result.reasons){const item=document.createElement('li');item.textContent=reason.text;list.append(item);} target.append(list);
+ if(result.tier){const report=document.createElement('button');report.type='button';report.textContent=result.risk==='suspicious'?'Report wrong flag':'Report missed scam';const feedback=document.createElement('p');feedback.setAttribute('role','status');report.onclick=()=>{messageFeedback.report(result.tier,result.categories);report.disabled=true;feedback.textContent='Recorded for this popup session only. No message stored or uploaded.';};const download=document.createElement('button');download.type='button';download.textContent='Download feedback counts';download.onclick=()=>{const link=document.createElement('a');link.href=`data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(messageFeedback.export(),null,2))}`;link.download='sentinel-feedback-counts.json';target.append(link);link.click();link.remove();};target.append(report,download,feedback);}
 }
 function errorResult(id,error){document.getElementById(id).textContent=error.message || 'Local check unavailable.';}
-document.getElementById('check-message').addEventListener('click',()=>{try{showResult('message-result',explainMessage(messageInput.value));}catch(error){errorResult('message-result',error);}});
+document.getElementById('check-message').addEventListener('click',()=>{try{showResult('message-result',explainMessage(messageInput.value,{senderStatus:senderSelect.value}));}catch(error){errorResult('message-result',error);}});
 messageInput.addEventListener('input',()=>document.getElementById('message-result').replaceChildren());
 document.getElementById('open-dashboard').addEventListener('click',async()=>{try{await chrome.tabs.create({url:chrome.runtime.getURL('popup.html?view=dashboard')});}catch{document.getElementById('password-feedback').textContent='Dashboard unavailable.';}});
 document.getElementById('clear-inputs').addEventListener('click',()=>{messageInput.value='';document.getElementById('message-result').replaceChildren();});
