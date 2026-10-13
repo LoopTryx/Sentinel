@@ -10,3 +10,5 @@ Approved design: hold unknown external HID input before delivery; owner-verified
 6. Separate verified volume-identity/read-only worker path for storage; no E: reads. Full repository/native/regression checks, independent security review, reviewed integration and installed acceptance remain distinct.
 
 Current owned checkout: codex/engineer-a/desktop-v2-20261013, reviewed stacked base55b7bb9. Files: tools/usb/read-inventory.ps1, tools/usb/tests/inventory.ps1; new apps/desktop/UsbOwnerVerification.cs and UsbApprovalBinding.cs, tools/test-usb-owner-verification.ps1; existing owned GlassConsole/build integration. Policy/shared crates remain unchanged until native broker ownership/review recorded.
+
+Receiver-unplug comparison completed after explicit owner confirmation: native inventory two physical groups (ITE Device8258 and USB Optical Mouse), no receiver; input setup nodes18 versus27 before, six platform nodes unchanged, zero omissions/unresolved. No automatic enrollment or policy mutation. Receiver may be reconnected for normal use; ownership/review of the shared profile and protected broker/startup recovery still precede enforcement.
