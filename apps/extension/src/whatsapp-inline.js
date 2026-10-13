@@ -1,6 +1,19 @@
 import {explainMessage} from './local-checks.js';
 import {createMessageFeedback} from './message-feedback.js';
-const STYLE=`:host{display:block;margin:8px 0;color:#1b1e4a;font:13px/1.5 system-ui,sans-serif}button{cursor:pointer;border:1px solid #ff8379;border-radius:12px;background:linear-gradient(125deg,#e51c2a,#d21319 62%,#bd1036);color:#fff;padding:8px 13px;font:700 12px system-ui;box-shadow:inset 0 1px 0 #ffffff35,0 4px 12px #d2131930}button:hover{filter:brightness(1.08)}button:focus-visible{outline:3px solid #1b1e4a;outline-offset:3px}.detail{max-width:340px;margin-top:8px;padding:12px 14px;border:1px solid #afaea2;border-left:4px solid #d21319;border-radius:12px;background:linear-gradient(135deg,#fff9ed,#e5e1d5);box-shadow:0 6px 20px #0002}.detail strong{color:#1b1e4a;font-size:14px}p{margin:6px 0}ul{padding-left:18px;margin:8px 0}.muted{color:#474b5f;font-size:11px}@media(forced-colors:active){button,.detail{background:Canvas;color:CanvasText;border:1px solid CanvasText}.detail strong,.muted{color:CanvasText}}`;
+const STYLE=`
+:host{--navy:#1b1e4a;--surface:#141832;--beige:#eee9dc;--muted:#c0bfb4;--blue:#8ac7ff;display:block;max-width:100%;margin:12px 0 0;color:var(--beige);font:13px/1.5 system-ui,sans-serif;color-scheme:dark}
+*{box-sizing:border-box}[hidden]{display:none!important}
+button{min-height:40px;cursor:pointer;border:1px solid #afaea24d;border-radius:10px;background:#24294f;color:var(--beige);padding:9px 14px;font:650 12px/1.4 system-ui}
+.warning-trigger{border-color:#ff827b;background:linear-gradient(125deg,#ec2937,#d21319 65%,#b91034);color:#fff;box-shadow:inset 0 1px 0 #ffffff30,0 3px 10px #d2131925}
+button:hover{filter:brightness(1.1)}button:disabled{cursor:default;opacity:.65}:focus-visible{outline:3px solid var(--blue);outline-offset:3px}
+.detail{width:100%;max-width:420px;margin-top:12px;padding:20px;border:1px solid #afaea238;border-top:3px solid #e51c2a;border-radius:14px;background:linear-gradient(145deg,#20254e,var(--surface));box-shadow:0 12px 28px #0003;overflow-wrap:anywhere}
+.detail strong{display:block;color:#ffadb0;font-size:15px;line-height:1.4}p{margin:8px 0}ul{list-style:none;padding:0;margin:12px 0 16px}li{padding:10px 0 10px 12px;border-inline-start:2px solid #2f89e3;border-bottom:1px solid #afaea21a}li:last-child{border-bottom:0}
+.muted{color:var(--muted);font-size:12px;line-height:1.5}.review-tools{border-top:1px solid #afaea22e;margin-top:16px;padding-top:4px}
+summary{min-height:44px;display:list-item;align-content:center;cursor:pointer;color:var(--blue);font-weight:650}.review-tools label{display:flex;gap:10px;align-items:center;min-height:44px;font-size:12px}.review-tools label:first-of-type{display:block;margin:8px 0}
+select{display:block;width:100%;height:44px;margin-top:8px;padding:8px 12px;border:1px solid #afaea257;border-radius:8px;color:var(--beige);background:var(--navy);font:inherit}input[type=checkbox]{width:17px;height:17px;margin:0;accent-color:#2f89e3;flex:none}
+.feedback-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.feedback-actions button{flex:1 1 140px;min-height:44px}.privacy-note{border-top:1px solid #afaea22e;padding-top:12px;margin:16px 0 0}
+@media(forced-colors:active){button,.warning-trigger,.detail,select{background:Canvas;color:CanvasText;border:1px solid CanvasText;box-shadow:none}.detail strong,.muted,summary{color:CanvasText}li,.review-tools,.privacy-note{border-color:CanvasText}}
+`;
 export function mountWhatsAppWarnings(doc){
  const win=doc.defaultView;
  const feedback=createMessageFeedback();
@@ -44,16 +57,17 @@ export function mountWhatsAppWarnings(doc){
    const badge=doc.createElement('span');badge.dataset.sentinelScam='';
    const shadow=badge.attachShadow({mode:'open'});
    const style=doc.createElement('style');style.textContent=STYLE;shadow.append(style);
-   const button=doc.createElement('button');button.type='button';button.setAttribute('aria-expanded','false');
+   const button=doc.createElement('button');button.type='button';button.className='warning-trigger';button.setAttribute('aria-expanded','false');
    const detail=doc.createElement('div');detail.className='detail';detail.hidden=true;
    const title=doc.createElement('strong');detail.append(title);
    if(direction==='unknown'){const note=doc.createElement('p');note.className='muted';note.textContent='Message direction is unavailable in this layout. This checks wording only and does not identify the sender.';detail.append(note);}
    const reasons=doc.createElement('ul');detail.append(reasons);
+   const tools=doc.createElement('details');tools.className='review-tools';const toolsSummary=doc.createElement('summary');toolsSummary.textContent='Sender & feedback';tools.append(toolsSummary);detail.append(tools);
    const context={};
    const contextLabel=doc.createElement('label');contextLabel.textContent='Sender context (you choose): ';
    const select=doc.createElement('select');select.setAttribute('aria-label','Sender contact status');
-   for(const [value,label] of [['unknown','Unknown'],['unsaved','Not saved'],['saved','Saved contact']]){const option=doc.createElement('option');option.value=value;option.textContent=label;select.append(option);}contextLabel.append(select);detail.append(contextLabel);
-   const contextNote=doc.createElement('p');contextNote.className='muted';contextNote.textContent='Applies only to this message in this tab. Contacts and phone numbers are not read.';detail.append(contextNote);
+   for(const [value,label] of [['unknown','Unknown'],['unsaved','Not saved'],['saved','Saved contact']]){const option=doc.createElement('option');option.value=value;option.textContent=label;select.append(option);}contextLabel.append(select);tools.append(contextLabel);
+   const contextNote=doc.createElement('p');contextNote.className='muted';contextNote.textContent='This message only. No contacts or numbers read.';tools.append(contextNote);
    function render(){
     button.textContent=result.risk==='suspicious'?`⚠ ${result.tier}${direction==='unknown'?' · wording only':''}`:'No combined warning';
     button.style.background=result.risk==='suspicious'?'':'#1b1e4a';
@@ -64,14 +78,15 @@ export function mountWhatsAppWarnings(doc){
    function reassess(){result=explainMessage(text,context);render();}
    select.onchange=()=>{context.senderStatus=select.value;reassess();};
    for(const [key,label] of [['firstTime','First-time sender'],['foreignCountryCode','Unfamiliar country code'],['trusted','Trusted sender (strong requests still warn)']]){
-    const row=doc.createElement('label');row.style.display='block';const check=doc.createElement('input');check.type='checkbox';check.onchange=()=>{context[key]=check.checked;reassess();};row.append(check,doc.createTextNode(` ${label}`));detail.append(row);
+    const row=doc.createElement('label');const check=doc.createElement('input');check.type='checkbox';check.onchange=()=>{context[key]=check.checked;reassess();};row.append(check,doc.createTextNode(` ${label}`));tools.append(row);
    }
    const report=doc.createElement('button');report.type='button';report.textContent='Report wrong flag';
    const reportStatus=doc.createElement('p');reportStatus.className='muted';reportStatus.setAttribute('role','status');
-   report.onclick=()=>{report.disabled=true;const counts=feedback.report(result.tier,result.categories);reportStatus.textContent=`${Object.values(counts).reduce((a,b)=>a+b,0)} report(s) in this tab. No text saved or uploaded; this does not retrain the detector.`;};detail.append(report,reportStatus);
+   const feedbackActions=doc.createElement('div');feedbackActions.className='feedback-actions';tools.append(feedbackActions,reportStatus);
+   report.onclick=()=>{report.disabled=true;const counts=feedback.report(result.tier,result.categories);reportStatus.textContent=`${Object.values(counts).reduce((a,b)=>a+b,0)} report(s) in this tab. No text saved or uploaded; this does not retrain the detector.`;};feedbackActions.append(report);
    const exportFeedback=doc.createElement('button');exportFeedback.type='button';exportFeedback.textContent='Download feedback counts';
-   exportFeedback.onclick=()=>{const link=doc.createElement('a');link.href=`data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(feedback.export(),null,2))}`;link.download='sentinel-feedback-counts.json';shadow.append(link);link.click();link.remove();};detail.append(exportFeedback);
-   const limits=doc.createElement('p');limits.className='muted';limits.textContent='Local check · Not proof of fraud or sender identity. No AI upload.';detail.append(limits);
+   exportFeedback.onclick=()=>{const link=doc.createElement('a');link.href=`data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(feedback.export(),null,2))}`;link.download='sentinel-feedback-counts.json';shadow.append(link);link.click();link.remove();};feedbackActions.append(exportFeedback);
+   const limits=doc.createElement('p');limits.className='muted privacy-note';limits.textContent='Local clues · Not proof of fraud · No AI upload';detail.append(limits);
    render();
    button.onclick=()=>{detail.hidden=!detail.hidden;button.setAttribute('aria-expanded',String(!detail.hidden));};
    shadow.append(button,detail);node.append(badge);records.set(node,{text,direction,badge});

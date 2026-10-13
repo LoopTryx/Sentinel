@@ -78,6 +78,7 @@ test('inline warning retains open/close, tiers, reasons, explicit sender context
   const badge=node.querySelector('[data-sentinel-scam]'),shadow=badge.shadowRoot;
   assert.ok(badge.hasAttribute('data-sentinel-flagged'));const button=shadow.querySelector('button');button.click();assert.equal(button.getAttribute('aria-expanded'),'true');
   assert.ok(shadow.querySelectorAll('li').length>=2);
+  const tools=shadow.querySelector('details');assert.equal(tools.open,false);tools.querySelector('summary').click();assert.equal(tools.open,true);
   const select=shadow.querySelector('select');select.value='saved';select.dispatchEvent(new dom.window.Event('change'));assert.equal(badge.hasAttribute('data-sentinel-flagged'),false);
   select.value='unsaved';select.dispatchEvent(new dom.window.Event('change'));assert.equal(badge.hasAttribute('data-sentinel-flagged'),true);
   const report=[...shadow.querySelectorAll('button')].find(b=>b.textContent==='Report wrong flag');report.click();assert.equal(report.disabled,true);assert.equal(control.feedback().Suspicious,1);
