@@ -72,19 +72,22 @@ function fixture(text){
  const doc=dom.window.document;doc.querySelector('.selectable-text').textContent=text;
  return {dom,doc,node:doc.querySelector('[data-pre-plain-text]')};
 }
-test('inline warning retains open/close, tiers, reasons, explicit sender context and private wrong-flag feedback',()=>{
+test('inline warning stays compact with no added settings panel and keeps improved detection',()=>{
  const {dom,doc,node}=fixture('Claim the lottery prize.');const control=mountWhatsAppWarnings(doc);
  try{
   const badge=node.querySelector('[data-sentinel-scam]'),shadow=badge.shadowRoot;
-  assert.ok(badge.hasAttribute('data-sentinel-flagged'));const button=shadow.querySelector('button');button.click();assert.equal(button.getAttribute('aria-expanded'),'true');
-  assert.ok(shadow.querySelectorAll('li').length>=2);
-  const tools=shadow.querySelector('details');assert.equal(tools.open,false);tools.querySelector('summary').click();assert.equal(tools.open,true);
-  const select=shadow.querySelector('select');select.value='saved';select.dispatchEvent(new dom.window.Event('change'));assert.equal(badge.hasAttribute('data-sentinel-flagged'),false);
-  select.value='unsaved';select.dispatchEvent(new dom.window.Event('change'));assert.equal(badge.hasAttribute('data-sentinel-flagged'),true);
-  const report=[...shadow.querySelectorAll('button')].find(b=>b.textContent==='Report wrong flag');report.click();assert.equal(report.disabled,true);assert.equal(control.feedback().Suspicious,1);
-  node.querySelector('.selectable-text').textContent='hello';control.refresh();assert.equal(node.querySelector('[data-sentinel-scam]'),null);
- }finally{control.stop();assert.equal(control.feedback().Suspicious,0);dom.window.close();}
+  assert.ok(badge.hasAttribute('data-sentinel-flagged'));
+  const button=shadow.querySelector('button');button.click();assert.equal(button.getAttribute('aria-expanded'),'true');
+  assert.equal(shadow.querySelectorAll('button').length,1);
+  assert.equal(shadow.querySelector('details,select,input,ul'),null);
+  assert.equal(shadow.querySelectorAll('.detail p').length,2);
+  assert.match(shadow.querySelector('.detail').textContent,/Reward bait.*Action demand/);
+  button.click();assert.equal(shadow.querySelector('.detail').hidden,true);
+  node.querySelector('.selectable-text').textContent='prize';control.refresh();
+  assert.equal(node.querySelector('[data-sentinel-scam]'),null);
+ }finally{control.stop();dom.window.close();}
 });
+
 test('inline direction, recycling and 100-message cap remain enforced without executing message markup',()=>{
  const {dom,doc,node}=fixture('urgent send your password <img src=x onerror=alert(1)>');
  const outgoing=doc.createElement('div');outgoing.className='message-out';outgoing.innerHTML='<div data-pre-plain-text><span class="selectable-text">urgent send your password</span></div>';doc.body.append(outgoing);
