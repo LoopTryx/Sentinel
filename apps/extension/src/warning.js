@@ -1,6 +1,14 @@
-import snapshot from '../data/badware-snapshot.js';import {listState} from './navigation-policy.js';
-const listed=location.hash==='#listed';document.body.dataset.risk=listed?'listed':'keywords';
-document.getElementById('classification').textContent=listed?'REPORTED BADWARE RISK':'SUSPICIOUS URL WORDING';
-document.getElementById('summary').textContent=listed?'A domain-list navigation rule raises this warning for sites reported as badware risks.':'A keyword rule raises this warning when the address combines reward bait with a payment request.';
-const li=document.createElement('li');li.textContent=listed?'The rule uses a limited, offline subset of uBlock Origin’s maintained Badware risks list. Listings can be stale or mistaken; this is not a fresh malware verdict.':'Unexpected prizes that require payment are a common scam pattern. Wording alone does not prove fraud. Verify the offer through an independently obtained official address.';document.getElementById('reasons').append(li);
-document.getElementById('list-status').textContent=snapshot.hosts.length+' supported domains · '+listState(snapshot)+' snapshot · '+snapshot.capturedAt.slice(0,10)+' · GPL-3.0 data attribution in the bundled third-party folder.';
+import snapshot from '../data/badware-snapshot.js';
+import {listState} from './navigation-policy.js';
+
+const listed=location.hash==='#listed';
+document.body.dataset.risk=listed?'listed':'keywords';
+document.getElementById('classification').textContent=listed?'REPORTED DOMAIN RISK':'SUSPICIOUS LINK WORDING';
+document.getElementById('summary').textContent=listed?'This domain appears on the offline risk list.':'This address matches a scam-style wording rule.';
+const reason=document.createElement('li');
+reason.textContent=listed?'Listings can be stale or mistaken. This is not a fresh malware verdict.':'Unexpected prizes that require payment are a common scam pattern. Wording alone does not prove fraud.';
+document.getElementById('reasons').append(reason);
+const freshness=document.getElementById('list-status');
+freshness.hidden=!listed;
+freshness.textContent='Offline list · '+listState(snapshot).replaceAll('_',' ')+' · '+snapshot.capturedAt.slice(0,10);
+document.getElementById('list-source').textContent=listed?snapshot.hosts.length+' supported domains from the limited uBlock Origin Badware risks subset. GPL-3.0 attribution is bundled in the third-party folder.':'This rule checks URL wording only; it does not verify the sender or establish that a site is malicious.';
