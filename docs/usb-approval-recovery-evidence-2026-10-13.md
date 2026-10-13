@@ -29,3 +29,10 @@ usb.observe({}) remains the existing exact report-only schema consumed by invent
 Next: agree shared policy edit ownership/review and bounded profile, confirm the reconnected everyday-device baseline when enrollment is ready, then wire native owner verification into a protected broker with independently provisioned recovery before activating any device policy. A clean storage scan never authorizes HID.
 
 Primary API reference: https://learn.microsoft.com/en-us/windows/win32/api/userconsentverifierinterop/nf-userconsentverifierinterop-iuserconsentverifierinterop-requestverificationforwindowasync
+
+## Protected native journal increment (14 October)
+
+`ProtectedUsbJournal.cs` now retains native handles to the journal and its directory ancestry, rejects reparse points/path mismatches and hard-linked journals, validates protected handle-based ACLs, opens the journal exclusively without truncation, and refuses journals exceeding 4140 bytes. The machine factory requires an existing administrator/SYSTEM-only installation directory and administrator execution; it has not been called. No USB policy changed.
+
+`tools/test-usb-private-journal.ps1` passed actual Windows tests in fresh disposable workspace directories: exclusive opening, retained-directory rename refusal, preserving existing bytes, refusing an Everyone-readable directory, and oversized-journal refusal. Restricted sandbox execution failed with access denied; the same tests passed outside that sandbox. Independent security review found no blocking findings. Machine provisioning, inherited-handle broker transport, trusted-stream write bounds, independent installed startup/watchdog recovery, and hardware containment remain required.
+`tools/verify.ps1` PASS (artifacts/usb-private-journal-verify.log); native desktop build PASS. Browser manual steps printed by the verifier were not performed for this increment.

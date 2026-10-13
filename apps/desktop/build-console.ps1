@@ -22,6 +22,7 @@ $arguments += Join-Path $PSScriptRoot 'UsbInputIdentity.cs'
 $arguments += Join-Path $PSScriptRoot 'UsbDeviceInventory.cs'
 $arguments += Join-Path $PSScriptRoot 'UsbApprovalBinding.cs'
 $arguments += Join-Path $PSScriptRoot 'UsbOwnerVerification.cs'
+$arguments += Join-Path $PSScriptRoot 'ProtectedUsbJournal.cs'
 $arguments += '/reference:'+(Join-Path $framework 'System.Runtime.WindowsRuntime.dll')
 & (Join-Path $framework 'csc.exe') $arguments
 if ($LASTEXITCODE -ne 0) { throw 'GLM glass console build failed' }
