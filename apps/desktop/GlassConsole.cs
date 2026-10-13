@@ -31,6 +31,10 @@ public sealed class SentinelGlassConsole : Window
     [DllImport("user32.dll")] static extern int SetWindowRgn(IntPtr window,IntPtr region,bool redraw);
     [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr value);
 
+    [DllImport("user32.dll")] static extern short GetAsyncKeyState(int key);
+    [DllImport("user32.dll")] static extern bool ReleaseCapture();
+    [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr window,int message,IntPtr wParam,IntPtr lParam);
+    bool dragging, nativeCorners;
     readonly WebView2 view = new WebView2();
     readonly string assets, evidence;
     readonly bool smoke;
@@ -137,7 +141,9 @@ public sealed class SentinelGlassConsole : Window
         Grid.SetRow(view, 1); grid.Children.Add(view); Content = grid;
         SourceInitialized += delegate { EnableBackdrop(); };
         Loaded += Initialize;
+        Loaded += delegate { Dispatcher.BeginInvoke(new Action(EnableBackdrop),DispatcherPriority.ContextIdle); };
         Loaded += delegate {
+            if(nativeCorners)return;
             var handle=new WindowInteropHelper(this).Handle;
             var transform=HwndSource.FromHwnd(handle).CompositionTarget.TransformToDevice;
             var region=CreateRoundRectRgn(0,0,(int)Math.Ceiling(ActualWidth*transform.M11)+1,(int)Math.Ceiling(ActualHeight*transform.M22)+1,(int)Math.Ceiling(20*transform.M11),(int)Math.Ceiling(20*transform.M22));
@@ -153,7 +159,7 @@ public sealed class SentinelGlassConsole : Window
             tray.ContextMenuStrip=menu;
             tray.MouseClick += delegate(object sender,System.Windows.Forms.MouseEventArgs e) { if(e.Button==System.Windows.Forms.MouseButtons.Left)Dispatcher.Invoke(new Action(OpenFromTray)); };
             Closing += delegate(object sender,System.ComponentModel.CancelEventArgs e) { if(!quitting) { e.Cancel=true; HideToTray(); } };
-            Deactivated += delegate { Dispatcher.BeginInvoke(new Action(delegate { if(!IsActive&&!actionDialog&&!selectionRequest&&!quitting) HideToTray(); }),DispatcherPriority.Background); };
+            Deactivated += delegate { Dispatcher.BeginInvoke(new Action(delegate { if(!IsActive&&!dragging&&!actionDialog&&!selectionRequest&&!quitting) HideToTray(); }),DispatcherPriority.Background); };
         }
         var openSignal=new EventWaitHandle(false,EventResetMode.AutoReset,AppEventName);
         var openTimer=new DispatcherTimer { Interval=TimeSpan.FromMilliseconds(300) };
@@ -188,7 +194,11 @@ public sealed class SentinelGlassConsole : Window
         try {
             var handle = new WindowInteropHelper(this).Handle;
             int rounded = 2;
-            DwmSetWindowAttribute(handle, 33, ref rounded, sizeof(int));
+            nativeCorners = DwmSetWindowAttribute(handle, 33, ref rounded, sizeof(int)) == 0;
+            int noBorder = unchecked((int)0xFFFFFFFE);
+            DwmSetWindowAttribute(handle, 34, ref noBorder, sizeof(int));
+            int rendering = 2;
+            DwmSetWindowAttribute(handle, 2, ref rendering, sizeof(int));
             int acrylic = 3;
             if (DwmSetWindowAttribute(handle, 38, ref acrylic, sizeof(int)) != 0) return;
             var margins = new Margins { Left = -1, Right = -1, Top = -1, Bottom = -1 };
@@ -224,13 +234,23 @@ public sealed class SentinelGlassConsole : Window
             if (id == null || !System.Text.RegularExpressions.Regex.IsMatch(id, "^[a-zA-Z0-9_-]{1,64}$")) return;
             string route = null;
             object data = request["data"];
-            if(method=="window.hide"){var empty=data as Dictionary<string,object>;if(empty==null||empty.Count!=0)throw new InvalidOperationException();HideToTray();Reply(id,new{ok=true});return;}
-            if (method == "vault.copy" || method == "vault.rotate" || method=="vault.view" || method=="vault.remove" || method=="vault.add") {
+            if(method=="window.drag") {
+                var empty=data as Dictionary<string,object>;
+                if(empty==null||empty.Count!=0)throw new InvalidOperationException();
+                if(!IsVisible||!IsActive||actionDialog||selectionRequest||(GetAsyncKeyState(1)&0x8000)==0){Reply(id,new{error="drag_unavailable"});return;}
+                Reply(id,new{ok=true});
+                dragging=true;
+                try{ReleaseCapture();SendMessage(new WindowInteropHelper(this).Handle,0x00A1,new IntPtr(2),IntPtr.Zero);}
+                finally{dragging=false;}
+                return;
+            }            if(method=="window.hide"){var empty=data as Dictionary<string,object>;if(empty==null||empty.Count!=0)throw new InvalidOperationException();HideToTray();Reply(id,new{ok=true});return;}
+            if (method == "vault.copy" || method == "vault.rotate" || method=="vault.view" || method=="vault.remove" || method=="vault.add" || method=="vault.update") {
                 if(actionDialog||selectionRequest){Reply(id,new {error="action_busy"});return;}
                 var account=data as Dictionary<string,object>;
-                bool add=method=="vault.add";
+                bool add=method=="vault.add", update=method=="vault.update";
                 if(account==null)throw new InvalidOperationException();
-                if(add){if(account.Count!=3||!account.ContainsKey("name")||!account.ContainsKey("user")||!account.ContainsKey("host"))throw new InvalidOperationException();foreach(string key in new[]{"name","user","host"})if(!(account[key] is string)||((string)account[key]).Length>254)throw new InvalidOperationException();}
+                if(add){if((account.Count!=3&&account.Count!=4)||!account.ContainsKey("name")||!account.ContainsKey("user")||!account.ContainsKey("host"))throw new InvalidOperationException();foreach(string key in account.Keys)if((key!="name"&&key!="user"&&key!="host"&&key!="password")||!(account[key] is string)||((string)account[key]).Length>256)throw new InvalidOperationException();}
+                else if(update){if((account.Count!=4&&account.Count!=5)||!account.ContainsKey("id")||!account.ContainsKey("name")||!account.ContainsKey("user")||!account.ContainsKey("host"))throw new InvalidOperationException();foreach(string key in account.Keys)if((key!="id"&&key!="name"&&key!="user"&&key!="host"&&key!="password")||!(account[key] is string)||((string)account[key]).Length>256)throw new InvalidOperationException();}
                 else if(account.Count!=1||!account.ContainsKey("id"))throw new InvalidOperationException();
                 string accountId=add?"new_login":account["id"] as string;
                 if(!System.Text.RegularExpressions.Regex.IsMatch(accountId??"","^[a-zA-Z0-9_-]{1,64}$"))throw new InvalidOperationException();
@@ -239,17 +259,17 @@ public sealed class SentinelGlassConsole : Window
                     using(var lease=PasswordActionLease.TryAcquire()) {
                     if(lease==null){Reply(id,new {error="action_busy"});return;}
                     bool copy=method=="vault.copy";
-                    string operation=add?"add":method=="vault.view"?"view":method=="vault.remove"?"remove":copy?"copy":"rotate";
+                    string operation=update?"update":add?"add":method=="vault.view"?"view":method=="vault.remove"?"remove":copy?"copy":"rotate";
                     bool approved=await Task.Run(()=>VaultApproval.Approve(operation,accountId));
                     if(!approved){Reply(id,new {error="Windows approval declined or unavailable."});return;}
-                    using(var message=new HttpRequestMessage(HttpMethod.Post,runtimeUrl+(add?"/account-add":operation=="remove"?"/account-remove":copy||operation=="view"?"/reveal":"/rotate"))) {
+                    using(var message=new HttpRequestMessage(HttpMethod.Post,runtimeUrl+(update?"/account-update":add?"/account-add":operation=="remove"?"/account-remove":copy||operation=="view"?"/reveal":"/rotate"))) {
                         message.Headers.Authorization=new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer",runtimeToken);
                         message.Headers.Add("X-Sentinel-Native-Action",runtimeActionToken);
-                        message.Content=new StringContent(json.Serialize(add?(object)account:new {id=accountId}),Encoding.UTF8,"application/json");
+                        message.Content=new StringContent(json.Serialize(add||update?(object)account:new {id=accountId}),Encoding.UTF8,"application/json");
                         using(var response=await runtimeClient.SendAsync(message)) {
                             response.EnsureSuccessStatusCode();
                             if(copy||operation=="view"){var result=json.Deserialize<Dictionary<string,object>>(await response.Content.ReadAsStringAsync());if((string)result["mode"]!="synthetic_demo")throw new InvalidOperationException();if(copy)Clipboard.SetText((string)result["password"]);else{if(!IsActive||!IsVisible){Reply(id,new{error="Viewing cancelled after focus changed."});return;}Reply(id,new{password=(string)result["password"]});return;}}
-                            Reply(id,new {ok=true});
+                            Reply(id,json.Deserialize<object>(await response.Content.ReadAsStringAsync()));
                         }
                     }
                     }
@@ -429,6 +449,7 @@ public sealed class SentinelGlassConsole : Window
             var env = await CoreWebView2Environment.CreateAsync(null, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, smoke ? "profile-smoke" : "profile"));
             await view.EnsureCoreWebView2Async(env);
             if (closing) return;
+            view.ZoomFactor = 0.90;
             var core = view.CoreWebView2;
             core.Settings.AreHostObjectsAllowed = false;
             core.Settings.IsWebMessageEnabled = demo;

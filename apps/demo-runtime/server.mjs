@@ -151,7 +151,17 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
   req.setTimeout(5000,()=>req.destroy());
   let body;
   try{let size=0;const chunks=[];for await(const c of req){size+=c.length;if(size>4096)return respond(413,{error:'request_too_large'});chunks.push(c);}body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{return respond(400,{error:'invalid_request'});}
-  if(!keys(body,['id','path','extensionId','risk','codes','reportRef','actionRef','restoreRef','name','user','host']))return respond(400,{error:'invalid_request'});
+  if(!keys(body,['id','path','extensionId','risk','codes','reportRef','actionRef','restoreRef','name','user','host','password']))return respond(400,{error:'invalid_request'});
+  if(req.url==='/account-update'){
+   if(!desktop||!equal(req.headers['x-sentinel-native-action'],nativeActionToken))return respond(403,{error:'native_approval_required'});
+   const text=(v,max)=>typeof v==='string'&&v.trim().length>0&&v.length<=max&&!/[\x00-\x1f\x7f]/.test(v);
+   if(!keys(body,['id','name','user','host','password'])||!text(body.name,80)||!text(body.user,254)||!text(body.host,253)||!/^[a-zA-Z0-9.-]+$/.test(body.host)||(Object.hasOwn(body,'password')&&(!text(body.password,256))))return respond(400,{error:'invalid_login'});
+   const account=accounts.find(a=>a.id===body.id);if(!account)return respond(400,{error:'invalid_account'});
+   if(accounts.some(a=>a.id!==body.id&&a.user===body.user.trim()&&a.host===body.host.toLowerCase()))return respond(409,{error:'account_exists'});
+   Object.assign(account,{name:body.name.trim(),user:body.user.trim(),host:body.host.toLowerCase()});
+   if(Object.hasOwn(body,'password'))account.password=body.password;
+   revision++;event('desktop','account_updated');return respond(200,{ok:true});
+  }
   if(req.url==='/account-add'||req.url==='/account-remove'){
    if(!desktop||!equal(req.headers['x-sentinel-native-action'],nativeActionToken))return respond(403,{error:'native_approval_required'});
    if(req.url==='/account-remove'){
@@ -160,10 +170,11 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
     accounts.splice(index,1);revision++;event('desktop','account_removed');return respond(200,{ok:true});
    }
    const text=(value,max)=>typeof value==='string'&&value.trim().length>0&&value.length<=max&&!/[\x00-\x1f\x7f]/.test(value);
-   if(!keys(body,['name','user','host'])||!text(body.name,80)||!text(body.user,254)||!text(body.host,253)||!/^[a-zA-Z0-9.-]+$/.test(body.host))return respond(400,{error:'invalid_login'});
+   if(!keys(body,['name','user','host','password'])||!text(body.name,80)||!text(body.user,254)||!text(body.host,253)||!/^[a-zA-Z0-9.-]+$/.test(body.host))return respond(400,{error:'invalid_login'});
+   if(Object.hasOwn(body,'password')&&!text(body.password,256))return respond(400,{error:'invalid_login'});
    if(accounts.length>=128)return respond(409,{error:'account_limit'});
    if(accounts.some(a=>a.user===body.user.trim()&&a.host.toLowerCase()===body.host.toLowerCase()))return respond(409,{error:'account_exists'});
-   let password='';for(let attempt=0;attempt<32;attempt++){const candidate=generatePassword(24,webcrypto);if(auditPassword(candidate).health==='Stronger'&&!accounts.some(a=>a.password===candidate)){password=candidate;break;}}
+   let password=body.password||'';for(let attempt=0;!password&&attempt<32;attempt++){const candidate=generatePassword(24,webcrypto);if(auditPassword(candidate).health==='Stronger'&&!accounts.some(a=>a.password===candidate)){password=candidate;break;}}
    if(!password)return respond(503,{error:'generation_unavailable'});
    const id='account_'+randomBytes(8).toString('hex');accounts.push({id,name:body.name.trim(),user:body.user.trim(),host:body.host.toLowerCase(),password});revision++;event('desktop','account_added');return respond(200,{ok:true,id});
   }

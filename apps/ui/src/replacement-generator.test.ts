@@ -1,0 +1,3 @@
+import {expect,it} from 'vitest';import {generateReplacement} from './replacement-generator';
+it('generates bounded passwords using the requested character pool',()=>{const generated=generateReplacement(24,false,false,false);expect(generated).toMatch(/^[a-z]{24}$/);expect(()=>generateReplacement(11,true,true,true)).toThrow();expect(()=>generateReplacement(49,true,true,true)).toThrow();});
+it('refuses a random provider that cannot produce acceptable bytes',()=>{const random={getRandomValues:(array:Uint8Array)=>array.fill(255)} as unknown as Pick<Crypto,'getRandomValues'>;expect(()=>generateReplacement(24,true,true,true,random)).toThrow('Random generation unavailable');});

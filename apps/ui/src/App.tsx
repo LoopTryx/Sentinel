@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
-import {useDemoState} from './demo-bridge';
+import {useDemoState, demoCall} from './demo-bridge';
+import {canDragWindow} from './desktop-interactions';
 import { ThreatProvider, useThreat } from "./state";
 import Dashboard from "./views/Dashboard";
 import ScanView from "./views/ScanView";
@@ -205,7 +206,7 @@ function Shell() {
       </aside>
 
       <main className="main">
-        <header className="topbar" style={{ position: "relative", zIndex: 2 }}>
+        <header className="topbar" onMouseDown={event => { if(canDragWindow(event.target,event.button)){ event.preventDefault(); void demoCall('window.drag').catch(()=>{}); } }} style={{ position: "relative", zIndex: 2 }}>
           <h1>{VIEW_TITLES[view]}</h1>
           <div className="protection-pill">
             <span className="led" /> {statusLabel}
@@ -235,4 +236,3 @@ export default function App() {
     </ThreatProvider>
   );
 }
-

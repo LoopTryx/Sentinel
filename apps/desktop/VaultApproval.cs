@@ -13,7 +13,7 @@ public sealed class PasswordActionLease : IDisposable {
 }
 public static class VaultApproval {
  public static bool Approve(string operation,string id) {
-  if((operation!="copy"&&operation!="rotate"&&operation!="view"&&operation!="add"&&operation!="remove")||!Regex.IsMatch(id??"","^[a-zA-Z0-9_-]{1,64}$"))return false;
+  if((operation!="copy"&&operation!="rotate"&&operation!="view"&&operation!="add"&&operation!="remove"&&operation!="update")||!Regex.IsMatch(id??"","^[a-zA-Z0-9_-]{1,64}$"))return false;
   try {
    if(new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator))return false;
    using(var policy=Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System")) {
