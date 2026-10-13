@@ -4,6 +4,7 @@ $source=Join-Path $root 'artifacts\PasswordApprovalChecks.cs'
 $output=Join-Path $root 'artifacts\PasswordApprovalChecks.exe'
 $code=@'
 using System;
+using System.IO;
 using System.Threading;
 using System.Diagnostics;
 using System.Reflection;
@@ -17,7 +18,8 @@ public static class Checks {
    using(var child=Process.Start(new ProcessStartInfo(Assembly.GetExecutingAssembly().Location,"contend"){UseShellExecute=false,CreateNoWindow=true})){if(!child.WaitForExit(10000)||child.ExitCode!=0)return 5;}
   }
   using(var next=PasswordActionLease.TryAcquire()){if(next==null)return 4;}
-  Console.WriteLine("Invalid operations refused; concurrent thread/process refused; lease released.");return 0;
+  string resolved=VaultApproval.ResolveExecutable(Assembly.GetExecutingAssembly().Location);if(!File.Exists(resolved)||resolved.StartsWith(@"\\?\"))return 6;
+  Console.WriteLine("Physical executable path resolved; Invalid operations refused; concurrent thread/process refused; lease released.");return 0;
  }
 }
 '@

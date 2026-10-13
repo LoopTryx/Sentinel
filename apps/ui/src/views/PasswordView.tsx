@@ -160,7 +160,7 @@ function VerdictGauge({ score, label, active }: { score: number; label: string; 
   );
 }
 
-export default function PasswordView() {
+export default function PasswordView({onUse}:{onUse?:(password:string)=>void}={}) {
   const [pw, setPw] = useState("");
   const [show, setShow] = useState(false);
   const [genLen, setGenLen] = useState(16);
@@ -178,6 +178,7 @@ export default function PasswordView() {
   async function copyGenerated() {
     const g = generatePassword(genLen, genUpper, genDigits, genSymbols);
     setPw(g);
+    if(onUse)return;
     try {
       await navigator.clipboard.writeText(g);
       setCopied(true);
@@ -188,7 +189,7 @@ export default function PasswordView() {
   }
 
   return (
-    <><p className="panel">Educational local estimate only. Use invented examples; do not enter real credentials. No breach check or vault is connected. Times assume a uniform random password and 100 billion guesses/second; human patterns can be far easier to guess.</p>
+    <>{!onUse&&<p className="panel">Educational local estimate only. Use invented examples; do not enter real credentials. No breach check or vault is connected. Times assume a uniform random password and 100 billion guesses/second; human patterns can be far easier to guess.</p>}
       <section className="panel">
         <h3 className="panel-title">Password Strength Analyzer</h3>
         <div style={{ display: "flex", gap: 10 }}>
@@ -398,8 +399,9 @@ export default function PasswordView() {
         </div>
         <div style={{ display: "flex", gap: 10 }}>
           <button className="btn" onClick={copyGenerated}>
-            ⚡ Generate + Copy
+            {onUse?"Generate password":"⚡ Generate + Copy"}
           </button>
+          {onUse&&<button className="btn ghost" disabled={!pw} onClick={()=>onUse(pw)}>Use generated password</button>}
           {copied && (
             <span style={{ color: "var(--safe)", fontFamily: "var(--font-mono)", fontSize: 12, alignSelf: "center" }}>
               ✓ copied to clipboard
@@ -413,4 +415,3 @@ export default function PasswordView() {
     </>
   );
 }
-

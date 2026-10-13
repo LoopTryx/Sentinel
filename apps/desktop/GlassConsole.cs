@@ -261,7 +261,7 @@ public sealed class SentinelGlassConsole : Window
                     bool copy=method=="vault.copy";
                     string operation=update?"update":add?"add":method=="vault.view"?"view":method=="vault.remove"?"remove":copy?"copy":"rotate";
                     bool approved=await Task.Run(()=>VaultApproval.Approve(operation,accountId));
-                    if(!approved){Reply(id,new {error="Windows approval declined or unavailable."});return;}
+                    if(!approved){Reply(id,new {error=VaultApproval.LastError});return;}
                     using(var message=new HttpRequestMessage(HttpMethod.Post,runtimeUrl+(update?"/account-update":add?"/account-add":operation=="remove"?"/account-remove":copy||operation=="view"?"/reveal":"/rotate"))) {
                         message.Headers.Authorization=new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer",runtimeToken);
                         message.Headers.Add("X-Sentinel-Native-Action",runtimeActionToken);
