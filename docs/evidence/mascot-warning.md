@@ -9,6 +9,6 @@ Executed:
 - Extension build and smoke PASS. New stylesheet and PNG are included in required/source-parity checks.
 - Actual CUA inspection at1280x800 and375x900: mascot loaded, no horizontal overflow, both warning modes correct; keyboard Enter opens technical details. Preview http://127.0.0.1:8789/warning.html#keywords.
 - git diff --check PASS.
-- Full unchanged tools/verify.ps1 attempted with native tests serialized. Failed existing directory_budget_counts_acquired_bytes_and_cancellation_stops_traversal in sentinel-av scan_bounds; no native files changed. Focused existing-binary retry outcome recorded separately before review readiness. Do not claim a green whole-repository gate.
+- Full unchanged tools/verify.ps1 attempted with native tests serialized. Failed existing directory_budget_counts_acquired_bytes_and_cancellation_stops_traversal in sentinel-av scan_bounds; no native files changed. The unchanged focused existing-binary retry PASS (1 test,33.58s); the full gate still remains failed and needs triage. Do not claim a green whole-repository gate.
 
 Local screenshots D:/SENTINAL/mascot-warning-desktop.png and mascot-warning-mobile.png; test logs mascot-warning-final-tests.log and mascot-warning-smoke.log; full gate mascot-warning-verify.log. No actual malicious navigation or user-sensitive content was tested. Installed extension must be reloaded from its rebuilt dist folder for the new packaged page.
