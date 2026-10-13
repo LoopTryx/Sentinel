@@ -48,3 +48,19 @@ h1 { margin:16px 0; font-size:clamp(34px,4vw,52px); line-height:1.12; letter-spa
 h1 { color:#9bddff; font-weight:800; }
 .warning-details { border-top-color:#9bddff66; }
 @media(forced-colors:active) { .warning-copy,h1,.warning-brand,.warning-label,#summary,#reasons li,.warning-advice,.warning-freshness,.warning-details,.warning-details summary { color:CanvasText; } }
+
+/* One gentle welcome float; then rest to keep the warning page quiet. */
+.warning-mascot img {
+ filter:drop-shadow(0 14px 12px #1b1e4a55);
+ animation:mascot-welcome-float 4s cubic-bezier(.77,0,.175,1) 1;
+}
+@keyframes mascot-welcome-float {
+ 0%,100% { transform:translateY(0); }
+ 50% { transform:translateY(-8px); }
+}
+@media(prefers-reduced-motion:reduce) {
+ .warning-mascot img { animation:none; transform:none; }
+}
+@media(forced-colors:active) {
+ .warning-mascot img { filter:none; }
+}
