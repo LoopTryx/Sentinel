@@ -1,0 +1,29 @@
+{
+  "capturedAtUtc": "2026-10-14T04:27:53.2059960Z",
+  "kind": "phase0_readonly_readiness",
+  "classification": "VERIFIED",
+  "containmentVerified": false,
+  "hardwareTrialsRun": 0,
+  "spareMachineAvailable": false,
+  "independentFirmwareTransferLogging": "not_established",
+  "internalExemptionTwoProofs": "not_verified",
+  "lastKnownGoodRecovery": "not_implemented",
+  "signedHelloChallenge": "not_implemented",
+  "scheduledRevertAndFallbackInput": "not_verified",
+  "wdkDefaultRootPresent": false,
+  "machinePolicyNamespacePresent": false,
+  "policyChanged": false,
+  "etwProviderNames": [
+    "Microsoft-Windows-hidcfu",
+    "Microsoft-Windows-Kernel-PnP",
+    "Microsoft-Windows-USB-CCID",
+    "Microsoft-Windows-USB-MAUSBHOST",
+    "Microsoft-Windows-USB-UCMUCSICX",
+    "Microsoft-Windows-USB-UCX",
+    "Microsoft-Windows-USB-USB4DeviceRouter-EventLogs",
+    "Microsoft-Windows-USB-USBHUB",
+    "Microsoft-Windows-USB-USBHUB3",
+    "Microsoft-Windows-USB-USBPORT",
+    "Microsoft-Windows-USB-USBXHCI"
+  ]
+}
