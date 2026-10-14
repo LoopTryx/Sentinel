@@ -10,6 +10,8 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const dist = resolve(root, 'dist');
 
 const requiredFiles = [
+  'src/message-detector.js',
+  'data/message-detector-config.js',
   'manifest.json',
   'popup.html',
   'xray.html',
@@ -44,6 +46,8 @@ const requiredFiles = [
 // a stale service-worker.js or popup.js in dist must fail parity, not just
 // static assets.
 const mirroredFromSource = [
+  'src/message-detector.js',
+  'data/message-detector-config.js',
   'manifest.json',
   'popup.html',
   'xray.html',

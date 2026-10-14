@@ -2,8 +2,12 @@
   "manifest_version": 3,
   "name": "Sentinel Browser Companion",
   "version": "0.2.3",
-  "optional_permissions": ["scripting"],
-  "host_permissions": ["http://127.0.0.1/*"],
+  "optional_permissions": [
+    "scripting"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1/*"
+  ],
   "optional_host_permissions": [
     "http://127.0.0.1/*",
     "http://*/*",
@@ -38,8 +42,14 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["src/whatsapp-inline.js"],
-      "matches": ["https://web.whatsapp.com/*"]
+      "resources": [
+        "src/whatsapp-inline.js",
+        "src/message-detector.js",
+        "data/message-detector-config.js"
+      ],
+      "matches": [
+        "https://web.whatsapp.com/*"
+      ]
     },
     {
       "resources": [
@@ -55,5 +65,6 @@
         "https://*/*"
       ]
     }
-  ]
+  ],
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0AtiT+YOHVc5JEAF/IxEdHTGoP9KhPayoY3OaC1ipr2jcRmwbtXeby8zaE9FazEwcLqjC0/eSOeGbMpe9T8+8dbSN7sCg4+zcXY+owVwplrW3cdrarx6DdOtu7ZdCpLEX1Kr+m24rc7uzsEj7+CaFTt0QoO8AWogVlSmzcabn0mHTdXXv6MdDt4GE+lbvexgo+wURciTPiyW63xuv/MK0naDwljlzMaVCefH8LwwzI8avZhzhcqWn/Qitqq4gfn8H44UkMvhfNHTWuBRfy33M/8hfVLMdhPTDqPiYKej+M8dnHkdEPvIH3bTTo04SCbpRoQWzq697B9oLnU88oKKnQIDAQAB"
 }
