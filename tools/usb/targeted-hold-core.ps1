@@ -30,3 +30,12 @@ function Invoke-SentinelTargetRestore($Receipt,$Provider){
 }
 
 
+function New-SentinelNativeRestorePayload([string]$Source,[string]$Keyboard,[string]$Root){
+ if(-not $Source -or $Source.Length -gt 16384 -or -not $Keyboard -or -not $Root){throw 'Invalid recovery payload'}
+ $source64=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Source))
+ $target64=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes((@{keyboard=$Keyboard;root=$Root}|ConvertTo-Json -Compress)))
+ $payload='try { Add-Type -TypeDefinition ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String("'+$source64+'"))); $t=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String("'+$target64+'"))|ConvertFrom-Json; if([SentinelDuckyNative]::Enable($t.keyboard,$t.root) -eq 0){exit 0}else{exit 17} } catch {exit 18}'
+ $encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($payload))
+ if($encoded.Length -gt 24000){throw 'Recovery action too large'}
+ return $encoded
+}

@@ -16,25 +16,18 @@ function Get-BoardKeyboard {
  return @{keyboard=$found[0].InstanceId;root=$board[0].InstanceId;problem=[int](Get-PnpDeviceProperty -InstanceId $found[0].InstanceId -KeyName DEVPKEY_Device_ProblemCode).Data}
 }
 function Read-TargetKeyboard($Id){
- $node=@(Get-PnpDevice -PresentOnly -InstanceId $Id -ErrorAction Stop)
- if($node.Count -ne 1 -or $node[0].Class -ne 'Keyboard'){throw 'Exact keyboard not present'}
- $cursor=$Id;$root=''
- for($i=0;$i -lt 6;$i++){
-  $parent=(Get-PnpDeviceProperty -InstanceId $cursor -KeyName DEVPKEY_Device_Parent -ErrorAction Stop).Data
-  if($parent -eq $target.root){$root=$parent;break}
-  if(-not $parent -or $parent -eq $cursor){break};$cursor=$parent
- }
- if(-not $root -or (Get-PnpDeviceProperty -InstanceId $root -KeyName DEVPKEY_Device_BusReportedDeviceDesc -ErrorAction Stop).Data -ne 'RP2040-Zero'){throw 'Board ancestry changed'}
- return @{id=$Id;class='Keyboard';root=$root;problem=[int](Get-PnpDeviceProperty -InstanceId $Id -KeyName DEVPKEY_Device_ProblemCode -ErrorAction Stop).Data}
+ return @{id=$Id;class='Keyboard';root=$target.root;problem=[SentinelDuckyNative]::Read($Id,$target.root)}
 }
+$nativeSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'DuckyNativeBackend.cs'))
+if('SentinelDuckyNative' -as [type]){throw 'Native backend already loaded; use a fresh process'};Add-Type -TypeDefinition $nativeSource
 $target=Get-BoardKeyboard
 if($Mode -eq 'Probe'){
  [pscustomobject]@{device='RP2040-Zero';keyboardInterfaces=1;problem=$target.problem;blocked=($target.problem -eq 22);scope='known_connected_device';firstInputPrevention='unverified'}|ConvertTo-Json
  return
 }
 if(-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Administrator approval required; nothing changed'}
-# SYSTEM task runs only the Windows-supplied pnputil, never a workspace script.
-$pnputil=Join-Path $env:SystemRoot 'System32/pnputil.exe'
+# SYSTEM task uses a self-contained, fixed native enable payload; never loads a workspace script at execution.
+$recoveryHost=Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
 if($target.keyboard -notmatch '^HID\\[A-Za-z0-9_&\\{}#-]+$'){throw 'Target cannot be represented safely'}
 if(-not ('SentinelTargetDirectory' -as [type])){
  Add-Type -TypeDefinition @"
@@ -76,8 +69,9 @@ if($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -notin @('S-1-5-
 if(-not $acl.AreAccessRulesProtected){throw 'Recovery directory has inherited permissions'}
 foreach($rule in $acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])){if($rule.AccessControlType -eq 'Allow' -and $rule.IdentityReference.Value -notin @('S-1-5-18','S-1-5-32-544')){throw 'Recovery directory permissions too broad'}}
 $lock=[IO.FileStream]::new((Join-Path $base '.operation-lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None);$anchors.Add($lock)
+$recoveryEncoded=New-SentinelNativeRestorePayload $nativeSource $target.keyboard $target.root
 function New-RestoreTask($Id,$At,$Name){
- $action=New-ScheduledTaskAction -Execute $pnputil -Argument ('/enable-device "'+$Id+'"')
+  $action=New-ScheduledTaskAction -Execute $recoveryHost -Argument ('-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand '+$recoveryEncoded)
  $trigger=New-ScheduledTaskTrigger -Once -At $At -RepetitionInterval (New-TimeSpan -Minutes 1)
  $principal=New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
  $settings=New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 1)
@@ -97,7 +91,7 @@ if($Mode -eq 'Hold'){
   while($watch.Elapsed.TotalSeconds -lt 30){$info=Get-ScheduledTaskInfo -TaskName $task;if($info.LastRunTime -gt [datetime]::Now.AddMinutes(-1) -and $info.LastTaskResult -eq 0){$ran=$true;break};Start-Sleep -Milliseconds 250}
   if(-not $ran){throw 'Independent recovery command probe failed'}
   $stage='recovery-probe-identity'
-  $fresh=Get-BoardKeyboard;if($fresh.keyboard -cne $target.keyboard -or $fresh.root -cne $target.root -or $fresh.problem -ne 0){throw 'Device changed during recovery probe'}
+  if([SentinelDuckyNative]::Read($target.keyboard,$target.root) -ne 0){throw 'Device changed during recovery probe'}
   Unregister-ScheduledTask -TaskName $task -Confirm:$false
   $stage='restore-task-arm'
   $deadline=[datetime]::UtcNow.AddSeconds(120)
@@ -107,13 +101,17 @@ if($Mode -eq 'Hold'){
   $provider=@{
    Read={param($id) Read-TargetKeyboard $id}
    Persist={param($record) $bytes=[Text.Encoding]::UTF8.GetBytes(($record|ConvertTo-Json));$file=[IO.FileStream]::new($ReceiptPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None);try{$file.Write($bytes,0,$bytes.Length);$file.Flush($true)}finally{$file.Dispose()}}
-   Disable={param($id) Disable-PnpDevice -InstanceId $id -Confirm:$false -ErrorAction Stop}
-   Enable={param($id) Enable-PnpDevice -InstanceId $id -Confirm:$false -ErrorAction Stop}
+   Disable={param($id) if([SentinelDuckyNative]::Disable($id,$target.root) -ne 22){throw 'native_disable_not_verified'}}
+   Enable={param($id) if([SentinelDuckyNative]::Enable($id,$target.root) -ne 0){throw 'native_restore_not_verified'}}
   }
   $stage='native-hold'
   $result=Invoke-SentinelTargetHold $target $provider
   [pscustomobject]@{state=$result.state;problem=22;automaticRestoreUtc=$deadline.ToString('o');receipt=$ReceiptPath;firstInputPrevention='unverified'}|ConvertTo-Json
- }catch{throw ('Targeted hold failed at '+$stage+'; no success claimed')}
+  }catch{
+  $detail='error_'+$_.Exception.HResult
+  if($_.Exception.Message -match 'native_configuration_error_[0-9]+|Target identity or state changed|Invalid target receipt|Restore deadline invalid|Restore deadline elapsed before disable|invalid_target|not_keyboard|board_ancestry_changed|not_selected_board|native_disable_not_verified|native_restore_not_verified'){$detail=$Matches[0]}
+  throw ('Targeted hold failed at '+$stage+'; '+$detail+'; no success claimed')
+ }
  return
 }
 if(-not $ReceiptPath){throw 'Exact receipt path required'}
@@ -125,7 +123,7 @@ $receipt=@{};foreach($property in $r.PSObject.Properties){$receipt[$property.Nam
 if($Mode -eq 'Status'){[pscustomobject]@{state=$(if($target.problem -eq 22){'held'}elseif($target.problem -eq 0){'enabled'}else{'error'});problem=$target.problem;restoreDeadline=$r.restoreDeadline;taskState=[string](Get-ScheduledTask -TaskName $r.task).State}|ConvertTo-Json;return}
 $provider=@{
  Read={param($id) Read-TargetKeyboard $id}
- Enable={param($id) Enable-PnpDevice -InstanceId $id -Confirm:$false -ErrorAction Stop}
+ Enable={param($id) if([SentinelDuckyNative]::Enable($id,$target.root) -ne 0){throw 'native_restore_not_verified'}}
  Complete={param($record) Unregister-ScheduledTask -TaskName $record.task -Confirm:$false;Move-Item -LiteralPath $path -Destination ($path+'.restored')}
 }
 $result=Invoke-SentinelTargetRestore $receipt $provider
