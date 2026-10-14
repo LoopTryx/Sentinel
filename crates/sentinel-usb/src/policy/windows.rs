@@ -159,7 +159,7 @@ fn subkeys(key: &Key) -> Result<Vec<String>, Error> {
     Err(Error::Conflict)
 }
 fn values(key: &Key, path: &str, output: &mut Vec<Entry>) -> Result<(), Error> {
-    for index in 0..33 {
+    for index in 0..=super::MAX_ENTRIES as u32 {
         let mut name = [0u16; 65];
         let mut name_length = name.len() as u32;
         let mut data = [0u8; 512];
@@ -182,7 +182,7 @@ fn values(key: &Key, path: &str, output: &mut Vec<Entry>) -> Result<(), Error> {
             return Ok(());
         }
         status(code)?;
-        if output.len() >= 32
+        if output.len() >= super::MAX_ENTRIES
             || name_length as usize >= name.len()
             || length as usize > data.len()
             || kind == REG_LINK
@@ -211,10 +211,15 @@ fn valid_entry(entry: &Entry) -> bool {
             && entry.data == 1u32.to_le_bytes()
     } else {
         ["AllowInstanceIDs", "DenyDeviceClasses"].contains(&entry.key.as_str())
-            && entry
-                .name
-                .parse::<u8>()
-                .is_ok_and(|n| (1..=8).contains(&n) && n.to_string() == entry.name)
+            && entry.name.parse::<u8>().is_ok_and(|n| {
+                (1..=if entry.key == "AllowInstanceIDs" {
+                    super::MAX_APPROVALS as u8
+                } else {
+                    3
+                })
+                    .contains(&n)
+                    && n.to_string() == entry.name
+            })
             && entry.kind == REG_SZ
             && (4..=402).contains(&entry.data.len())
             && entry.data.len().is_multiple_of(2)
@@ -347,6 +352,34 @@ mod tests {
                 RegDeleteTreeW(HKEY_CURRENT_USER, wide(&self.0).as_ptr());
             }
         }
+    }
+    #[test]
+    fn native_full_capacity_roundtrip_and_index_boundaries() {
+        let fixture = Fixture::new();
+        let ids: Vec<_> = (0..32)
+            .map(|i| format!("HID\\SYNTHETIC\\BASELINE{i:02}"))
+            .collect();
+        let refs: Vec<_> = ids.iter().map(String::as_str).collect();
+        let mut backend = PolicyBackend::new(fixture.registry(), InputPolicy::new(&refs).unwrap());
+        let mut record = [0; 4072];
+        let size = backend.capture_into(&mut record).unwrap();
+        backend.apply_if_unchanged(&record[..size]).unwrap();
+        backend.verify_applied().unwrap();
+        assert_eq!(fixture.registry().snapshot().unwrap().len(), 39);
+        backend.restore_if_owned(&record[..size]).unwrap();
+        backend.verify_restored(&record[..size]).unwrap();
+        let mut registry = fixture.registry();
+        for (key, index) in [
+            ("AllowInstanceIDs", "33"),
+            ("AllowInstanceIDs", "01"),
+            ("DenyDeviceClasses", "4"),
+        ] {
+            assert_eq!(
+                registry.set(&Entry::text(key, index, "HID\\SYNTHETIC\\BOUNDARY")),
+                Err(Error::Invalid)
+            );
+        }
+        assert!(registry.snapshot().unwrap().is_empty());
     }
     #[test]
     fn native_roundtrip_uses_only_a_disposable_nonpolicy_hkcu_key() {

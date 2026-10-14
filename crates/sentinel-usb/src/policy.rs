@@ -10,7 +10,9 @@ use crate::recovery::{Backend, Error};
 #[cfg(windows)]
 pub mod windows;
 
-const MAX_APPROVALS: usize = 8;
+const MAX_APPROVALS: usize = 32;
+const MAX_ENTRIES: usize = MAX_APPROVALS + 7;
+const MAX_ENCODED: usize = 4072; // 4096-byte durable record minus recovery's 24-byte header.
 const MAX_ID: usize = 200;
 const MAGIC: &[u8; 8] = b"SNTINP01";
 
@@ -38,11 +40,14 @@ impl InputPolicy {
             }
             approved.push((*id).to_owned());
         }
+        if 9 + approved.iter().map(|id| 1 + id.len()).sum::<usize>() > MAX_ENCODED {
+            return Err(Error::Invalid);
+        }
         Ok(Self { approved })
     }
     fn encode(&self, out: &mut [u8]) -> Result<usize, Error> {
         let size = 9 + self.approved.iter().map(|id| 1 + id.len()).sum::<usize>();
-        if out.len() < size {
+        if out.len() < size || size > MAX_ENCODED {
             return Err(Error::Invalid);
         }
         out[..8].copy_from_slice(MAGIC);
@@ -57,7 +62,10 @@ impl InputPolicy {
         Ok(offset)
     }
     fn decode(bytes: &[u8]) -> Result<Self, Error> {
-        if bytes.len() < 9 || &bytes[..8] != MAGIC || !(1..=8).contains(&bytes[8]) {
+        if !(9..=MAX_ENCODED).contains(&bytes.len())
+            || &bytes[..8] != MAGIC
+            || !(1..=MAX_APPROVALS as u8).contains(&bytes[8])
+        {
             return Err(Error::Corrupt);
         }
         let mut ids = Vec::with_capacity(bytes[8] as usize);
@@ -152,7 +160,7 @@ impl<R: Registry> PolicyBackend<R> {
     }
     fn snapshot(&mut self) -> Result<Vec<Entry>, Error> {
         let entries = self.registry.snapshot()?;
-        if entries.len() > 32
+        if entries.len() > MAX_ENTRIES
             || entries
                 .iter()
                 .any(|e| e.key.len() > 32 || e.name.len() > 64 || e.data.len() > 512)

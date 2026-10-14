@@ -21,7 +21,7 @@ Implemented on Engineer A's issue-12 branch, stacked PR74. This is a recovery-on
 
 ## Required continuation
 
-1. Accepted shared-policy editing handoff or B implementation of the reviewed capacity/record bounds. Current eight-exception profile cannot preserve the measured everyday/platform input baseline; shared policy files remain unchanged.
+1. Policy handoff/capacity dependency resolved by the owner's explicit transfer to Engineer A and implementation of32 exceptions/4072-byte encoded bound. See usb-policy-capacity-2026-10-14.md for tests and independent review; reviewed integration is still pending.
 2. Protected installation/provisioning with independent startup/watchdog recovery. Building the recovery executables does not install or schedule them. ProgramFiles/ProgramData factories remain uncalled.
 3. Native authenticated baseline and per-connection owner authority wired into serialized apply logic, separate from recovery-only completion. A new journal intent cannot proceed from this completion signal alone.
 4. Actual controlled first-input refusal with everyday input preserved, crash/lease/restart recovery and reconnect acceptance. Do not expose Held/active protection before this evidence. If Windows installation restrictions cannot meet that criterion, report the limitation and use a reviewed input filter architecture rather than mislabel post-arrival disable as containment.

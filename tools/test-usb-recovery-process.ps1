@@ -64,6 +64,9 @@ fn run()->Result<(),Error>{
 }
 fn main(){if run().is_err(){eprintln!("isolated_probe_failed");std::process::exit(1)}}
 '@ | Set-Content -LiteralPath (Join-Path $probe 'src\main.rs')
+$constants=(Get-Content (Join-Path $repo 'crates\sentinel-usb\src\policy.rs')|Where-Object {$_ -match '^const MAX_(APPROVALS|ENTRIES):'}) -join "`n"
+$mainPath=Join-Path $probe 'src\main.rs'
+Set-Content $mainPath ($constants+"`n"+(Get-Content $mainPath -Raw))
 $env:CARGO_TARGET_DIR=Join-Path $probe 'target'
 $env:RUSTUP_TOOLCHAIN='1.98.1-x86_64-pc-windows-gnu'
 $cargo=Join-Path $env:USERPROFILE '.cargo\bin\cargo.exe'

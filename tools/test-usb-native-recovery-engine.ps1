@@ -38,7 +38,8 @@ fn run()->Result<(),Error>{
   let file=std::fs::OpenOptions::new().read(true).write(true).open(&path).map_err(|_|Error::Store)?;recover_file(file,native::WindowsRegistry::isolated(&nonce)?)?;native::WindowsRegistry::cleanup(&nonce)?;std::fs::remove_file(path).map_err(|_|Error::Store)?;return Ok(())
  }
  let file=std::fs::OpenOptions::new().read(true).write(true).create_new(true).open(&path).map_err(|_|Error::Store)?;
- let mut recovery=Recovery::new(JournalStore::from_trusted_file(file)?,PolicyBackend::new(native::WindowsRegistry::isolated(&nonce)?,InputPolicy::new(&["HID\\SYNTHETIC\\BASELINE"])?));
+ let ids:Vec<_>=(0..32).map(|i|format!("HID\\SYNTHETIC\\BASELINE{i:02}")).collect();let refs:Vec<_>=ids.iter().map(String::as_str).collect();
+ let mut recovery=Recovery::new(JournalStore::from_trusted_file(file)?,PolicyBackend::new(native::WindowsRegistry::isolated(&nonce)?,InputPolicy::new(&refs)?));
  recovery.recover_pending()?;recovery.arm_apply(100,60)?;drop(recovery);
  let mut registry=native::WindowsRegistry::isolated(&nonce)?;native::WindowsRegistry::drift(&nonce,2)?;registry.flush()?;
  let open=||std::fs::OpenOptions::new().read(true).write(true).open(&path).map_err(|_|Error::Store);
@@ -53,6 +54,9 @@ fn run()->Result<(),Error>{
 }
 fn main(){if let Err(error)=run(){eprintln!("isolated_native_engine_test_failed: {error:?}");std::process::exit(1)}}
 '@|Set-Content (Join-Path $probe 'src\main.rs')
+$constants=(Get-Content (Join-Path $repo 'crates\sentinel-usb\src\policy.rs')|Where-Object {$_ -match '^const MAX_(APPROVALS|ENTRIES):'}) -join "`n"
+$mainPath=Join-Path $probe 'src\main.rs'
+Set-Content $mainPath ($constants+"`n"+(Get-Content $mainPath -Raw))
 $nonce=[guid]::NewGuid().ToString('N')
 $cargo=Join-Path $env:USERPROFILE '.cargo\bin\cargo.exe'
 $env:PATH=(Join-Path $env:USERPROFILE 'scoop\apps\mingw\current\bin')+';'+$env:PATH

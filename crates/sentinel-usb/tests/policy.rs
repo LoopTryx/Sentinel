@@ -4,6 +4,77 @@ use sentinel_usb::{
 };
 use std::{cell::RefCell, rc::Rc};
 
+fn approvals(count: usize, length: usize) -> Vec<String> {
+    (0..count)
+        .map(|i| {
+            let prefix = format!("HID\\DEV{i:04}\\");
+            format!("{prefix}{}", "A".repeat(length - prefix.len()))
+        })
+        .collect()
+}
+
+#[test]
+fn full_baseline_capacity_remains_bounded_by_count_and_durable_record() {
+    let ids = approvals(32, 40);
+    let refs: Vec<_> = ids.iter().map(String::as_str).collect();
+    assert!(InputPolicy::new(&refs).is_ok());
+    let too_many = approvals(33, 40);
+    assert!(InputPolicy::new(&too_many.iter().map(String::as_str).collect::<Vec<_>>()).is_err());
+    let mut exact = approvals(20, 200);
+    exact.push(approvals(21, 42).pop().unwrap());
+    let refs: Vec<_> = exact.iter().map(String::as_str).collect();
+    let fixture = Fixture::default();
+    let mut backend = PolicyBackend::new(fixture, InputPolicy::new(&refs).unwrap());
+    let mut encoded = [0; 4072];
+    assert_eq!(backend.capture_into(&mut encoded).unwrap(), 4072);
+    exact[20].push('B');
+    assert!(InputPolicy::new(&exact.iter().map(String::as_str).collect::<Vec<_>>()).is_err());
+}
+
+#[test]
+fn every_full_capacity_partial_write_recovers_from_the_recorded_profile() {
+    for fail_after in [false, true] {
+        for fail_at in 0..39 {
+            let fixture = Fixture::default();
+            fixture.0.borrow_mut().fail_at = Some(fail_at);
+            fixture.0.borrow_mut().fail_after = fail_after;
+            let ids = approvals(32, 40);
+            let refs: Vec<_> = ids.iter().map(String::as_str).collect();
+            let mut engine = Recovery::new(
+                fixture.clone(),
+                PolicyBackend::new(fixture.clone(), InputPolicy::new(&refs).unwrap()),
+            );
+            engine.recover_pending().unwrap();
+            assert_eq!(engine.arm_apply(100, 30), Err(Error::Platform));
+            drop(engine);
+            let mut restarted = recovery(&fixture);
+            assert!(restarted.recover_pending().unwrap());
+            assert!(fixture.0.borrow().entries.is_empty());
+            assert!(fixture.0.borrow().journal.is_none());
+        }
+    }
+}
+
+#[test]
+fn full_capacity_roundtrip_restores_and_retains_conflicting_state() {
+    let fixture = Fixture::default();
+    let ids = approvals(32, 40);
+    let refs: Vec<_> = ids.iter().map(String::as_str).collect();
+    let mut engine = Recovery::new(
+        fixture.clone(),
+        PolicyBackend::new(fixture.clone(), InputPolicy::new(&refs).unwrap()),
+    );
+    engine.recover_pending().unwrap();
+    engine.arm_apply(100, 30).unwrap();
+    assert_eq!(fixture.0.borrow().entries.len(), 39);
+    fixture.0.borrow_mut().entries.push(foreign());
+    assert!(engine.recover_pending().is_err());
+    assert!(fixture.0.borrow().journal.is_some());
+    fixture.0.borrow_mut().entries.pop();
+    assert!(engine.recover_pending().unwrap());
+    assert!(fixture.0.borrow().entries.is_empty());
+}
+
 #[derive(Default)]
 struct Memory {
     entries: Vec<Entry>,
