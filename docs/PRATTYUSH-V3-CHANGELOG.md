@@ -20,6 +20,7 @@ This branch keeps the owner's requested changes together for review and inclusio
 | 14 Oct 2026 | Preserve the current v2 UI and extension features while updating | Code included: v2 popup/account/search/auto-connect files preserved; release manifest key and permissions preserved; extension version 0.2.3; new detector modules declared | Desktop UI/native frame builds passed; all 83 extension tests and build/package parity passed. Independent review still required. |
 | 14 Oct 2026 | Keep the chosen scam URL design | Existing v2 red gradient, mascot, shadow and looping wink retained | No surprise redesign. |
 | 14 Oct 2026 | Update the currently installed app and extension | **Not installed**: prepared source/build only | Browser automation stopped because Opera's current URL could not be verified. No installed desktop/extension files were replaced in this update attempt. Owner now wants to collect changes for v3. |
+| 14 Oct 2026 | Add staged Gmail/Outlook scam checks, preserving WhatsApp | Stage1 implemented and shown: local bounded readers, isolated provider selectors, exposed headers, link/attachment metadata, transient cache and observer cleanup | 13 extraction +12 WhatsApp regressions /96 total extension tests/build/parity PASS. No real inbox permission or content-script activation. Scoring, sender history, technical checks, banners and >=100-email corpus remain later stages. See docs/evidence/email-stage-1.md. |
 
 ## Evidence and limits
 
