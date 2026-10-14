@@ -3,6 +3,7 @@ import {readFile} from 'node:fs/promises';import {createRequire} from 'node:modu
 import {gmailAdapter} from '../src/email/providers/gmail.js';import {outlookAdapter} from '../src/email/providers/outlook.js';
 import {emailProvider,observeOpenedEmails} from '../src/email/extraction.js';import {emailExtractionLimits as limits} from '../data/email-extraction-config.js';
 const require=createRequire(new URL('../../ui/package.json',import.meta.url));const {JSDOM}=require('jsdom');
+async function eventually(predicate){const deadline=Date.now()+4000;while(!predicate()&&Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,20));assert.ok(predicate(),'Expected observer state before deadline');}
 async function fixture(provider='gmail',host=provider==='gmail'?'mail.google.com':'outlook.office.com'){
  const source=await readFile(new URL(`./fixtures/${provider}-open-email.html`,import.meta.url),'utf8');
  const dom=new JSDOM(source,{url:`https://${host}/`,pretendToBeVisual:true});return {dom,doc:dom.window.document,adapter:provider==='gmail'?gmailAdapter:outlookAdapter};
@@ -54,7 +55,7 @@ test('stop while fingerprinting prevents stale callbacks and clears observer wor
 });
 test('recycled nodes and changed href attributes invalidate the cache',async()=>{
  const {dom,doc}=await fixture();let reads=0;const control=observeOpenedEmails(doc,{crypto:webcrypto,onEmail:()=>reads++});
- try{await control.ready;doc.querySelector('a').href='https://changed.example.test/';await new Promise(resolve=>setTimeout(resolve,limits.debounceMs+80));assert.equal(reads,2);const root=doc.querySelector('.adn');root.remove();await control.refresh();doc.querySelector('main').append(root);await new Promise(resolve=>setTimeout(resolve,limits.debounceMs+80));assert.equal(reads,3);}finally{control.stop();dom.window.close();}
+ try{await control.ready;doc.querySelector('a').href='https://changed.example.test/';await eventually(()=>reads===2);const root=doc.querySelector('.adn');root.remove();await control.refresh();await new Promise(resolve=>setTimeout(resolve,limits.debounceMs+20));await control.refresh();doc.querySelector('main').append(root);await eventually(()=>reads===3);}finally{control.stop();dom.window.close();}
 });
 test('provider reads do not mutate messages, click links or open attachments',async()=>{
  const {dom,doc,adapter}=await fixture();try{const before=doc.body.innerHTML;let clicks=0;doc.addEventListener('click',()=>clicks++);adapter.read(adapter.roots(doc)[0]);assert.equal(clicks,0);assert.equal(doc.body.innerHTML,before);}finally{dom.window.close();}

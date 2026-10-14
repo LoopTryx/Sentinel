@@ -32,7 +32,7 @@ export function observeOpenedEmails(doc,{onEmail,onStatus=()=>{},adapter=emailPr
     const key=Array.from(new Uint8Array(digest),value=>value.toString(16).padStart(2,'0')).join('');
     if(cache.get(root)===key)continue;
     cache.set(root,key);
-    try{onEmail(snapshot,root);}catch{cache.delete(root);report('consumer_unavailable');return;}
+    try{await onEmail(snapshot,root,()=>!stopped&&generation===revision&&root.isConnected);}catch{cache.delete(root);report('consumer_unavailable');return;}
    }
    report(supported?'partial':'unsupported_open_layout',supported);
   }catch{report('extraction_unavailable');}

@@ -10,6 +10,16 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const dist = resolve(root, 'dist');
 
 const requiredFiles = [
+  'src/email/control.js',
+  'src/email/popup.js',
+  'src/email/runtime.js',
+  'src/email/bootstrap.js',
+  'src/email/banner.js',
+  'src/email/link-guard.js',
+  'src/email/scoring.js',
+  'src/email/technical.js',
+  'src/email/sender-store.js',
+  'data/email-detector-config.js',
   'src/email/extraction.js',
   'src/email/providers/shared.js',
   'src/email/providers/gmail.js',

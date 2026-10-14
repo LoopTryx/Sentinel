@@ -38,3 +38,7 @@ This branch keeps the owner's requested changes together for review and inclusio
 For each owner request, add a dated row above: **what was requested → what changed → checks → what remains**. Commit the matching code on this branch. Clearly mark ideas as **planned**, finished source as **implemented**, checked builds as **tested**, and actual machine updates as **installed**. Never mark a request done solely because a preview looks right.
 
 Keep the changelog and PR description aligned with the final requested behavior. Use normal fast-forward pushes and preserve other contributors' files. Coordinator integration, security review and release gates remain in force. No automatic merge or release is authorized by this branch request.
+
+## 14 October — email detector draft
+
+Implemented Gmail/Outlook reader, local scoring/config, technical clues, explicit site opt-ins, address-only sender history and compact warnings/link confirmation. Added 120 evaluation fixtures and measured results. WhatsApp flow stays intact. See [email draft evidence](evidence/email-detector-draft.md). Public-corpus recall is poor; not release-ready. Independent review and actual inbox acceptance remain. No installed extension changed.

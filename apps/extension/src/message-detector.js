@@ -47,6 +47,11 @@ function linkClues(url) {
  })))codes.push('lookalike');
  return {official,codes,suspicious:codes.length>0};
 }
+/** Shared local URL inspection; never visits the destination. */
+export function inspectMessageLink(input) {
+ if(typeof input!=='string'||input.length>2048)return {official:false,suspicious:true,codes:['host_bounds']};
+ try {const url=new URL(input);if(!['https:','http:'].includes(url.protocol))return {official:false,suspicious:true,codes:['unsupported_scheme']};return linkClues(url);}catch{return {official:false,suspicious:true,codes:['invalid_url']};}
+}
 export function assessMessage(input,context={}) {
  if(typeof input!=='string'||input.length>config.limits.characters)throw new Error('Use a message of at most 4096 characters.');
  if(!context||typeof context!=='object'||Array.isArray(context))throw new Error('Invalid sender context.');

@@ -64,6 +64,29 @@
         "http://*/*",
         "https://*/*"
       ]
+    },
+    {
+      "resources": [
+        "src/email/runtime.js",
+        "src/email/extraction.js",
+        "src/email/scoring.js",
+        "src/email/technical.js",
+        "src/email/banner.js",
+        "src/email/providers/shared.js",
+        "src/email/providers/gmail.js",
+        "src/email/providers/outlook.js",
+        "src/message-detector.js",
+        "data/message-detector-config.js",
+        "data/email-detector-config.js",
+        "data/email-extraction-config.js",
+        "src/email/link-guard.js"
+      ],
+      "matches": [
+        "https://mail.google.com/*",
+        "https://outlook.live.com/*",
+        "https://outlook.office.com/*",
+        "https://outlook.office365.com/*"
+      ]
     }
   ],
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0AtiT+YOHVc5JEAF/IxEdHTGoP9KhPayoY3OaC1ipr2jcRmwbtXeby8zaE9FazEwcLqjC0/eSOeGbMpe9T8+8dbSN7sCg4+zcXY+owVwplrW3cdrarx6DdOtu7ZdCpLEX1Kr+m24rc7uzsEj7+CaFTt0QoO8AWogVlSmzcabn0mHTdXXv6MdDt4GE+lbvexgo+wURciTPiyW63xuv/MK0naDwljlzMaVCefH8LwwzI8avZhzhcqWn/Qitqq4gfn8H44UkMvhfNHTWuBRfy33M/8hfVLMdhPTDqPiYKej+M8dnHkdEPvIH3bTTo04SCbpRoQWzq697B9oLnU88oKKnQIDAQAB"
