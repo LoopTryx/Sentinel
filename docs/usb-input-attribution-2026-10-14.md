@@ -1,0 +1,19 @@
+# Built-in input attribution investigation
+
+Both external receivers and the Ducky were unplugged according to the owner; the wired mouse remained idle. The guided observer recorded three Ctrl key-down events under `usb_placement_unverified` and 548 device-zero pointer movements. These are observations, not verified exemptions.
+
+Read-only present-device inspection finds two keyboard paths: an ACPI Standard PS/2 Keyboard using i8042prt, and a HID Keyboard Device using kbdhid whose USB composite parent reports ITE Device(8258). Thus a USB interface remains present without the external receivers. USB transport alone must not be described as an external attachment.
+
+The keyboard class upper filters are `keyboard` and `kbdclass`. The keyboard.sys metadata identifies the former as the signed Oblita Interception Keyboard Upper Filter Driver. Its presence is verified; a causal relationship to Raw Input attribution is not established. No filter was removed or changed.
+
+Next: privately correlate the observer's exact source to the ITE interface, query physical connector properties for internal versus user-connectable ports, and reconcile the PS/2 path with observed events. Trackpad device-zero events cannot establish its PnP identity; ACPI/I2C metadata remains a separate candidate. Friendly names and owner-reported disconnection alone do not authorize a permanent exemption.
+
+The observation window now stops collection at its time budget and stays open with a status message instead of automatically closing. Stage/bounds/redaction regressions pass. Automatic candidate bus/service/usage/conflict regressions pass. No machine input-blocking policy, driver modification, or trust enrollment was applied; blocking hardware trials remain zero.
+
+Connector diagnostic: `UsbConnectorEvidence.ForUsbParent(privateInstance)` maps the exact USB parent driver property to its parent hub interface and queries read-only Windows hub information, connected-port driver keys and connector properties. `Query(privateDriverKey)` is a diagnostic global-hub comparison. These are not IPC methods. Identifiers remain private; returned categories/counts never establish an exemption. Limits: 16 hubs, 64 ports per hub, 4096-byte query buffers, 16384-character hub list. Calls are synchronous and lack a hard deadline; this diagnostic is not a production admission path.
+
+The initial direct driver query reported one non-user-connectable port candidate. Independent review found that failed/malformed port reads could incorrectly leave enumeration complete. After fixing that, the same live parent has one exact match but incomplete enumeration and returns `unresolved`, `exemptionVerified=false`. The initial candidate must not be promoted to verified internal status. Driver property PID11 is used; PID9 is the device class, not its driver key.
+
+The probe now queries connector evidence from each exact input source, registers device-change notifications, and discards observations on arrival/removal. Connector evidence is not cached across transient handles. The owner-completed source-bound attempt recorded three Ctrl events and407 unattributed pointer movements, with connector unresolved. No new exemption. Parser regressions cover wrong port, short/oversized length, reserved flags, companion routes and absent buffers; PASS. Static re-review resolved the handle-reuse and incomplete-enumeration findings.
+
+Primary layouts/constants: [Microsoft usbioctl.h](https://raw.githubusercontent.com/microsoft/win32metadata/main/generation/WinSDK/RecompiledIdlHeaders/shared/usbioctl.h), [usbiodef.h](https://raw.githubusercontent.com/microsoft/win32metadata/main/generation/WinSDK/RecompiledIdlHeaders/shared/usbiodef.h), [device property keys](https://raw.githubusercontent.com/microsoft/win32metadata/main/generation/WinSDK/RecompiledIdlHeaders/shared/devpkey.h).
