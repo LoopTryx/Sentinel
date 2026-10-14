@@ -131,8 +131,3 @@ $provider=@{
 $result=Invoke-SentinelTargetRestore $receipt $provider
 [pscustomobject]@{state=$result.state;problem=0}|ConvertTo-Json
 }finally{foreach($anchor in $anchors){$anchor.Dispose()}}
-
-
-
-
-
