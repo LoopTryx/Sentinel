@@ -21,7 +21,7 @@ Earlier rollback restores an empty prior policy. It must not be used as the requ
 - Verify recovery-environment access and an independently usable fallback input path. Keep any BitLocker recovery key privately available; never send it to the agent or repository.
 - Establish firmware USB transfer instrumentation and host probes with positive controls. CircuitPython's typing-attempt messages do not prove host report consumption. Missing/lost/unattributed evidence is inconclusive.
 
-No broad class-deny-only trial is authorized by this checklist until it can preserve internal controls under the owner's hard rule. A nearby laptop and the intention to exempt controls do not prove this. The owner requested this laptop as the target, but has not completed the requested recovery-path check; no verified replacement exists yet.
+No broad class-deny-only trial is authorized by this checklist until it can preserve internal controls under the owner's hard rule. A nearby laptop and the intention to exempt controls do not prove this. The owner reports that the built-in keyboard works in Windows Recovery and that the trackpad does not, and has returned to Windows. This is a keyboard-only recovery path reported by the owner; Safe Mode and actual offline policy restoration remain untested.
 
 ## If something goes wrong
 
