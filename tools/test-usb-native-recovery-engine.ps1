@@ -25,7 +25,7 @@ sentinel-usb-broker-engine = {path = "$engine"}
 windows-sys = {version = "0.61.2", features = ["Win32_Foundation", "Win32_Security", "Win32_System_Registry"]}
 "@|Set-Content (Join-Path $probe 'Cargo.toml')
 @'
-use sentinel_usb::policy::{Entry,Registry,InputPolicy,PolicyBackend};
+use sentinel_usb::policy::{Entry,Registry,InputPolicy,PolicyBackend,RestrictiveApprovalBackend};
 use sentinel_usb::recovery::{Error,Recovery,Store};
 use sentinel_usb::journal::JournalStore;
 use sentinel_usb_broker_engine::recover_file;
@@ -35,12 +35,22 @@ fn run()->Result<(),Error>{
  let directory=std::env::current_exe().map_err(|_|Error::Store)?.parent().ok_or(Error::Store)?.to_path_buf();
  let path=directory.join(format!("{nonce}.journal"));
  if std::env::args().nth(2).as_deref()==Some("recover-only"){
+  let approval=path.with_extension("approval.journal");if approval.exists(){let file=std::fs::OpenOptions::new().read(true).write(true).open(&approval).map_err(|_|Error::Store)?;recover_file(file,native::WindowsRegistry::isolated(&nonce)?)?;std::fs::remove_file(approval).map_err(|_|Error::Store)?;}
   let file=std::fs::OpenOptions::new().read(true).write(true).open(&path).map_err(|_|Error::Store)?;recover_file(file,native::WindowsRegistry::isolated(&nonce)?)?;native::WindowsRegistry::cleanup(&nonce)?;std::fs::remove_file(path).map_err(|_|Error::Store)?;return Ok(())
  }
  let file=std::fs::OpenOptions::new().read(true).write(true).create_new(true).open(&path).map_err(|_|Error::Store)?;
  let ids:Vec<_>=(0..32).map(|i|format!("HID\\SYNTHETIC\\BASELINE{i:02}")).collect();let refs:Vec<_>=ids.iter().map(String::as_str).collect();
- let mut recovery=Recovery::new(JournalStore::from_trusted_file(file)?,PolicyBackend::new(native::WindowsRegistry::isolated(&nonce)?,InputPolicy::new(&refs)?));
+ let mut recovery=Recovery::new(JournalStore::from_trusted_file(file)?,PolicyBackend::new(native::WindowsRegistry::isolated(&nonce)?,InputPolicy::new(&refs[..31])?));
  recovery.recover_pending()?;recovery.arm_apply(100,60)?;drop(recovery);
+ let mut baseline_registry=native::WindowsRegistry::isolated(&nonce)?;let baseline=baseline_registry.snapshot()?;
+ let approval_path=path.with_extension("approval.journal");
+ let approval_file=std::fs::OpenOptions::new().read(true).write(true).create_new(true).open(&approval_path).map_err(|_|Error::Store)?;
+ let mut update=Recovery::new(JournalStore::from_trusted_file(approval_file)?,RestrictiveApprovalBackend::new(native::WindowsRegistry::isolated(&nonce)?,InputPolicy::new(&refs[..31])?,InputPolicy::new(&refs)?)?);
+ update.recover_pending()?;update.arm_apply(200,30)?;drop(update);
+ let open_approval=||std::fs::OpenOptions::new().read(true).write(true).open(&approval_path).map_err(|_|Error::Store);
+ if !recover_file(open_approval()?,native::WindowsRegistry::isolated(&nonce)?)? || baseline_registry.snapshot()?!=baseline{return Err(Error::Conflict)}
+ if recover_file(open_approval()?,native::WindowsRegistry::isolated(&nonce)?)?{return Err(Error::Conflict)}
+ std::fs::remove_file(approval_path).map_err(|_|Error::Store)?;
  let mut registry=native::WindowsRegistry::isolated(&nonce)?;native::WindowsRegistry::drift(&nonce,2)?;registry.flush()?;
  let open=||std::fs::OpenOptions::new().read(true).write(true).open(&path).map_err(|_|Error::Store);
  if recover_file(open()?,native::WindowsRegistry::isolated(&nonce)?)!=Err(Error::Conflict){return Err(Error::Invalid)}
@@ -50,7 +60,7 @@ fn run()->Result<(),Error>{
  if !registry.snapshot()?.is_empty(){return Err(Error::Conflict)}
  if recover_file(open()?,native::WindowsRegistry::isolated(&nonce)?)?{return Err(Error::Invalid)}
  native::WindowsRegistry::cleanup(&nonce)?;std::fs::remove_file(path).map_err(|_|Error::Store)?;
- println!("Actual native HKCU recovery, drift refusal with journal retained, owned restore/readback/clear and idempotent restart PASS. Machine recovery not invoked.");Ok(())
+ println!("Actual native HKCU restrictive approval recovery preserves baseline; old journal recovery, drift refusal, readback/clear and idempotent restart PASS. Machine recovery not invoked.");Ok(())
 }
 fn main(){if let Err(error)=run(){eprintln!("isolated_native_engine_test_failed: {error:?}");std::process::exit(1)}}
 '@|Set-Content (Join-Path $probe 'src\main.rs')

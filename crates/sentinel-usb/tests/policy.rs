@@ -4,6 +4,148 @@ use sentinel_usb::{
 };
 use std::{cell::RefCell, rc::Rc};
 
+#[test]
+fn restrictive_approval_recovery_preserves_last_known_good_deny_rules() {
+    use sentinel_usb::policy::RestrictiveApprovalBackend;
+    for fail_after in [false, true] {
+        for fail_at in 0..2 {
+            let fixture = Fixture::default();
+            let mut initial = recovery(&fixture);
+            initial.recover_pending().unwrap();
+            initial.arm_apply(100, 30).unwrap();
+            let baseline = fixture.0.borrow().entries.clone();
+            fixture.0.borrow_mut().journal = None;
+            fixture.0.borrow_mut().writes = 0;
+            fixture.0.borrow_mut().fail_at = Some(fail_at);
+            fixture.0.borrow_mut().fail_after = fail_after;
+            let next = || {
+                InputPolicy::new(&[
+                    "HID\\SYNTHETIC\\KEYBOARD",
+                    "HID\\SYNTHETIC\\MOUSE",
+                    "HID\\SYNTHETIC\\BOARD",
+                ])
+                .unwrap()
+            };
+            let mut engine = Recovery::new(
+                fixture.clone(),
+                RestrictiveApprovalBackend::new(fixture.clone(), policy(), next()).unwrap(),
+            );
+            engine.recover_pending().unwrap();
+            assert_eq!(engine.arm_apply(200, 30), Err(Error::Platform));
+            drop(engine);
+            let mut restarted = Recovery::new(
+                fixture.clone(),
+                RestrictiveApprovalBackend::new(fixture.clone(), policy(), next()).unwrap(),
+            );
+            assert!(restarted.recover_pending().unwrap());
+            assert!(fixture.0.borrow().entries == baseline);
+            assert!(fixture.0.borrow().journal.is_none());
+            assert!(
+                !fixture
+                    .0
+                    .borrow()
+                    .removals
+                    .iter()
+                    .any(|name| name == "DenyDeviceClasses")
+            );
+        }
+    }
+}
+
+#[test]
+fn restrictive_approval_rejects_reordering_removal_and_unrelated_drift() {
+    use sentinel_usb::policy::RestrictiveApprovalBackend;
+    let fixture = Fixture::default();
+    assert!(RestrictiveApprovalBackend::new(fixture.clone(), policy(), policy()).is_err());
+    let reordered =
+        InputPolicy::new(&["HID\\SYNTHETIC\\MOUSE", "HID\\SYNTHETIC\\KEYBOARD"]).unwrap();
+    assert!(RestrictiveApprovalBackend::new(fixture.clone(), policy(), reordered).is_err());
+    let mut initial = recovery(&fixture);
+    initial.recover_pending().unwrap();
+    initial.arm_apply(100, 30).unwrap();
+    let baseline = fixture.0.borrow().entries.clone();
+    fixture.0.borrow_mut().journal = None;
+    let next = || InputPolicy::new(&["HID\\SYNTHETIC\\KEYBOARD", "HID\\SYNTHETIC\\MOUSE"]).unwrap();
+    let mut engine = Recovery::new(
+        fixture.clone(),
+        RestrictiveApprovalBackend::new(fixture.clone(), policy(), next()).unwrap(),
+    );
+    engine.recover_pending().unwrap();
+    engine.arm_apply(200, 30).unwrap();
+    fixture.0.borrow_mut().entries.push(foreign());
+    assert_eq!(engine.recover_pending(), Err(Error::Conflict));
+    assert!(fixture.0.borrow().journal.is_some());
+    fixture.0.borrow_mut().entries.pop();
+    assert!(engine.recover_pending().unwrap());
+    assert!(fixture.0.borrow().entries == baseline);
+}
+
+#[test]
+fn restrictive_record_bounds_corruption_expiry_and_failed_flush() {
+    use sentinel_usb::policy::RestrictiveApprovalBackend;
+    let mut exact = approvals(20, 200);
+    exact.push(approvals(21, 33).pop().unwrap());
+    let baseline =
+        || InputPolicy::new(&exact[..20].iter().map(String::as_str).collect::<Vec<_>>()).unwrap();
+    let next = InputPolicy::new(&exact.iter().map(String::as_str).collect::<Vec<_>>()).unwrap();
+    assert!(RestrictiveApprovalBackend::new(Fixture::default(), baseline(), next).is_ok());
+    let base = baseline();
+    exact[20].push('B');
+    let next = InputPolicy::new(&exact.iter().map(String::as_str).collect::<Vec<_>>()).unwrap();
+    assert!(RestrictiveApprovalBackend::new(Fixture::default(), base, next).is_err());
+
+    let fixture = Fixture::default();
+    let mut initial = recovery(&fixture);
+    initial.recover_pending().unwrap();
+    initial.arm_apply(100, 30).unwrap();
+    let baseline = fixture.0.borrow().entries.clone();
+    fixture.0.borrow_mut().journal = None;
+    let next = InputPolicy::new(&["HID\\SYNTHETIC\\KEYBOARD", "HID\\SYNTHETIC\\MOUSE"]).unwrap();
+    let mut adapter = RestrictiveApprovalBackend::new(fixture.clone(), policy(), next).unwrap();
+    let mut bytes = [0; 4072];
+    let length = adapter.capture_into(&mut bytes).unwrap();
+    for position in [0, 8, 9] {
+        let mut corrupt = bytes;
+        corrupt[position] = 0;
+        assert!(adapter.restore_if_owned(&corrupt[..length]).is_err());
+        assert!(fixture.0.borrow().entries == baseline);
+    }
+    let mut engine = Recovery::new(fixture.clone(), adapter);
+    engine.recover_pending().unwrap();
+    engine.arm_apply(200, 30).unwrap();
+    assert!(!engine.recover_due(229).unwrap());
+    fixture.0.borrow_mut().fail_flush = true;
+    assert_eq!(engine.recover_due(230), Err(Error::Platform));
+    assert!(fixture.0.borrow().entries == baseline);
+    assert!(fixture.0.borrow().journal.is_some());
+    fixture.0.borrow_mut().fail_flush = false;
+    assert!(engine.recover_pending().unwrap());
+    assert!(fixture.0.borrow().entries == baseline);
+    assert!(fixture.0.borrow().journal.is_none());
+}
+
+#[test]
+fn recovery_only_backend_dispatches_restrictive_journal_without_apply_permission() {
+    use sentinel_usb::policy::RestrictiveApprovalBackend;
+    let fixture = Fixture::default();
+    let mut initial = recovery(&fixture);
+    initial.recover_pending().unwrap();
+    initial.arm_apply(100, 30).unwrap();
+    let baseline = fixture.0.borrow().entries.clone();
+    fixture.0.borrow_mut().journal = None;
+    let next = InputPolicy::new(&["HID\\SYNTHETIC\\KEYBOARD", "HID\\SYNTHETIC\\MOUSE"]).unwrap();
+    let mut update = RestrictiveApprovalBackend::new(fixture.clone(), policy(), next).unwrap();
+    let mut record = [0; 4072];
+    let length = update.capture_into(&mut record).unwrap();
+    fixture.0.borrow_mut().journal = Some(vec![1]);
+    update.apply_if_unchanged(&record[..length]).unwrap();
+    let mut receiver = PolicyBackend::new(fixture.clone(), policy());
+    assert!(receiver.apply_if_unchanged(&record[..length]).is_err());
+    receiver.restore_if_owned(&record[..length]).unwrap();
+    receiver.verify_restored(&record[..length]).unwrap();
+    assert!(fixture.0.borrow().entries == baseline);
+}
+
 fn approvals(count: usize, length: usize) -> Vec<String> {
     (0..count)
         .map(|i| {

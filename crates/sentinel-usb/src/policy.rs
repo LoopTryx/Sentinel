@@ -184,6 +184,28 @@ impl<R: Registry> PolicyBackend<R> {
         }
         Ok(())
     }
+    fn restore_restrictive(&mut self, record: &[u8]) -> Result<(), Error> {
+        let (baseline, next) = RestrictiveApprovalBackend::<R>::decode(record)?;
+        let base_entries = baseline.entries();
+        let next_entries = next.entries();
+        let mut current = self.snapshot()?;
+        if base_entries.iter().any(|entry| !current.contains(entry))
+            || current.iter().any(|entry| !next_entries.contains(entry))
+        {
+            return Err(Error::Conflict);
+        }
+        for entry in next_entries[baseline.approved.len()..next.approved.len()]
+            .iter()
+            .rev()
+        {
+            self.matches(&current)?;
+            if let Some(index) = current.iter().position(|item| item == entry) {
+                self.registry.remove(entry)?;
+                current.remove(index);
+            }
+        }
+        self.registry.flush()
+    }
 }
 impl<R: Registry> Backend for PolicyBackend<R> {
     fn capture_into(&mut self, prior: &mut [u8]) -> Result<usize, Error> {
@@ -208,6 +230,9 @@ impl<R: Registry> Backend for PolicyBackend<R> {
         self.matches(&self.policy.entries())
     }
     fn restore_if_owned(&mut self, prior: &[u8]) -> Result<(), Error> {
+        if prior.starts_with(b"SNTLKG01") {
+            return self.restore_restrictive(prior);
+        }
         let desired = InputPolicy::decode(prior)?.entries();
         let current = self.snapshot()?;
         if current.iter().any(|entry| !desired.contains(entry)) {
@@ -224,7 +249,85 @@ impl<R: Registry> Backend for PolicyBackend<R> {
         self.registry.flush()
     }
     fn verify_restored(&mut self, prior: &[u8]) -> Result<(), Error> {
+        if prior.starts_with(b"SNTLKG01") {
+            let (baseline, _) = RestrictiveApprovalBackend::<R>::decode(prior)?;
+            return self.matches(&baseline.entries());
+        }
         InputPolicy::decode(prior)?;
         self.matches(&[])
+    }
+}
+
+/// Append-only approval update over an already verified restrictive profile.
+/// Recovery removes only the new exceptions; existing deny switches and baseline
+/// exceptions remain present throughout. This is not first-install provisioning,
+/// arbitrary policy replacement, authentication, or hardware containment proof.
+pub struct RestrictiveApprovalBackend<R: Registry> {
+    inner: PolicyBackend<R>,
+    baseline: InputPolicy,
+}
+impl<R: Registry> RestrictiveApprovalBackend<R> {
+    pub fn new(registry: R, baseline: InputPolicy, next: InputPolicy) -> Result<Self, Error> {
+        if next.approved.len() <= baseline.approved.len()
+            || !next.approved.starts_with(&baseline.approved)
+            || 18 + next.approved.iter().map(|id| 1 + id.len()).sum::<usize>() > MAX_ENCODED
+        {
+            return Err(Error::Invalid);
+        }
+        Ok(Self {
+            inner: PolicyBackend::new(registry, next),
+            baseline,
+        })
+    }
+    fn decode(record: &[u8]) -> Result<(InputPolicy, InputPolicy), Error> {
+        if record.len() < 18 || record.len() > MAX_ENCODED || &record[..8] != b"SNTLKG01" {
+            return Err(Error::Corrupt);
+        }
+        let next = InputPolicy::decode(&record[9..])?;
+        let count = usize::from(record[8]);
+        if count == 0 || count >= next.approved.len() {
+            return Err(Error::Corrupt);
+        }
+        let ids: Vec<_> = next.approved[..count].iter().map(String::as_str).collect();
+        Ok((InputPolicy::new(&ids).map_err(|_| Error::Corrupt)?, next))
+    }
+}
+impl<R: Registry> Backend for RestrictiveApprovalBackend<R> {
+    fn capture_into(&mut self, out: &mut [u8]) -> Result<usize, Error> {
+        self.inner.matches(&self.baseline.entries())?;
+        if out.len() < 18 {
+            return Err(Error::Invalid);
+        }
+        out[..8].copy_from_slice(b"SNTLKG01");
+        out[8] = self.baseline.approved.len() as u8;
+        let size = self.inner.policy.encode(&mut out[9..])?;
+        Ok(size + 9)
+    }
+    fn apply_if_unchanged(&mut self, record: &[u8]) -> Result<(), Error> {
+        let (baseline, next) = Self::decode(record)?;
+        if baseline.approved != self.baseline.approved
+            || next.approved != self.inner.policy.approved
+        {
+            return Err(Error::Conflict);
+        }
+        let mut expected = baseline.entries();
+        self.inner.matches(&expected)?;
+        let entries = next.entries();
+        for entry in &entries[baseline.approved.len()..next.approved.len()] {
+            self.inner.matches(&expected)?;
+            self.inner.registry.set(entry)?;
+            expected.push(entry.clone());
+        }
+        self.inner.registry.flush()
+    }
+    fn verify_applied(&mut self) -> Result<(), Error> {
+        self.inner.matches(&self.inner.policy.entries())
+    }
+    fn restore_if_owned(&mut self, record: &[u8]) -> Result<(), Error> {
+        self.inner.restore_restrictive(record)
+    }
+    fn verify_restored(&mut self, record: &[u8]) -> Result<(), Error> {
+        let (baseline, _) = Self::decode(record)?;
+        self.inner.matches(&baseline.entries())
     }
 }
