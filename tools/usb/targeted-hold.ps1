@@ -15,6 +15,18 @@ function Get-BoardKeyboard {
  if($found.Count -ne 1){throw 'Exactly one keyboard must correlate to board'}
  return @{keyboard=$found[0].InstanceId;root=$board[0].InstanceId;problem=[int](Get-PnpDeviceProperty -InstanceId $found[0].InstanceId -KeyName DEVPKEY_Device_ProblemCode).Data}
 }
+function Read-TargetKeyboard($Id){
+ $node=@(Get-PnpDevice -PresentOnly -InstanceId $Id -ErrorAction Stop)
+ if($node.Count -ne 1 -or $node[0].Class -ne 'Keyboard'){throw 'Exact keyboard not present'}
+ $cursor=$Id;$root=''
+ for($i=0;$i -lt 6;$i++){
+  $parent=(Get-PnpDeviceProperty -InstanceId $cursor -KeyName DEVPKEY_Device_Parent -ErrorAction Stop).Data
+  if($parent -eq $target.root){$root=$parent;break}
+  if(-not $parent -or $parent -eq $cursor){break};$cursor=$parent
+ }
+ if(-not $root -or (Get-PnpDeviceProperty -InstanceId $root -KeyName DEVPKEY_Device_BusReportedDeviceDesc -ErrorAction Stop).Data -ne 'RP2040-Zero'){throw 'Board ancestry changed'}
+ return @{id=$Id;class='Keyboard';root=$root;problem=[int](Get-PnpDeviceProperty -InstanceId $Id -KeyName DEVPKEY_Device_ProblemCode -ErrorAction Stop).Data}
+}
 $target=Get-BoardKeyboard
 if($Mode -eq 'Probe'){
  [pscustomobject]@{device='RP2040-Zero';keyboardInterfaces=1;problem=$target.problem;blocked=($target.problem -eq 22);scope='known_connected_device';firstInputPrevention='unverified'}|ConvertTo-Json
@@ -76,27 +88,32 @@ if($Mode -eq 'Hold'){
  $existing=@(Get-ChildItem -LiteralPath $base -Filter '*.json')
  if($existing.Count){throw 'Resolve existing hold receipt before another hold'}
  $nonce=[Guid]::NewGuid().ToString('N');$task='Sentinel-Ducky-Restore-'+$nonce
+ $stage='recovery-probe-task'
  # Exercise independent scheduled enable on healthy exact target BEFORE disabling.
  New-RestoreTask $target.keyboard ([datetime]::Now.AddSeconds(3)) $task
  try{
+  $stage='recovery-probe-result'
   $watch=[Diagnostics.Stopwatch]::StartNew();$ran=$false
   while($watch.Elapsed.TotalSeconds -lt 30){$info=Get-ScheduledTaskInfo -TaskName $task;if($info.LastRunTime -gt [datetime]::Now.AddMinutes(-1) -and $info.LastTaskResult -eq 0){$ran=$true;break};Start-Sleep -Milliseconds 250}
   if(-not $ran){throw 'Independent recovery command probe failed'}
+  $stage='recovery-probe-identity'
   $fresh=Get-BoardKeyboard;if($fresh.keyboard -cne $target.keyboard -or $fresh.root -cne $target.root -or $fresh.problem -ne 0){throw 'Device changed during recovery probe'}
   Unregister-ScheduledTask -TaskName $task -Confirm:$false
+  $stage='restore-task-arm'
   $deadline=[datetime]::UtcNow.AddSeconds(120)
   New-RestoreTask $target.keyboard $deadline.ToLocalTime() $task
   $target.nonce=$nonce;$target.restoreDeadline=$deadline;$target.task=$task
   $ReceiptPath=Join-Path $base ($nonce+'.json')
   $provider=@{
-   Read={param($id) $t=Get-BoardKeyboard;@{id=$t.keyboard;class='Keyboard';root=$t.root;problem=$t.problem}}
+   Read={param($id) Read-TargetKeyboard $id}
    Persist={param($record) $bytes=[Text.Encoding]::UTF8.GetBytes(($record|ConvertTo-Json));$file=[IO.FileStream]::new($ReceiptPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None);try{$file.Write($bytes,0,$bytes.Length);$file.Flush($true)}finally{$file.Dispose()}}
    Disable={param($id) Disable-PnpDevice -InstanceId $id -Confirm:$false -ErrorAction Stop}
    Enable={param($id) Enable-PnpDevice -InstanceId $id -Confirm:$false -ErrorAction Stop}
   }
+  $stage='native-hold'
   $result=Invoke-SentinelTargetHold $target $provider
   [pscustomobject]@{state=$result.state;problem=22;automaticRestoreUtc=$deadline.ToString('o');receipt=$ReceiptPath;firstInputPrevention='unverified'}|ConvertTo-Json
- }catch{throw 'Targeted hold failed; retained task/receipt may require Status/Restore. No completion claimed'}
+ }catch{throw ('Targeted hold failed at '+$stage+'; no success claimed')}
  return
 }
 if(-not $ReceiptPath){throw 'Exact receipt path required'}
@@ -107,13 +124,15 @@ if($r.nonce -notmatch '^[0-9a-f]{32}$' -or $r.task -cne ('Sentinel-Ducky-Restore
 $receipt=@{};foreach($property in $r.PSObject.Properties){$receipt[$property.Name]=$property.Value}
 if($Mode -eq 'Status'){[pscustomobject]@{state=$(if($target.problem -eq 22){'held'}elseif($target.problem -eq 0){'enabled'}else{'error'});problem=$target.problem;restoreDeadline=$r.restoreDeadline;taskState=[string](Get-ScheduledTask -TaskName $r.task).State}|ConvertTo-Json;return}
 $provider=@{
- Read={param($id) $t=Get-BoardKeyboard;@{id=$t.keyboard;class='Keyboard';root=$t.root;problem=$t.problem}}
+ Read={param($id) Read-TargetKeyboard $id}
  Enable={param($id) Enable-PnpDevice -InstanceId $id -Confirm:$false -ErrorAction Stop}
  Complete={param($record) Unregister-ScheduledTask -TaskName $record.task -Confirm:$false;Move-Item -LiteralPath $path -Destination ($path+'.restored')}
 }
 $result=Invoke-SentinelTargetRestore $receipt $provider
 [pscustomobject]@{state=$result.state;problem=0}|ConvertTo-Json
 }finally{foreach($anchor in $anchors){$anchor.Dispose()}}
+
+
 
 
 
