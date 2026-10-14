@@ -24,6 +24,16 @@ public static class UsbConnectorEvidence {
  [DllImport("kernel32.dll",SetLastError=true)]static extern bool DeviceIoControl(SafeFileHandle file,uint code,byte[] input,uint inputSize,byte[] output,uint outputSize,out uint returned,IntPtr overlapped);
  static uint Code(uint function){return (0x22u<<16)|(function<<2);}
  static byte[] Read(SafeFileHandle hub,uint function,uint port,out uint returned){var input=new byte[4096];BitConverter.GetBytes(port).CopyTo(input,0);var output=new byte[4096];if(!DeviceIoControl(hub,Code(function),input,(uint)input.Length,output,(uint)output.Length,out returned,IntPtr.Zero))return null;return output;}
+ public static string ParseConnection(byte[] bytes,uint port,uint returned){
+  if(bytes==null||port==0||port>64||returned<35||returned>bytes.Length||returned>4096)return "unresolved";
+  uint index=BitConverter.ToUInt32(bytes,0),status=BitConverter.ToUInt32(bytes,31);
+  if(status==1)return index==port?"connected":"unresolved";
+  if(status!=0||(index!=0&&index!=port))return "unresolved";
+  // This host returns a successful, zeroed 35-byte record for unoccupied ports.
+  // Never interpret a failed query, short record or populated descriptor as empty.
+  for(int i=4;i<returned;i++)if(bytes[i]!=0)return "unresolved";
+  return "empty";
+ }
  public static string Parse(byte[] bytes,uint port,uint returned){
   if(bytes==null||port==0||port>64||returned<18||returned>bytes.Length||BitConverter.ToUInt32(bytes,0)!=port)return "unresolved";
   uint length=BitConverter.ToUInt32(bytes,4),flags=BitConverter.ToUInt32(bytes,8);
@@ -48,8 +58,7 @@ public static class UsbConnectorEvidence {
     if(hub.IsInvalid){partial=true;continue;}uint returned;byte[] info=Read(hub,277,0,out returned);
     if(info==null||returned<6){partial=true;continue;}uint ports=BitConverter.ToUInt16(info,4);if(ports==0||ports>64){partial=true;continue;}
     for(uint port=1;port<=ports;port++){
-     byte[] connection=Read(hub,274,port,out returned);if(connection==null||returned<35||BitConverter.ToUInt32(connection,0)!=port){partial=true;continue;}
-     uint status=BitConverter.ToUInt32(connection,31);if(status==0)continue;if(status!=1){partial=true;continue;}
+     byte[] connection=Read(hub,274,port,out returned);string connectionState=ParseConnection(connection,port,returned);if(connectionState=="empty")continue;if(connectionState!="connected"){partial=true;continue;}
      byte[] key=Read(hub,264,port,out returned);if(key==null||returned<10||returned>4096){partial=true;continue;}
      uint length=BitConverter.ToUInt32(key,4);if(BitConverter.ToUInt32(key,0)!=port||length<10||length>returned||length%2!=0){partial=true;continue;}
      string driver=Encoding.Unicode.GetString(key,8,(int)length-8);int end=driver.IndexOf('\0');if(end<=0){partial=true;continue;}driver=driver.Substring(0,end);

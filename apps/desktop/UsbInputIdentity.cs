@@ -21,7 +21,7 @@ public static class UsbInputIdentity {
    if(id.StartsWith(@"ACPI\",StringComparison.OrdinalIgnoreCase))return "platform_input";
   }return "unverified";
  }
- static string ReadInstance(IntPtr device){
+ internal static string ReadInstance(IntPtr device){
   uint size=0;if(GetRawInputDeviceInfoW(device,0x20000007,IntPtr.Zero,ref size)==uint.MaxValue||size<2||size>1024)return "unverified";
   uint capacity=size;IntPtr buffer=Marshal.AllocHGlobal(checked((int)size*2));string instance;
   try{if(GetRawInputDeviceInfoW(device,0x20000007,buffer,ref size)==uint.MaxValue||size>capacity)return "unverified";instance=InstanceFromInterface(Marshal.PtrToStringUni(buffer,(int)size).TrimEnd('\0'));}finally{Marshal.FreeHGlobal(buffer);}
