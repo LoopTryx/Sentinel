@@ -36,6 +36,7 @@ public sealed class SentinelGlassConsole : Window
     [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr window,int message,IntPtr wParam,IntPtr lParam);
     bool dragging, nativeCorners;
     readonly UsbInputMonitor inputMonitor=new UsbInputMonitor();
+    UsbGuardArrival usbArrival;
     readonly WebView2 view = new WebView2();
     readonly string assets, evidence;
     readonly bool smoke;
@@ -140,7 +141,8 @@ public sealed class SentinelGlassConsole : Window
         grid.Children.Add(header);
         view.DefaultBackgroundColor = System.Drawing.Color.Transparent;
         Grid.SetRow(view, 1); grid.Children.Add(view); Content = grid;
-        SourceInitialized += delegate { EnableBackdrop();var handle=new WindowInteropHelper(this).Handle;inputMonitor.Start(handle);HwndSource.FromHwnd(handle).AddHook(delegate(IntPtr hwnd,int message,IntPtr wParam,IntPtr lParam,ref bool handled){if(message==0x00FF)inputMonitor.Receive(lParam);if(message==0x00FE&&wParam.ToInt32()==2)inputMonitor.Removed(lParam);return IntPtr.Zero;}); };
+        SourceInitialized += delegate { EnableBackdrop();var handle=new WindowInteropHelper(this).Handle;inputMonitor.Start(handle);usbArrival=new UsbGuardArrival(this,handle);HwndSource.FromHwnd(handle).AddHook(delegate(IntPtr hwnd,int message,IntPtr wParam,IntPtr lParam,ref bool handled){if(message==0x00FF)inputMonitor.Receive(lParam);if(message==0x00FE&&wParam.ToInt32()==2)inputMonitor.Removed(lParam);if(message==0x0219&&usbArrival!=null)usbArrival.Receive(wParam,lParam);return IntPtr.Zero;}); };
+        Closed+=delegate{if(usbArrival!=null)usbArrival.Dispose();};
         Loaded += Initialize;
         Loaded += delegate { Dispatcher.BeginInvoke(new Action(EnableBackdrop),DispatcherPriority.ContextIdle); };
         Loaded += delegate {
