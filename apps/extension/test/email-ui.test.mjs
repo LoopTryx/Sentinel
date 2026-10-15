@@ -25,6 +25,13 @@ test('footer does not alter extracted email data and repeated warnings leave no 
  const latest=showEmailWarning(root,result);old();assert.equal(root.querySelectorAll('[data-sentinel-email]').length,1);assert.equal(dom.window.document.querySelectorAll('[data-sentinel-email="frame-style"]').length,1);
  latest();assert.equal(root.querySelector('[data-sentinel-email]'),null);assert.equal(dom.window.document.querySelector('[data-sentinel-email="frame-style"]'),null);dom.window.close();
 });
+test('Cabinet heading font is shared and released when the last warning is removed',()=>{
+ const dom=new JSDOM('<article></article><article></article>'),doc=dom.window.document;let created=0,added=0,removed=0;
+ Object.defineProperty(doc,'fonts',{value:{add:()=>added++,delete:()=>removed++}});
+ dom.window.FontFace=class{constructor(name,source){created++;assert.equal(name,'Sentinel Cabinet Grotesk');assert.ok(source.includes('CabinetGrotesk-Variable.woff2'));}load(){return Promise.resolve(this);}};
+ const result={tier:'Likely Scam',reasons:[]},roots=doc.querySelectorAll('article'),first=showEmailWarning(roots[0],result),second=showEmailWarning(roots[1],result);
+ assert.equal(created,1);assert.equal(added,1);first();first();assert.equal(removed,0);second();assert.equal(removed,1);dom.window.close();
+});
 test('red-link guard requires confirmation, preserves original links and cleans up',()=>{
  const dom=new JSDOM('<article><a href="https://example.test/login">Bank</a></article>',{url:'https://mail.google.com'}),root=dom.window.document.querySelector('article'),link=root.querySelector('a');
  const cleanup=guardEmailLinks(root),event=new dom.window.MouseEvent('click',{bubbles:true,cancelable:true});

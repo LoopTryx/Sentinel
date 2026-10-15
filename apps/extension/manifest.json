@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Sentinel Browser Companion",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "optional_permissions": [
     "scripting"
   ],
@@ -81,7 +81,8 @@
         "data/email-extraction-config.js",
         "src/email/link-guard.js",
         "src/assets/blue-investigate-v1.png",
-        "src/assets/red-alert-v1.png"
+        "src/assets/red-alert-v1.png",
+        "src/assets/CabinetGrotesk-Variable.woff2"
       ],
       "matches": [
         "https://mail.google.com/*",

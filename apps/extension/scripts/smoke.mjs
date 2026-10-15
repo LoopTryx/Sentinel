@@ -16,6 +16,8 @@ const requiredFiles = [
   'src/email/bootstrap.js',
   'src/email/banner.js',
   'src/assets/blue-investigate-v1.png',
+  'src/assets/CabinetGrotesk-Variable.woff2',
+  'third-party/CabinetGrotesk-FFL.txt',
   'src/assets/red-alert-v1.png',
   'src/email/link-guard.js',
   'src/email/scoring.js',
