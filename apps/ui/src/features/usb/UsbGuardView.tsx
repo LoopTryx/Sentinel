@@ -4,6 +4,7 @@ import {useAutoRefresh} from '../../use-auto-refresh';
 import {parseUsbInventory,type UsbInventory,type UsbInterface} from './inventory';
 import './usb-guard.css';
 import UsbActivityPanel from './UsbActivityPanel';
+import DuckyControlPanel from './DuckyControlPanel';
 const labels:Record<UsbInterface,string>={hid_keyboard:'HID keyboard',hid_mouse:'HID mouse',hid_other:'Other HID',storage:'Storage',network:'Network',other:'Other interface'};
 function fallbackName(interfaces:UsbInterface[]){
  const input=interfaces.includes('hid_keyboard')&&interfaces.includes('hid_mouse')?'Keyboard + mouse':interfaces.includes('hid_keyboard')?'Keyboard':interfaces.includes('hid_mouse')?'Mouse':interfaces.includes('hid_other')?'HID device':'';
@@ -22,7 +23,8 @@ export default function UsbGuardView(){
  const other=snapshot?.devices.filter(d=>!useful.includes(d))??[];
  return <section className="usb-guard usb-minimal" aria-labelledby="usb-heading">
   <div className="usb-page-heading"><h2 id="usb-heading">USB Guard</h2><span className="usb-mode">{state?'Monitoring connected devices':'Desktop disconnected'}</span></div>
-  <dl className="usb-status-strip"><div><dt>Input quarantine</dt><dd className="usb-status-warning">Unavailable</dd></div><div><dt>Device approval</dt><dd>Not enabled</dd></div><div><dt>Storage scan</dt><dd>Not running</dd></div></dl>
+  <dl className="usb-status-strip"><div><dt>Unknown devices</dt><dd className="usb-status-warning">Not blocked</dd></div><div><dt>Profiled Ducky</dt><dd>Windows policy control</dd></div><div><dt>Storage scan</dt><dd>Not running</dd></div></dl>
+  <DuckyControlPanel enabled={!!state}/>
   <section className="panel"><div className="usb-toolbar"><h3>Connected input and storage</h3><button className="btn ghost" disabled={observing||!state} onClick={()=>void observe()}>{observing?'Updating…':'Refresh'}</button></div>
    {notice&&<p role="status">{notice}</p>}
    {snapshot&&snapshot.state!=='unavailable'?<><p className="usb-inventory-count">{useful.length} Windows device groups · Updated {new Date(snapshot.observedAt).toLocaleTimeString()}{snapshot.state==='partial'?' · Incomplete inventory':''}</p>

@@ -15,6 +15,9 @@ $arguments = @('/nologo', '/target:winexe', '/platform:x64', ('/out:' + (Join-Pa
 $references += @((Join-Path $framework 'System.Net.Http.dll'), (Join-Path $framework 'System.Web.Extensions.dll'), (Join-Path $framework 'System.Windows.Forms.dll'))
 $arguments += $references | ForEach-Object { "/reference:$_" }
 $arguments += Join-Path $PSScriptRoot 'GlassConsole.cs'
+$arguments += Join-Path $PSScriptRoot 'DuckyPolicyControl.cs'
+$arguments += Join-Path $PSScriptRoot 'DuckyPolicyEnrollment.cs'
+$arguments += Join-Path $PSScriptRoot 'DuckyPolicyWindow.cs'
 $arguments += Join-Path $PSScriptRoot 'NativeSelectionBinding.cs'
 $arguments += Join-Path $PSScriptRoot 'VaultApproval.cs'
 $arguments += Join-Path $PSScriptRoot 'UsbInputMonitor.cs'
@@ -29,6 +32,8 @@ $arguments += Join-Path $PSScriptRoot 'ProtectedUsbJournal.cs'
 $arguments += '/reference:'+(Join-Path $framework 'System.Runtime.WindowsRuntime.dll')
 & (Join-Path $framework 'csc.exe') $arguments
 if ($LASTEXITCODE -ne 0) { throw 'GLM glass console build failed' }
+& (Join-Path $framework 'csc.exe') /nologo /target:winexe /platform:x64 /define:SENTINEL_DUCKY_POLICY_LAB ('/out:'+(Join-Path $output 'Sentinel.DuckyPolicy.exe')) ('/win32manifest:'+(Join-Path $PSScriptRoot 'password-approval.manifest')) ('/reference:'+(Join-Path $framework 'System.Web.Extensions.dll')) ('/resource:'+(Join-Path $PSScriptRoot '../../tools/usb/DuckyPolicyEntry.cs')+',Sentinel.Ducky.Entry') (Join-Path $PSScriptRoot 'DuckyPolicyHost.cs') (Join-Path $PSScriptRoot 'DuckyPolicyEnrollment.cs') (Join-Path $PSScriptRoot '../../tools/usb/DuckyPolicyEntry.cs') (Join-Path $PSScriptRoot '../../tools/usb/DuckyPolicyJournal.cs')
+if($LASTEXITCODE -ne 0){throw 'Profiled USB policy helper build failed'}
 foreach ($file in @($core, $wpf, $loader)) { Copy-Item -LiteralPath $file -Destination $output -Force }
 Write-Output ('Built ' + (Join-Path $output 'Sentinel.Glass.exe'))
 & (Join-Path $framework 'csc.exe') /nologo /target:exe /platform:x64 ('/out:'+(Join-Path $output 'Sentinel.NativeConnect.exe')) ('/reference:'+(Join-Path $framework 'System.Net.Http.dll')) ('/reference:'+(Join-Path $framework 'System.Web.Extensions.dll')) ('/reference:'+(Join-Path $framework 'System.Windows.Forms.dll')) (Join-Path $PSScriptRoot 'NativeConnect.cs') (Join-Path $PSScriptRoot 'VaultApproval.cs')

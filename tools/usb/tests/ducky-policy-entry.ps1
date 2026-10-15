@@ -27,4 +27,9 @@ foreach($drift in @('owner','target')){
  $k=$base.OpenSubKey($p+'\DenyInstanceIDs');if($null -eq $k.GetValue('1',$null)){throw 'Changed entry deleted'};$k.Dispose()
 }
 $base.Dispose()
+ $n=[Guid]::NewGuid().ToString('N');$p='SOFTWARE\Sentinel\DuckyPolicyProbe\'+$n
+ [SentinelDuckyEntry]::Apply($p,$t,$n,$false,0);[SentinelDuckyEntry]::Restore($p,$t,$n,$false)
+ try{[SentinelDuckyEntry]::Arm($p,$t,$n,$false,[DateTime]::UtcNow.AddSeconds(-1));throw 'Expired arm accepted'}catch{$e=$_.Exception;while($e.InnerException){$e=$e.InnerException};if($e.Message -ne 'Invalid arm deadline'){throw}}
+ [SentinelDuckyEntry]::Arm($p,$t,$n,$false,[DateTime]::UtcNow.AddMinutes(5))
+ [SentinelDuckyEntry]::Restore($p,$t,$n,$false)
 Write-Output 'Private HKCU entry recovery PASS: five interrupted prefixes, repeat recovery, foreign preservation and ownership/target drift refusal'

@@ -53,6 +53,9 @@ public sealed class SentinelGlassConsole : Window
     readonly Dictionary<string, string> quarantinedPaths = new Dictionary<string, string>();
     int requests;
     System.Windows.Forms.NotifyIcon tray;
+    DuckyPolicyWindow duckyWindow;
+    readonly DispatcherTimer duckyPolicyTimer=new DispatcherTimer();
+    string lastDuckyPolicyState;
     bool quitting;
     static readonly string AppEventName = "Local\\SentinelDesktopOpen";
 
@@ -158,19 +161,32 @@ public sealed class SentinelGlassConsole : Window
             tray=new System.Windows.Forms.NotifyIcon { Icon=System.Drawing.SystemIcons.Shield, Text="Sentinel", Visible=true };
             var menu=new System.Windows.Forms.ContextMenuStrip();
             menu.Items.Add("Open Sentinel",null,delegate { Dispatcher.Invoke(new Action(OpenFromTray)); });
+            menu.Items.Add("Profiled USB control",null,delegate { Dispatcher.Invoke(new Action(delegate{OpenFromTray();OpenDuckyControl();})); });
             menu.Items.Add("Quit Sentinel",null,delegate { Dispatcher.Invoke(new Action(delegate { quitting=true; Close(); })); });
             tray.ContextMenuStrip=menu;
             tray.MouseClick += delegate(object sender,System.Windows.Forms.MouseEventArgs e) { if(e.Button==System.Windows.Forms.MouseButtons.Left)Dispatcher.Invoke(new Action(OpenFromTray)); };
             Closing += delegate(object sender,System.ComponentModel.CancelEventArgs e) { if(!quitting) { e.Cancel=true; HideToTray(); } };
             Deactivated += delegate { Dispatcher.BeginInvoke(new Action(delegate { if(!IsActive&&!dragging&&!actionDialog&&!selectionRequest&&!quitting) HideToTray(); }),DispatcherPriority.Background); };
+            duckyPolicyTimer.Interval=TimeSpan.FromSeconds(2);
+            duckyPolicyTimer.Tick+=delegate{var state=DuckyPolicyControl.Read();if(lastDuckyPolicyState!=null&&lastDuckyPolicyState!=state.State){if(state.State=="driver_unavailable")NotifyDucky("The profiled Ducky has no installed driver while its hold is armed.");else if(state.State=="off"&&(lastDuckyPolicyState=="armed"||lastDuckyPolicyState=="driver_unavailable"))NotifyDucky("Ducky hold rule removed. Reconnect the device.");}lastDuckyPolicyState=state.State;};
+            duckyPolicyTimer.Start();
         }
         var openSignal=new EventWaitHandle(false,EventResetMode.AutoReset,AppEventName);
         var openTimer=new DispatcherTimer { Interval=TimeSpan.FromMilliseconds(300) };
         openTimer.Tick += delegate { if(openSignal.WaitOne(0)) OpenFromTray(); };openTimer.Start();
-        Closed += delegate { closing = true; deadline.Stop(); openTimer.Stop(); openSignal.Dispose(); if(tray!=null) tray.Dispose(); runtimeClient.Dispose(); view.Dispose(); };
+        Closed += delegate { closing = true; deadline.Stop(); duckyPolicyTimer.Stop(); openTimer.Stop(); openSignal.Dispose(); if(tray!=null) tray.Dispose(); runtimeClient.Dispose(); view.Dispose(); };
     }
 
     void HideToTray() { try{if(view.CoreWebView2!=null)view.CoreWebView2.PostWebMessageAsJson("{\"kind\":\"vault-clear\"}");}catch{}ShowInTaskbar=false; Hide(); }
+    void NotifyDucky(string text){if(tray!=null&&!closing)tray.ShowBalloonTip(5000,"Sentinel USB Guard",text,System.Windows.Forms.ToolTipIcon.Info);}
+    void OpenDuckyControl(){
+        if(duckyWindow!=null){duckyWindow.Activate();return;}
+        if(actionDialog||selectionRequest)return;
+        actionDialog=true;
+        duckyWindow=new DuckyPolicyWindow(this,NotifyDucky);
+        duckyWindow.Closed+=delegate{duckyWindow=null;actionDialog=false;};
+        duckyWindow.Show();
+    }
     void OpenFromTray() { ShowInTaskbar=true; WindowState=WindowState.Normal; Show(); Activate(); }
 
     Button WindowButton(string glyph, string name, Action action)
@@ -235,6 +251,13 @@ public sealed class SentinelGlassConsole : Window
             id = request["id"] as string;
             string method = request["method"] as string;
             if (id == null || !System.Text.RegularExpressions.Regex.IsMatch(id, "^[a-zA-Z0-9_-]{1,64}$")) return;
+            if(method=="usb.ducky.open"){
+                var empty=request["data"] as Dictionary<string,object>;
+                if(empty==null||empty.Count!=0)throw new InvalidOperationException();
+                if(!IsVisible||!IsActive||selectionRequest){Reply(id,new{error="action_unavailable"});return;}
+                if(actionDialog&&duckyWindow==null){Reply(id,new{error="action_busy"});return;}
+                OpenDuckyControl();Reply(id,new{ok=true});return;
+            }
             string route = null;
             object data = request["data"];
             if(method=="window.drag") {

@@ -52,4 +52,18 @@ public static class SentinelDuckyEntry {
    }
   }
  }
+ public static void Arm(string path,string target,string nonce,bool machine,DateTime deadline){
+  Validate(path,target,nonce);
+  if(path.StartsWith("SOFTWARE\\Policies\\",StringComparison.Ordinal) && !machine)throw new InvalidOperationException("Machine hive required");
+  if(deadline.Kind!=DateTimeKind.Utc || deadline<=DateTime.UtcNow || deadline>DateTime.UtcNow.AddMinutes(6))throw new InvalidOperationException("Invalid arm deadline");
+  using(RegistryKey hive=Base(machine))using(RegistryKey key=hive.OpenSubKey(path,true)){
+   if(key==null || key.GetValueNames().Length!=3 || key.SubKeyCount!=1 || key.GetValueKind("SentinelOperation")!=RegistryValueKind.String || (string)key.GetValue("SentinelOperation")!=nonce || key.GetValueKind("DenyInstanceIDs")!=RegistryValueKind.DWord || (int)key.GetValue("DenyInstanceIDs")!=1 || key.GetValueKind("DenyInstanceIDsRetroactive")!=RegistryValueKind.DWord || (int)key.GetValue("DenyInstanceIDsRetroactive")!=1)throw new InvalidOperationException("Profile policy changed; arm refused");
+   using(RegistryKey list=key.OpenSubKey("DenyInstanceIDs",true)){
+    if(list==null || list.ValueCount!=0 || list.SubKeyCount!=0)throw new InvalidOperationException("Existing deny entries; arm refused");
+    if(deadline<=DateTime.UtcNow)throw new InvalidOperationException("Invalid arm deadline");
+    list.SetValue("1",target,RegistryValueKind.String);list.Flush();
+   }
+  }
+  if(deadline<=DateTime.UtcNow){Restore(path,target,nonce,machine);throw new InvalidOperationException("Arm deadline elapsed");}
+ }
 }
