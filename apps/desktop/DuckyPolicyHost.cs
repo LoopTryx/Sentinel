@@ -87,10 +87,10 @@ public static class DuckyPolicyHost {
     Healthy(target);if(priorRecord!=null){string expected=Arguments(Recovery(source,Policy,target,nonce));Retire(retiringTask,expected);Retire(previousTask,expected);priorRecord["retiringTask"]=null;Save(desktopReceipt,priorRecord);}
     return 0;
    }
-   DuckyTaskState.AssertReady(priorRecord);
-   using(var list=Registry.LocalMachine.OpenSubKey(Policy+@"\DenyInstanceIDs")){if(list==null||list.ValueCount!=0)throw new InvalidOperationException("Release current hold before arming again");}
-   Refresh();
-   if(previousTask!=null){uint node,status,problem;if(CM_Locate_DevNode(out node,target,0)!=0||CM_Get_DevNode_Status(out status,out problem,node,0)!=0||problem!=0)throw new InvalidOperationException("Reconnect the released device before arming again");}
+   stage=42;DuckyTaskState.AssertReady(priorRecord);
+   stage=43;using(var list=Registry.LocalMachine.OpenSubKey(Policy+@"\DenyInstanceIDs")){if(list==null||list.ValueCount!=0)throw new InvalidOperationException("Release current hold before arming again");}
+   stage=44;Refresh();
+   stage=45;if(previousTask!=null){uint node,status,problem;if(CM_Locate_DevNode(out node,target,0)!=0||CM_Get_DevNode_Status(out status,out problem,node,0)!=0||problem!=0)throw new InvalidOperationException("Reconnect the released device before arming again");}
    string probeNonce=Guid.NewGuid().ToString("N"),probePath=@"SOFTWARE\Sentinel\DuckyPolicyProbe\"+probeNonce,probeTask="Sentinel-Ducky-App-Probe-"+probeNonce;
    stage=32;Schedule(probeTask,Recovery(source,probePath,target,probeNonce),DateTime.UtcNow.AddSeconds(3));
    stage=33;SentinelDuckyEntry.Apply(probePath,target,probeNonce,true,0);
