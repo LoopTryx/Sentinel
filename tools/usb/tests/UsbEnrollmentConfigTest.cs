@@ -70,12 +70,20 @@ internal static class UsbEnrollmentConfigTest {
    stage=6;string committed=Path.Combine(fixture,"enrollment.bin");byte[] saved=File.ReadAllBytes(committed);byte[] damaged=(byte[])saved.Clone();damaged[damaged.Length-1]^=1;File.WriteAllBytes(committed,damaged);
    Refuses(()=>{using(var failed=new UsbEnrollmentConfig(fixture)){} });File.WriteAllBytes(committed,saved);
    stage=7;using(var store=new UsbEnrollmentConfig(fixture)){Require(store.ReadCommitted().Generation==2&&store.ReadCommitted().ApprovedExternal.Length==1);}
+   stage=8;using(var stores=new UsbAdmissionNativeStores(fixture)){
+    Require(stores.ReadCommitted().Generation==2&&stores.Read()==null);
+    byte[] policy;using(var memory=new MemoryStream())using(var writer=new BinaryWriter(memory,Encoding.ASCII)){string id="USB\\SYNTHETIC\\PRIVATE";writer.Write(Encoding.ASCII.GetBytes("SNTINP03"));writer.Write((byte)1);writer.Write((byte)id.Length);writer.Write(Encoding.ASCII.GetBytes(id));writer.Flush();policy=memory.ToArray();}
+    DateTime now=DateTime.UtcNow;var intent=new UsbAdmissionJournal.Record(new string('a',32),now,now.AddMinutes(2),new string('b',64),policy);stores.Arm(intent);
+    // Recovery can reopen intent while the native operator/store adapter lives.
+    using(var independent=new UsbAdmissionJournal(fixture)){Require(independent.Read().Nonce==intent.Nonce);}
+    stores.ClearAfterVerifiedRestore(intent.Nonce);Require(stores.Read()==null);
+   }
    passed=true;
   }catch{passed=false;}
   finally{
    if(created)try{
     Require(Path.GetDirectoryName(fixture)==root&&(File.GetAttributes(fixture)&FileAttributes.ReparsePoint)==0);
-    foreach(string name in new[]{"enrollment.bin","enrollment.pending",".enrollment.lock"}){string exact=Path.Combine(fixture,name);if(File.Exists(exact)){Require((File.GetAttributes(exact)&FileAttributes.ReparsePoint)==0);File.Delete(exact);}}
+    foreach(string name in new[]{"enrollment.bin","enrollment.pending",".enrollment.lock","admission.bin"}){string exact=Path.Combine(fixture,name);if(File.Exists(exact)){Require((File.GetAttributes(exact)&FileAttributes.ReparsePoint)==0);File.Delete(exact);}}
     if(fixturePin!=null){fixturePin.Dispose();fixturePin=null;}Directory.Delete(fixture,false);
    }catch{passed=false;stage=99;}
    if(fixturePin!=null)fixturePin.Dispose();if(basePin!=null)basePin.Dispose();if(passed)stage=0;try{Receipt(passed?"complete":"failed");}catch{passed=false;}

@@ -1,7 +1,7 @@
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 $framework=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319'
-$sources=@('tools/usb/tests/UsbEnrollmentConfigTest.cs','tools/usb/UsbEnrollmentConfig.cs','tools/usb/DuckyPolicyJournal.cs')|ForEach-Object{Join-Path $root $_}
+$sources=@('tools/usb/tests/UsbEnrollmentConfigTest.cs','tools/usb/UsbEnrollmentConfig.cs','tools/usb/DuckyPolicyJournal.cs','tools/usb/UsbAdmissionNativeStores.cs','tools/usb/UsbAdmissionJournal.cs','tools/usb/UsbAdmissionTransaction.cs')|ForEach-Object{Join-Path $root $_}
 $native=Join-Path $root 'artifacts/Sentinel.EnrollmentConfigQualification.exe'
 & (Join-Path $framework 'csc.exe') /nologo /target:winexe /platform:x64 /main:UsbEnrollmentConfigTest ('/out:'+$native) ('/win32manifest:'+(Join-Path $root 'apps/desktop/password-approval.manifest')) $sources
 if($LASTEXITCODE -ne 0){throw 'Enrollment qualification build failed'}
