@@ -50,3 +50,7 @@ Added semantic email request patterns, truthful per-provider reader status, warn
 ## 15 October — email warning frame and mascot footer
 
 Owner requested replacing the squeezed Gmail side warning with a frame around the email and warning below its body. Implemented deep-navy footer text, bright red gradient, blue-investigate mascot left and red-alert mascot right. Provider flex layout and message nodes stay intact; owned frame/footer clean up on reanalysis or disable. Checked wide and 390px synthetic previews plus DOM/data-preservation regressions. New extension test ZIP v10 / manifest 0.2.5 preserves v9 and the owner’s extracted v9 folder. Detection quality limits remain unchanged.
+
+## 15 October — stronger red radial footer
+
+Owner requested darker outer red, lighter central ring, better edge padding and a thicker email frame using ui-styling/ui-ux-pro-max. Footer uses a static radial gradient; spacing uses 16px insets/top gap and the frame increases from 2px to 3px with a closer offset. Navy text, mascots, message DOM and detection behavior are preserved. Checked 375px browser preview and existing UI regressions. New test package v11 / manifest 0.2.6; previous downloads preserved.
