@@ -14,14 +14,37 @@ const MAX_APPROVALS: usize = 32;
 const MAX_ENTRIES: usize = MAX_APPROVALS + 7;
 const MAX_ENCODED: usize = 4072; // 4096-byte durable record minus recovery's 24-byte header.
 const MAX_ID: usize = 200;
-const MAGIC: &[u8; 8] = b"SNTINP01";
+const MAGIC: &[u8; 8] = b"SNTINP02";
+const LEGACY_MAGIC: &[u8; 8] = b"SNTINP01";
+const USB_MAGIC: &[u8; 8] = b"SNTINP03";
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Scope {
+    KeyboardMouse,
+    LegacyAllHid,
+    UsbHid,
+}
 
 /// Trusted native enumeration/approval supplies exact instance IDs, never a
 /// browser-provided allowlist. No Debug/serialization exposes those identifiers.
 pub struct InputPolicy {
     approved: Vec<String>,
+    scope: Scope,
+}
+
+/// Compile a bounded policy record into its canonical versioned owned delta.
+/// Read-only: this does not authenticate a caller or mutate Windows policy.
+pub fn entries_from_record(record: &[u8]) -> Result<Vec<Entry>, Error> {
+    Ok(InputPolicy::decode(record)?.entries())
 }
 impl InputPolicy {
+    /// Candidate USB HID compatible-ID restriction. Approvals must come from
+    /// authenticated native enrollment; syntactically valid IDs are not trust.
+    pub fn usb_hid(ids: &[&str]) -> Result<Self, Error> {
+        let mut policy = Self::new(ids)?;
+        policy.scope = Scope::UsbHid;
+        Ok(policy)
+    }
     pub fn new(ids: &[&str]) -> Result<Self, Error> {
         if ids.is_empty() || ids.len() > MAX_APPROVALS {
             return Err(Error::Invalid);
@@ -43,14 +66,21 @@ impl InputPolicy {
         if 9 + approved.iter().map(|id| 1 + id.len()).sum::<usize>() > MAX_ENCODED {
             return Err(Error::Invalid);
         }
-        Ok(Self { approved })
+        Ok(Self {
+            approved,
+            scope: Scope::KeyboardMouse,
+        })
     }
     fn encode(&self, out: &mut [u8]) -> Result<usize, Error> {
         let size = 9 + self.approved.iter().map(|id| 1 + id.len()).sum::<usize>();
         if out.len() < size || size > MAX_ENCODED {
             return Err(Error::Invalid);
         }
-        out[..8].copy_from_slice(MAGIC);
+        out[..8].copy_from_slice(match self.scope {
+            Scope::KeyboardMouse => MAGIC,
+            Scope::LegacyAllHid => LEGACY_MAGIC,
+            Scope::UsbHid => USB_MAGIC,
+        });
         out[8] = self.approved.len() as u8;
         let mut offset = 9;
         for id in &self.approved {
@@ -63,7 +93,7 @@ impl InputPolicy {
     }
     fn decode(bytes: &[u8]) -> Result<Self, Error> {
         if !(9..=MAX_ENCODED).contains(&bytes.len())
-            || &bytes[..8] != MAGIC
+            || (&bytes[..8] != MAGIC && &bytes[..8] != LEGACY_MAGIC && &bytes[..8] != USB_MAGIC)
             || !(1..=MAX_APPROVALS as u8).contains(&bytes[8])
         {
             return Err(Error::Corrupt);
@@ -80,7 +110,13 @@ impl InputPolicy {
         if offset != bytes.len() {
             return Err(Error::Corrupt);
         }
-        Self::new(&ids).map_err(|_| Error::Corrupt)
+        let mut policy = Self::new(&ids).map_err(|_| Error::Corrupt)?;
+        if &bytes[..8] == LEGACY_MAGIC {
+            policy.scope = Scope::LegacyAllHid;
+        } else if &bytes[..8] == USB_MAGIC {
+            policy.scope = Scope::UsbHid;
+        }
+        Ok(policy)
     }
     fn entries(&self) -> Vec<Entry> {
         let mut entries = Vec::with_capacity(8 + self.approved.len());
@@ -89,26 +125,32 @@ impl InputPolicy {
         for (i, id) in self.approved.iter().enumerate() {
             entries.push(Entry::text("AllowInstanceIDs", &(i + 1).to_string(), id));
         }
-        for (i, class) in [
+        let classes = [
             "{745a17a0-74d3-11d0-b6fe-00a0c90f57da}", // HIDClass
             "{4d36e96b-e325-11ce-bfc1-08002be10318}", // Keyboard
             "{4d36e96f-e325-11ce-bfc1-08002be10318}", // Mouse
-        ]
-        .iter()
-        .enumerate()
-        {
+        ];
+        let classes = match self.scope {
+            Scope::LegacyAllHid => &classes[..],
+            Scope::KeyboardMouse => &classes[1..],
+            Scope::UsbHid => &classes[0..0],
+        };
+        for (i, class) in classes.iter().enumerate() {
             entries.push(Entry::text(
                 "DenyDeviceClasses",
                 &(i + 1).to_string(),
                 class,
             ));
         }
-        for name in [
-            "AllowDenyLayered",
-            "AllowInstanceIDs",
-            "DenyDeviceClassesRetroactive",
-            "DenyDeviceClasses",
-        ] {
+        if self.scope == Scope::UsbHid {
+            entries.push(Entry::text("DenyDeviceIDs", "1", "USB\\Class_03"));
+        }
+        let (retroactive, deny) = if self.scope == Scope::UsbHid {
+            ("DenyDeviceIDsRetroactive", "DenyDeviceIDs")
+        } else {
+            ("DenyDeviceClassesRetroactive", "DenyDeviceClasses")
+        };
+        for name in ["AllowDenyLayered", "AllowInstanceIDs", retroactive, deny] {
             entries.push(Entry {
                 key: String::new(),
                 name: name.to_owned(),
@@ -268,7 +310,8 @@ pub struct RestrictiveApprovalBackend<R: Registry> {
 }
 impl<R: Registry> RestrictiveApprovalBackend<R> {
     pub fn new(registry: R, baseline: InputPolicy, next: InputPolicy) -> Result<Self, Error> {
-        if next.approved.len() <= baseline.approved.len()
+        if next.scope != baseline.scope
+            || next.approved.len() <= baseline.approved.len()
             || !next.approved.starts_with(&baseline.approved)
             || 18 + next.approved.iter().map(|id| 1 + id.len()).sum::<usize>() > MAX_ENCODED
         {
@@ -289,7 +332,9 @@ impl<R: Registry> RestrictiveApprovalBackend<R> {
             return Err(Error::Corrupt);
         }
         let ids: Vec<_> = next.approved[..count].iter().map(String::as_str).collect();
-        Ok((InputPolicy::new(&ids).map_err(|_| Error::Corrupt)?, next))
+        let mut baseline = InputPolicy::new(&ids).map_err(|_| Error::Corrupt)?;
+        baseline.scope = next.scope;
+        Ok((baseline, next))
     }
 }
 impl<R: Registry> Backend for RestrictiveApprovalBackend<R> {
@@ -305,7 +350,9 @@ impl<R: Registry> Backend for RestrictiveApprovalBackend<R> {
     }
     fn apply_if_unchanged(&mut self, record: &[u8]) -> Result<(), Error> {
         let (baseline, next) = Self::decode(record)?;
-        if baseline.approved != self.baseline.approved
+        if baseline.scope != self.baseline.scope
+            || next.scope != self.inner.policy.scope
+            || baseline.approved != self.baseline.approved
             || next.approved != self.inner.policy.approved
         {
             return Err(Error::Conflict);

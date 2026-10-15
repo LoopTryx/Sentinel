@@ -89,7 +89,7 @@ public static class SentinelDuckyLocalGpo {
   }
  }
  static void Sta(Action action){Exception failure=null;var thread=new Thread(()=>{try{action();}catch(Exception e){failure=e;}});thread.SetApartmentState(ApartmentState.STA);thread.Start();thread.Join();if(failure!=null)throw new InvalidOperationException("Local policy operation failed",failure);}
- static void Session(bool readOnly,Action<RegistryKey,Action> action){
+ internal static void Session(bool readOnly,Action<RegistryKey,Action> action){
   Sta(()=>{
    using(var mutex=new Mutex(false,@"Global\SentinelDuckyLocalGpo")){
    bool acquired=false;
@@ -114,7 +114,7 @@ public static class SentinelDuckyLocalGpo {
    }
   });
  }
- static string Digest(RegistryKey root,string excluded){
+ internal static string Digest(RegistryKey root,string excluded){
   var values=new SortedDictionary<string,string>(StringComparer.Ordinal);
   var paths=new Queue<string>();paths.Enqueue("");int keys=0,total=0;
   while(paths.Count>0){

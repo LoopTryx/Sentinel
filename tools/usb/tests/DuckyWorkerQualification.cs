@@ -72,21 +72,22 @@ class DuckyWorkerQualification {
   foreach(dynamic running in service.GetRunningTasks(1))foreach(var item in owned)if((string)running.Path=="\\"+item.Name)return false;
   return LockFree(@"Global\SentinelDuckyLocalGpo");
  }
- static int QualifyNativeGpo(string image,string nonce){
+ static int QualifyNativeGpo(string image,string nonce,bool general){
+  string prefix=general?"general-":"private-",receiptFlag=general?"NativeGeneralSavedRecovery":"NativePrivateSavedRecovery";
   dynamic service=null,folder=null;var owned=new List<ProbeTask>();ProbeTask recovery=null;bool armed=false;int failure=0;
   try{
    service=Activator.CreateInstance(Type.GetTypeFromProgID("Schedule.Service"));service.Connect();folder=service.GetFolder("\\");
    stage=40;Record(nonce,stage,"pending",0,0);
-   using(var key=Registry.LocalMachine.CreateSubKey(Receipt)){key.SetValue("NativePrivateSavedRecovery",0,RegistryValueKind.DWord);}
-   var baseline=RegisterPrivate(service,folder,image,nonce,"private-baseline",owned,false);WaitPrivate(folder,baseline,true);
-   stage=41;recovery=RegisterPrivate(service,folder,image,nonce,"private-release",owned,true);
-   stage=42;var hold=RegisterPrivate(service,folder,image,nonce,"private-hold",owned,false,recovery.RecoveryAtUtc);armed=true;WaitPrivate(folder,hold,true);
-   stage=43;var held=RegisterPrivate(service,folder,image,nonce,"private-held",owned,false,recovery.RecoveryAtUtc);WaitPrivate(folder,held,true);
+   using(var key=Registry.LocalMachine.CreateSubKey(Receipt)){key.SetValue(receiptFlag,0,RegistryValueKind.DWord);}
+   var baseline=RegisterPrivate(service,folder,image,nonce,prefix+"baseline",owned,false);WaitPrivate(folder,baseline,true);
+   stage=41;recovery=RegisterPrivate(service,folder,image,nonce,prefix+"release",owned,true);
+   stage=42;var hold=RegisterPrivate(service,folder,image,nonce,prefix+"hold",owned,false,recovery.RecoveryAtUtc);armed=true;WaitPrivate(folder,hold,true);
+   stage=43;var held=RegisterPrivate(service,folder,image,nonce,prefix+"held",owned,false,recovery.RecoveryAtUtc);WaitPrivate(folder,held,true);
    if(DateTime.UtcNow>=recovery.RecoveryAtUtc)throw new InvalidOperationException("Hold verification missed independent recovery deadline");
    stage=44;WaitPrivate(folder,recovery,false); // Independently triggered; broker does not start it.
-   stage=45;var verify=RegisterPrivate(service,folder,image,nonce,"private-released",owned,false);WaitPrivate(folder,verify,true);
+   stage=45;var verify=RegisterPrivate(service,folder,image,nonce,prefix+"released",owned,false);WaitPrivate(folder,verify,true);
    using(var check=Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Sentinel\DuckyWorkerQualification\Checks\"+nonce))if(check==null||(int)check.GetValue("HeldVerified",0)!=1||(int)check.GetValue("ReleaseVerified",0)!=1)throw new InvalidOperationException("Private verification receipt missing");
-   using(var key=Registry.LocalMachine.CreateSubKey(Receipt)){key.SetValue("NativePrivateSavedRecovery",1,RegistryValueKind.DWord);key.Flush();}
+   using(var key=Registry.LocalMachine.CreateSubKey(Receipt)){key.SetValue(receiptFlag,1,RegistryValueKind.DWord);key.Flush();}
   }catch{failure=stage;}
   finally{
    try{if(owned.Count>0){
@@ -99,7 +100,7 @@ class DuckyWorkerQualification {
      if(recovery==null)throw new InvalidOperationException("Private recovery unavailable");
      WaitPrivate(folder,recovery,true);
      // A new verifier task cannot reuse an old ReleaseVerified receipt or run.
-     var cleanupVerify=RegisterPrivate(service,folder,image,nonce,"private-released",owned,false);
+     var cleanupVerify=RegisterPrivate(service,folder,image,nonce,prefix+"released",owned,false);
      WaitPrivate(folder,cleanupVerify,true);
 
     }
@@ -114,13 +115,13 @@ class DuckyWorkerQualification {
   return failure;
  }
  public static int Main(string[] args){
-  if(args.Length>1||(args.Length==1&&args[0]!="private-gpo"))return 10;
+  if(args.Length>1||(args.Length==1&&args[0]!="private-gpo"&&args[0]!="general-gpo"))return 10;
   if(!new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator))return 11;
   if(args.Length==1){
    if(Process.GetProcessesByName("mmc").Length!=0)return 12;
    using(var key=Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Policies\Microsoft\Windows\DeviceInstall\Restrictions\DenyInstanceIDs"))if(key!=null&&key.ValueCount!=0)return 13;
   }
-  using(var key=Registry.LocalMachine.CreateSubKey(Receipt)){key.SetValue("Scenario",args.Length==0?"system-containment":"native-private-gpo");}
+  using(var key=Registry.LocalMachine.CreateSubKey(Receipt)){key.SetValue("Scenario",args.Length==0?"system-containment":args[0]=="general-gpo"?"native-general-private-gpo":"native-private-gpo");}
   string nonce=Guid.NewGuid().ToString("N"),taskName="Sentinel-Ducky-Worker-Qualification-"+nonce,workerArgs=null,lateArgs=null,image=null;
   dynamic service=null,folder=null;bool registered=false;int result=0,seconds=0,elapsed=0;SentinelPolicyDirectory anchor=null;FileStream pinned=null;
   try{
@@ -136,7 +137,7 @@ class DuckyWorkerQualification {
     // Retain deny-write/delete handle across registration, execution and cleanup.
     pinned=new FileStream(image,FileMode.Open,FileAccess.Read,FileShare.Read);{
      using(var memory=new MemoryStream()){pinned.CopyTo(memory);if(Hash(memory.ToArray())!=Hash(bytes))throw new InvalidOperationException("Worker image changed");}
-     if(args.Length==1){result=QualifyNativeGpo(image,nonce);return result;}
+     if(args.Length==1){result=QualifyNativeGpo(image,nonce,args[0]=="general-gpo");return result;}
      stage=13;
      using(var rootMutex=new Mutex(false,@"Global\SentinelDuckyLocalGpo"))using(var childMutex=new Mutex(false,@"Global\Sentinel-Ducky-Worker-Test-"+nonce+"-child-mutex"))
      using(var rootReady=new EventWaitHandle(false,EventResetMode.ManualReset,@"Global\Sentinel-Ducky-Worker-Test-"+nonce+"-root-ready"))using(var childReady=new EventWaitHandle(false,EventResetMode.ManualReset,@"Global\Sentinel-Ducky-Worker-Test-"+nonce+"-child-ready")){

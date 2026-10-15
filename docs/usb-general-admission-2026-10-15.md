@@ -1,0 +1,48 @@
+# General USB input admission — implementation and acceptance record
+
+15 October 2026. Engineer A, issue12/PR74 continuation. Owner explicitly authorizes controlled tests on this computer, overriding the repository's daily-machine test restriction for this work. This does not authorize Defender exclusions, unrelated devices/hubs, E: access, unsafe recovery or fabricated enforcement evidence.
+
+## Product decision
+
+The owner's final selection is authoritative: external devices must remain pending until approved in USB Guard. Do NOT preapprove the current mouse, receiver or RP2040 in a setup script. Built-in system-input exceptions are a separate safety concept, not user approval. No external approval was persisted by this increment.
+
+The original class-based policy is too broad for a USB-only goal. The preferred candidate is pre-applied layered installation admission matching native USB HID compatibleID `USB\Class_03`, with exact-instance exceptions at the actual matching USB interface. This leaves nonUSB controls outside the matching rule; any internal USB HID interfaces still require protected, current topology enrollment. Composite HID/storage/network functions must stay separate. This is identification-based admission, not cryptographic peripheral identity or a malware verdict. Nonstandard vendor-driver input paths need separate declared support.
+
+Microsoft documents compatible-ID denial, retroactive application to existing instances and layered instance-allow precedence. This mechanism must be active before arrivals; a popup/raw-input listener cannot retroactively prevent the first keystroke. A signed per-device input filter remains an alternative backend for dynamic packet gating, with separate WDK/signing/deployment work.
+
+## Implemented source
+
+- `crates/sentinel-usb/src/policy.rs`: authoritative versioned compiler. V1 SNTINP01 retains original3class recovery; V2 SNTINP02 scopes Keyboard/Mouse; V3 SNTINP03 USB-compatible HID rule. Restrictive approvals cannot cross scopes. `entries_from_record(&[u8]) -> Result<Vec<Entry>,Error>` compiles bounded records without OS mutations.
+- `src/policy/windows.rs`: accepts bounded V3 DenyDeviceIDs list/index and flags while preserving legacy recovery parsing. It is still an effective-registry provider, not saved-GPO enforcement evidence.
+- `src/bin/sentinel-usb-policy-plan.rs`: bounded binary compiler stdin<=4072bytes -> stdout SNTPLAN1, no command arguments, no mutation or rawidentity logs. Invalid input exit2 with fixed message. Transport: magic8bytes, u16entrycount, each u8keylen/u8namelen/u32kind/u16datalen followed by key/name/data; all littleendian. Output<=32768bytes.
+- `tools/usb/UsbSavedAdmissionEntry.cs`: native decoder and private saved-policy staging. Validates canonical flags/classes/USB rule, dense allow indices, exact nonempty IDs, deduplication and types; clones input before edits. Own-nonce checks, foreign-drift refusal, exact saved deletion instructions, interrupted-edit recovery. Default API refuses live DeviceInstall paths.
+- `UsbAdmissionSavedGpo.cs`: private general saved-GPO editor/state reader using the same COM/STA serialized session as the qualified Ducky persistence library. It has no live general admission command.
+- `UsbAdmissionPreflight.cs`: bounded read-only full topology/USB-interface evidence; instance IDs remain in memory. `EvaluateUsbHid` selects actual USB subjects whose native compatibleIDs include exact USB\Class_03, not inferred HID children. Internal candidates versus external approval needs stay separate. Topology token is canonical lowercase SHA256. Collection is soft-bounded and native calls need an external process timeout.
+- `UsbAdmissionJournal.cs`: protected admin/SYSTEM-only durable operation intent, exclusive file/dir pins, lock-serialized access, scope3 validation, exact flush/readback, corrupt/active/stale-clear refusal and deadline/backward-clock recovery semantics. Integrity checksum does not authenticate callers; deployment must keep trusted ancestor pins and authenticate native authority.
+- Native qualification fixtures exercise the above under bounded SYSTEM jobs and independent timed recovery. They accept no arbitrary real-device identifiers.
+
+## Executed evidence
+
+- TDD: reproduced missing general entry adapter and compiler-bridge method, broad default class scope/legacy migration regressions, and native validation gaps (empty components/duplicate IDs) before fixes.
+- General Rust policy regressions including all partial-write prefixes and legacy recovery pass; full native USB crate tests pass after sandbox-only privateHKCU access errors were rerun with native access.
+- Real Rust binary -> native decoder PASS, malformed/trailing input refused. PrivateHKCU entry apply/release, interrupted edits and foreign drift PASS.
+- Native general SYSTEM saved-GPO trial completed State=complete,Stage=0,NativeGeneralSavedRecovery=1. It applied and verified all six compiled rule values ONLY under SOFTWARE\Sentinel\UsbAdmissionProbe\<nonce>, independently released, freshly verified release, and completed fresh cleanup. Unrelated policy digest matched; broker exited. No live DeviceInstall rule was written.
+- Native protected journal qualification completed State=complete,Stage=0,exit0. Independent review caught a TEMP directory replacement attack in the initial fixture; fixed to validated protected ProgramData base with retained pins before execution. Unsafe older PowerShell native test path was removed entirely.
+- Read-only USB-specific machine preflight completed in26.5s/39propertyqueries:2internal-port candidates,4externalinterfaces,0unresolved. Readable physical groups: ITE Device(8258),USB Optical Mouse,2.4G Receiver,RP2040-Zero. These observations are NOT enrollment or approval.
+- Full unchanged tools/verify.ps1 PASS, artifacts/usb-general-admission-verify.log. Generated contracts unchanged. Independent reviews qualify private foundation/trials only, not installed general protection.
+
+## Required operational continuation
+
+1. Build protected native baseline enrollment for internal safety exceptions, with live topology revalidation. Keep ALL external subjects pending; approval must be an explicit USB Guard operation.
+2. Wire authoritative native caller authentication and existing per-connection/action approval into a bounded broker; renderer-provided identifiers/consent booleans cannot grant authority. Existing signature verifier is a seam, not yet a production transport.
+3. Connect native protected journal/compiled plan to live saved-GPO apply/recovery, migrate prior owned Ducky actions without replaying flagged encoded recovery, and qualify independent SYSTEM recovery from the production journal after crash/restart/sleep. Never merge administrator/MDM/foreign policy blindly.
+4. Connect USB Guard cards and notifications to actual native results: pending approval, system exempt, applying, confirmed denied, allowed, disconnected, conflict, unavailable/restart required. `policy saved` is not `input blocked`. Allow once binds the connection generation and does not silently grant storage/network functions.
+5. Actual controlled acceptance: built-in controls preserved; unapproved receiver/mouse/Ducky denied according to supported scope; approve each in USB Guard and verify input; revoke/reconnect and verify denial; manual and timed recovery restore expected state without reboot; fresh/repeated arrivals and resumed Windows tested. A silent firmware baseline is not evidence of blocking.
+6. Build/install reviewed candidate, repeat supported journeys, publish exact evidence, then coordinator integration. No completion percentage, installed protection or universalfirst-key claim follows from private tests.
+
+Sources:
+- https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-deviceinstallation
+- https://learn.microsoft.com/en-us/windows/client-management/manage-device-installation-with-group-policy
+- https://learn.microsoft.com/en-us/windows-hardware/drivers/devtest/pnputil-examples
+- https://learn.microsoft.com/en-us/windows-hardware/drivers/hid/keyboard-and-mouse-hid-client-drivers
+- https://learn.microsoft.com/en-us/windows-hardware/drivers/install/kernel-mode-code-signing-policy--windows-vista-and-later-

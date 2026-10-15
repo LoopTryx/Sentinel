@@ -1,4 +1,4 @@
-param([switch]$BuildOnly)
+param([switch]$BuildOnly,[switch]$General)
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 Add-Type -Path (Join-Path $root 'tools/usb/DuckyWorkerLease.cs')
@@ -12,7 +12,17 @@ using System.Text.RegularExpressions;
 using System.Security.Principal;
 using Microsoft.Win32;
 class DuckyWorkerHangFixture {
+ static bool Effective(string nonce,byte[] plan,bool held){
+  foreach(var value in UsbSavedAdmissionEntry.DecodePlan(plan))using(var key=Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Sentinel\UsbAdmissionProbe\"+nonce+(value.Key==""?"":"\\"+value.Key))){
+   object actual=key==null?null:key.GetValue(value.Name,null);
+   if(!held){if(actual!=null)return false;}
+   else if(value.Kind==4){if(!(actual is int)||(int)actual!=1)return false;}
+   else if(!(actual is string)||(string)actual!=System.Text.Encoding.Unicode.GetString(value.Data).TrimEnd('\0'))return false;
+  }return true;
+ }
  static int Main(string[] args){
+  bool general=args.Length>0&&args[0].StartsWith("general-",StringComparison.Ordinal);
+  if(general){args=(string[])args.Clone();args[0]="private-"+args[0].Substring(8);}
   bool privateMode=args.Length>0&&(args[0]=="private-baseline"||args[0]=="private-hold"||args[0]=="private-release"||args[0]=="private-held"||args[0]=="private-released");
   if((args.Length!=5&&args.Length!=6)||(!privateMode&&args[0]!="root"&&args[0]!="child")||!Regex.IsMatch(args[1],"\\A[0-9a-f]{32}\\z"))return 10;
   bool system=args.Length==6;if(system&&(args[5]!="system"||!WindowsIdentity.GetCurrent().IsSystem))return 11;
@@ -25,25 +35,28 @@ class DuckyWorkerHangFixture {
   }
   if(privateMode){
    try{
+    byte[] plan=null;if(general){using(var resource=Assembly.GetExecutingAssembly().GetManifestResourceStream("Sentinel.Admission.Plan"))using(var memory=new System.IO.MemoryStream()){resource.CopyTo(memory);plan=memory.ToArray();}}
     string receipt=@"SOFTWARE\Sentinel\DuckyWorkerQualification\Checks\"+args[1],digest;
     if(args[0]=="private-hold"||args[0]=="private-release"){
-     SentinelDuckyLocalGpo.EditPrivateProbe(args[1],args[0]=="private-hold");
+     if(general)UsbAdmissionSavedGpo.EditPrivate(args[1],plan,args[0]=="private-hold");else SentinelDuckyLocalGpo.EditPrivateProbe(args[1],args[0]=="private-hold");
      using(var p=Process.Start(new ProcessStartInfo(System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"gpupdate.exe"),"/target:computer /force /wait:20"){UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true})){
       var output=p.StandardOutput.ReadToEndAsync();var error=p.StandardError.ReadToEndAsync();if(!p.WaitForExit(25000)||p.ExitCode!=0)return 24;
      }
     }
-    string state=SentinelDuckyLocalGpo.PrivateProbeState(args[1],out digest);
+    string state=general?UsbAdmissionSavedGpo.PrivateState(args[1],plan,out digest):SentinelDuckyLocalGpo.PrivateProbeState(args[1],out digest);
     using(var key=Registry.LocalMachine.CreateSubKey(receipt)){
      if(args[0]=="private-baseline"){if(state!="missing")return 21;key.SetValue("Baseline",digest);}
      else {if((string)key.GetValue("Baseline",null)!=digest)return 22;}
      if(args[0]=="private-held"){
       if(state!="armed")return 23;
-      using(var effective=Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Sentinel\DuckyGpoProbe\"+args[1]+@"\DenyInstanceIDs"))if(effective==null||(string)effective.GetValue("1",null)!=@"USB\VID_0001&PID_0001\PRIVATE-PROBE")return 25;
+      if(!general)using(var effective=Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Sentinel\DuckyGpoProbe\"+args[1]+@"\DenyInstanceIDs"))if(effective==null||(string)effective.GetValue("1",null)!=@"USB\VID_0001&PID_0001\PRIVATE-PROBE")return 25;
+      if(general&&!Effective(args[1],plan,true))return 25;
       key.SetValue("HeldVerified",1,RegistryValueKind.DWord);
      }
      if(args[0]=="private-released"){
       if(state!="released")return 23;
-      using(var effective=Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Sentinel\DuckyGpoProbe\"+args[1]+@"\DenyInstanceIDs"))if(effective!=null&&effective.GetValue("1",null)!=null)return 25;
+      if(!general)using(var effective=Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Sentinel\DuckyGpoProbe\"+args[1]+@"\DenyInstanceIDs"))if(effective!=null&&effective.GetValue("1",null)!=null)return 25;
+      if(general&&!Effective(args[1],plan,false))return 25;
       key.SetValue("ReleaseVerified",1,RegistryValueKind.DWord);
      }
      key.Flush();
@@ -62,7 +75,8 @@ class DuckyWorkerHangFixture {
 '@ | Set-Content $fixture
 $exe=Join-Path $root 'artifacts/DuckyWorkerHangFixture.exe'
 $csc=Join-Path $env:windir 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
-& $csc /nologo /target:winexe /platform:x64 ('/out:'+$exe) $fixture (Join-Path $root 'tools/usb/DuckyWorkerJob.cs') (Join-Path $root 'tools/usb/DuckyWorkerLease.cs') (Join-Path $root 'tools/usb/DuckyLocalGpo.cs')
+$resources=@();if($General){& "$PSScriptRoot/usb-admission-plan-bridge.ps1";$resources+=('/resource:'+(Join-Path $root 'artifacts/usb-admission-private-plan.bin')+',Sentinel.Admission.Plan')}
+& $csc @resources /nologo /target:winexe /platform:x64 ('/out:'+$exe) $fixture (Join-Path $root 'tools/usb/DuckyWorkerJob.cs') (Join-Path $root 'tools/usb/DuckyWorkerLease.cs') (Join-Path $root 'tools/usb/DuckyLocalGpo.cs') (Join-Path $root 'tools/usb/UsbSavedAdmissionEntry.cs') (Join-Path $root 'tools/usb/UsbAdmissionSavedGpo.cs')
 if($LASTEXITCODE -ne 0){throw 'Harmless worker fixture build failed'}
 if($BuildOnly){return}
 $nonce=[guid]::NewGuid().ToString('N')

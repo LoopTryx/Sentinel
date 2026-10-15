@@ -114,7 +114,7 @@ impl WindowsRegistry {
         Ok(held)
     }
     fn target(&self, name: &str, create: bool) -> Result<Option<Key>, Error> {
-        if !["", "AllowInstanceIDs", "DenyDeviceClasses"].contains(&name) {
+        if !["", "AllowInstanceIDs", "DenyDeviceClasses", "DenyDeviceIDs"].contains(&name) {
             return Err(Error::Invalid);
         }
         let Some(root) = self.root(create)? else {
@@ -130,8 +130,8 @@ impl WindowsRegistry {
 
 fn subkeys(key: &Key) -> Result<Vec<String>, Error> {
     let mut names = Vec::new();
-    // At most two allowed subkeys, plus one sentinel read to refuse extras.
-    for index in 0..3 {
+    // At most three allowed subkeys, plus one sentinel read to refuse extras.
+    for index in 0..4 {
         let mut buffer = [0u16; 65];
         let mut length = buffer.len() as u32;
         // SAFETY: fixed writable buffer/length; unused optional outputs are null.
@@ -205,17 +205,21 @@ fn valid_entry(entry: &Entry) -> bool {
             "AllowInstanceIDs",
             "DenyDeviceClassesRetroactive",
             "DenyDeviceClasses",
+            "DenyDeviceIDsRetroactive",
+            "DenyDeviceIDs",
         ]
         .contains(&entry.name.as_str())
             && entry.kind == REG_DWORD
             && entry.data == 1u32.to_le_bytes()
     } else {
-        ["AllowInstanceIDs", "DenyDeviceClasses"].contains(&entry.key.as_str())
+        ["AllowInstanceIDs", "DenyDeviceClasses", "DenyDeviceIDs"].contains(&entry.key.as_str())
             && entry.name.parse::<u8>().is_ok_and(|n| {
                 (1..=if entry.key == "AllowInstanceIDs" {
                     super::MAX_APPROVALS as u8
-                } else {
+                } else if entry.key == "DenyDeviceClasses" {
                     3
+                } else {
+                    1
                 })
                     .contains(&n)
                     && n.to_string() == entry.name
@@ -234,7 +238,7 @@ impl Registry for WindowsRegistry {
         let mut output = Vec::new();
         values(&root, "", &mut output)?;
         for name in subkeys(&root)? {
-            let canonical = ["AllowInstanceIDs", "DenyDeviceClasses"]
+            let canonical = ["AllowInstanceIDs", "DenyDeviceClasses", "DenyDeviceIDs"]
                 .into_iter()
                 .find(|known| known.eq_ignore_ascii_case(&name))
                 .ok_or(Error::Conflict)?;
@@ -326,6 +330,34 @@ mod tests {
         policy::{InputPolicy, PolicyBackend},
         recovery::Backend,
     };
+    #[test]
+    fn usb_hid_entry_validation_is_bounded_without_os_access() {
+        assert!(valid_entry(&Entry::text(
+            "DenyDeviceIDs",
+            "1",
+            "USB\\Class_03"
+        )));
+        for index in ["0", "2", "01"] {
+            assert!(!valid_entry(&Entry::text(
+                "DenyDeviceIDs",
+                index,
+                "USB\\Class_03"
+            )));
+        }
+        for name in ["DenyDeviceIDs", "DenyDeviceIDsRetroactive"] {
+            assert!(valid_entry(&Entry {
+                key: String::new(),
+                name: name.into(),
+                kind: REG_DWORD,
+                data: 1u32.to_le_bytes().to_vec()
+            }));
+        }
+        assert!(valid_entry(&Entry::text(
+            "DenyDeviceClasses",
+            "3",
+            "{4d36e96f-e325-11ce-bfc1-08002be10318}"
+        )));
+    }
     struct Fixture(String);
     impl Fixture {
         fn new() -> Self {
@@ -365,7 +397,7 @@ mod tests {
         let size = backend.capture_into(&mut record).unwrap();
         backend.apply_if_unchanged(&record[..size]).unwrap();
         backend.verify_applied().unwrap();
-        assert_eq!(fixture.registry().snapshot().unwrap().len(), 39);
+        assert_eq!(fixture.registry().snapshot().unwrap().len(), 38);
         backend.restore_if_owned(&record[..size]).unwrap();
         backend.verify_restored(&record[..size]).unwrap();
         let mut registry = fixture.registry();
