@@ -12,7 +12,7 @@ internal sealed class UsbAdmissionOwnerQualification : Form {
  readonly Label status=new Label();
  readonly System.Windows.Forms.Timer clock=new System.Windows.Forms.Timer();
  readonly System.Diagnostics.Stopwatch elapsed=System.Diagnostics.Stopwatch.StartNew();
- bool requested,ending,finished;Task<bool> operation;
+ bool requested,ending,finished;Task<UsbAdmissionAuthorization.Proof> operation;
  static void Receipt(string state){using(var key=Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Sentinel\UsbAdmissionOwnerQualification")){key.SetValue("State",state);}}
  UsbAdmissionOwnerQualification(){
   Text="Sentinel — Windows Hello verification";Width=530;Height=220;StartPosition=FormStartPosition.CenterScreen;FormBorderStyle=FormBorderStyle.FixedDialog;MaximizeBox=false;MinimizeBox=false;
@@ -30,9 +30,15 @@ internal sealed class UsbAdmissionOwnerQualification : Form {
   if(requested||ending)return;requested=true;verify.Enabled=false;status.Text="Complete Windows Hello verification.";
   try{
    // Same-process foreground HWND validation occurs inside the existing verifier.
-   operation=UsbOwnerVerification.Verify(Handle,"Sentinel: verify your identity for USB device approval.");
-   bool verified=await operation;
-   if(!ending)End(verified?"verified":"unavailable");
+   string owner;using(var identity=WindowsIdentity.GetCurrent())owner=identity.User.Value;
+   var binding=new UsbAdmissionAuthorization.Request(owner,0,new string('a',64),"initial-arm",new string('b',64));
+   operation=UsbAdmissionAuthorization.Verify(Handle,binding);
+   var proof=await operation;
+   if(!ending){
+    if(proof==null){End("unavailable");return;}
+    proof.Consume(binding);bool replayRefused=false;try{proof.Consume(binding);}catch(InvalidOperationException){replayRefused=true;}
+    End(replayRefused?"verified":"unavailable");
+   }
   }catch{if(!ending)End("unavailable");}
  }
  void End(string state){

@@ -2,7 +2,7 @@ $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 $framework=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319'
 $output=Join-Path $root 'artifacts/Sentinel.UsbAdmissionOwnerQualification.exe'
-& (Join-Path $framework 'csc.exe') /nologo /target:winexe /platform:x64 /main:UsbAdmissionOwnerQualification ('/out:'+$output) ('/win32manifest:'+(Join-Path $root 'apps/desktop/password-approval.manifest')) /reference:System.Windows.Forms.dll /reference:System.Drawing.dll ('/reference:'+(Join-Path $framework 'System.Runtime.WindowsRuntime.dll')) (Join-Path $root 'apps/desktop/UsbAdmissionOwnerQualification.cs') (Join-Path $root 'apps/desktop/UsbOwnerVerification.cs')
+& (Join-Path $framework 'csc.exe') /nologo /target:winexe /platform:x64 /main:UsbAdmissionOwnerQualification ('/out:'+$output) ('/win32manifest:'+(Join-Path $root 'apps/desktop/password-approval.manifest')) /reference:System.Windows.Forms.dll /reference:System.Drawing.dll ('/reference:'+(Join-Path $framework 'System.Runtime.WindowsRuntime.dll')) (Join-Path $root 'apps/desktop/UsbAdmissionOwnerQualification.cs') (Join-Path $root 'apps/desktop/UsbOwnerVerification.cs') (Join-Path $root 'apps/desktop/UsbAdmissionAuthorization.cs')
 if($LASTEXITCODE -ne 0){throw 'USB owner qualification build failed'}
 $regression=Join-Path $root 'artifacts/UsbAdmissionOwnerPendingTest.cs'
 @'
