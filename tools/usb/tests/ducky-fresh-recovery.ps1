@@ -34,4 +34,3 @@ $inputs=@('tools/usb/tests/DuckyWorkerQualification.cs','tools/usb/DuckyWorkerLe
 if($LASTEXITCODE -ne 0){throw 'Test compilation failed'}
 & $exe
 if($LASTEXITCODE -ne 0){throw 'Fresh recovery regression failed'}
-
