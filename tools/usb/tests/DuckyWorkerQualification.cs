@@ -11,7 +11,7 @@ using System.Threading;
 using System.Xml;
 using Microsoft.Win32;
 
-// Standalone benign SYSTEM qualification. No USB, policy-write or shell actions.
+// Standalone SYSTEM qualification. Private policy probes only; no DeviceInstall rules.
 class DuckyWorkerQualification {
  const string Receipt=@"SOFTWARE\Sentinel\DuckyWorkerQualification";
  static int stage=10;
@@ -33,24 +33,34 @@ class DuckyWorkerQualification {
   foreach(dynamic running in service.GetRunningTasks(1))if((string)running.Path=="\\"+name)return false;
   return LockFree(@"Global\SentinelDuckyLocalGpo")&&LockFree(@"Global\Sentinel-Ducky-Worker-Test-"+nonce+"-child-mutex");
  }
- sealed class ProbeTask {public string Name,Arguments,Image;public bool Recovery;public int Limit;public DateTime InitialLastRun;public dynamic Registered;}
- static ProbeTask RegisterPrivate(dynamic service,dynamic folder,string image,string nonce,string mode,List<ProbeTask> owned,bool recovery){
-  DateTime now=DateTime.UtcNow;var lease=DuckyWorkerLease.Create(now,now.AddSeconds(120),null);
-  var item=new ProbeTask{Name="Sentinel-Ducky-Gpo-Native-"+mode+"-"+nonce,Image=image,Limit=lease.Seconds,Arguments=mode+" "+nonce+" "+lease.Seconds+" "+lease.LatestStartUtc.Ticks+" "+lease.RecoveryDeadlineUtc.Ticks+" system",Recovery=recovery};
+ sealed class ProbeTask {public string Name,Arguments,Image;public bool Recovery;public int Limit;public DateTime InitialLastRun,RecoveryAtUtc;public dynamic Registered;}
+ static ProbeTask RegisterPrivate(dynamic service,dynamic folder,string image,string nonce,string mode,List<ProbeTask> owned,bool recovery,DateTime? outstanding=null){
+  DateTime now=DateTime.UtcNow;var lease=DuckyWorkerLease.Create(now,now.AddSeconds(120),outstanding);
+  var item=new ProbeTask{Name="Sentinel-Ducky-Gpo-Native-"+mode+"-"+nonce+"-"+Guid.NewGuid().ToString("N").Substring(0,8),Image=image,Limit=lease.Seconds,Arguments=mode+" "+nonce+" "+lease.Seconds+" "+lease.LatestStartUtc.Ticks+" "+lease.RecoveryDeadlineUtc.Ticks+" system",Recovery=recovery,RecoveryAtUtc=recovery?now.AddSeconds(90):DateTime.MinValue};
   dynamic definition=service.NewTask(0);definition.Principal.UserId="SYSTEM";definition.Principal.LogonType=5;definition.Principal.RunLevel=1;
   definition.Settings.ExecutionTimeLimit=lease.ExecutionTimeLimit;definition.Settings.AllowHardTerminate=true;definition.Settings.DisallowStartIfOnBatteries=false;definition.Settings.StopIfGoingOnBatteries=false;definition.Settings.StartWhenAvailable=recovery;definition.Settings.AllowDemandStart=true;definition.Settings.MultipleInstances=2;
-  if(recovery){dynamic trigger=definition.Triggers.Create(1);trigger.StartBoundary=now.AddSeconds(30).ToString("o");trigger.Enabled=true;}
+  if(recovery){dynamic trigger=definition.Triggers.Create(1);trigger.StartBoundary=item.RecoveryAtUtc.ToString("o");trigger.Enabled=true;}
   dynamic action=definition.Actions.Create(0);action.Path=image;action.Arguments=item.Arguments;
   item.Registered=folder.RegisterTaskDefinition(item.Name,definition,2,"SYSTEM",null,5,null);owned.Add(item);
   item.InitialLastRun=(DateTime)item.Registered.LastRunTime;
   if(!Matches(item.Registered,image,item.Arguments)||XmlConvert.ToTimeSpan((string)item.Registered.Definition.Settings.ExecutionTimeLimit).TotalSeconds!=lease.Seconds)throw new InvalidOperationException("Private task differs");
-  if(recovery){dynamic readback=item.Registered.Definition;if(readback.Triggers.Count!=1||readback.Triggers[1].Type!=1||!readback.Triggers[1].Enabled||!readback.Settings.StartWhenAvailable||Math.Abs((DateTime.Parse((string)readback.Triggers[1].StartBoundary).ToUniversalTime()-now.AddSeconds(30)).TotalSeconds)>1)throw new InvalidOperationException("Independent private trigger differs");}
+  if(recovery){dynamic readback=item.Registered.Definition;if(readback.Triggers.Count!=1||readback.Triggers[1].Type!=1||!readback.Triggers[1].Enabled||!readback.Settings.StartWhenAvailable||Math.Abs((DateTime.Parse((string)readback.Triggers[1].StartBoundary).ToUniversalTime()-item.RecoveryAtUtc).TotalSeconds)>1)throw new InvalidOperationException("Independent private trigger differs");}
   return item;
  }
  static void WaitPrivate(dynamic folder,ProbeTask item,bool start){
   dynamic task=folder.GetTask(item.Name);DateTime before=item.InitialLastRun;
   if(!Matches(task,item.Image,item.Arguments)||XmlConvert.ToTimeSpan((string)task.Definition.Settings.ExecutionTimeLimit).TotalSeconds!=item.Limit)throw new InvalidOperationException("Private task changed before execution");
-  if(start){if((DateTime)task.LastRunTime>before&&(int)task.State==3&&(int)task.LastTaskResult==0)return;before=(DateTime)task.LastRunTime;task.Run(null);}
+  if(start){
+   // A successful run before producer quiescence cannot discharge cleanup.
+   // Wait for an existing instance to finish, then demand a NEW invocation.
+   var idle=Stopwatch.StartNew();
+   while((int)task.State==4||(int)task.State==2){if(idle.Elapsed.TotalSeconds>=70)throw new InvalidOperationException("Prior recovery still active");Thread.Sleep(100);task=folder.GetTask(item.Name);}
+   before=(DateTime)task.LastRunTime;
+   // Scheduler timestamps have coarse resolution. Never accept same-second history.
+   idle.Restart();while(DateTime.Now<=before.AddSeconds(1)){if(idle.Elapsed.TotalSeconds>=5)throw new InvalidOperationException("Recovery timestamp not safely comparable");Thread.Sleep(50);}
+   if(!Matches(task,item.Image,item.Arguments))throw new InvalidOperationException("Recovery action changed");
+   task.Run(null);
+  }
   var watch=Stopwatch.StartNew();
   do{
    Thread.Sleep(100);task=folder.GetTask(item.Name);
@@ -63,17 +73,18 @@ class DuckyWorkerQualification {
   return LockFree(@"Global\SentinelDuckyLocalGpo");
  }
  static int QualifyNativeGpo(string image,string nonce){
-  dynamic service=null,folder=null;var owned=new List<ProbeTask>();ProbeTask recovery=null;bool armed=false,released=false;int failure=0;
+  dynamic service=null,folder=null;var owned=new List<ProbeTask>();ProbeTask recovery=null;bool armed=false;int failure=0;
   try{
    service=Activator.CreateInstance(Type.GetTypeFromProgID("Schedule.Service"));service.Connect();folder=service.GetFolder("\\");
    stage=40;Record(nonce,stage,"pending",0,0);
    using(var key=Registry.LocalMachine.CreateSubKey(Receipt)){key.SetValue("NativePrivateSavedRecovery",0,RegistryValueKind.DWord);}
    var baseline=RegisterPrivate(service,folder,image,nonce,"private-baseline",owned,false);WaitPrivate(folder,baseline,true);
    stage=41;recovery=RegisterPrivate(service,folder,image,nonce,"private-release",owned,true);
-   stage=42;var hold=RegisterPrivate(service,folder,image,nonce,"private-hold",owned,false);armed=true;WaitPrivate(folder,hold,true);
-   stage=43;var held=RegisterPrivate(service,folder,image,nonce,"private-held",owned,false);WaitPrivate(folder,held,true);
+   stage=42;var hold=RegisterPrivate(service,folder,image,nonce,"private-hold",owned,false,recovery.RecoveryAtUtc);armed=true;WaitPrivate(folder,hold,true);
+   stage=43;var held=RegisterPrivate(service,folder,image,nonce,"private-held",owned,false,recovery.RecoveryAtUtc);WaitPrivate(folder,held,true);
+   if(DateTime.UtcNow>=recovery.RecoveryAtUtc)throw new InvalidOperationException("Hold verification missed independent recovery deadline");
    stage=44;WaitPrivate(folder,recovery,false); // Independently triggered; broker does not start it.
-   stage=45;var verify=RegisterPrivate(service,folder,image,nonce,"private-released",owned,false);WaitPrivate(folder,verify,true);released=true;
+   stage=45;var verify=RegisterPrivate(service,folder,image,nonce,"private-released",owned,false);WaitPrivate(folder,verify,true);
    using(var check=Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Sentinel\DuckyWorkerQualification\Checks\"+nonce))if(check==null||(int)check.GetValue("HeldVerified",0)!=1||(int)check.GetValue("ReleaseVerified",0)!=1)throw new InvalidOperationException("Private verification receipt missing");
    using(var key=Registry.LocalMachine.CreateSubKey(Receipt)){key.SetValue("NativePrivateSavedRecovery",1,RegistryValueKind.DWord);key.Flush();}
   }catch{failure=stage;}
@@ -84,7 +95,14 @@ class DuckyWorkerQualification {
     foreach(var item in owned)if(!item.Recovery){dynamic task=folder.GetTask(item.Name);if(!Matches(task,image,item.Arguments))throw new InvalidOperationException("Private task changed");task.Enabled=false;try{task.Stop(0);}catch(COMException e){if(e.HResult!=unchecked((int)0x8004130B))throw;}}
     var watch=Stopwatch.StartNew();while(!PrivateTasksQuiet(service,owned,nonce)&&watch.Elapsed.TotalSeconds<20)Thread.Sleep(100);
     if(!PrivateTasksQuiet(service,owned,nonce))throw new InvalidOperationException("Private producer cleanup unknown");
-    if(armed&&!released){if(recovery==null)throw new InvalidOperationException("Private recovery unavailable");WaitPrivate(folder,recovery,true);}
+    if(armed){
+     if(recovery==null)throw new InvalidOperationException("Private recovery unavailable");
+     WaitPrivate(folder,recovery,true);
+     // A new verifier task cannot reuse an old ReleaseVerified receipt or run.
+     var cleanupVerify=RegisterPrivate(service,folder,image,nonce,"private-released",owned,false);
+     WaitPrivate(folder,cleanupVerify,true);
+
+    }
     foreach(var item in owned){dynamic task=folder.GetTask(item.Name);if(!Matches(task,image,item.Arguments))throw new InvalidOperationException("Private cleanup task changed");task.Enabled=false;try{task.Stop(0);}catch(COMException e){if(e.HResult!=unchecked((int)0x8004130B))throw;}}
     watch.Restart();while(!PrivateTasksQuiet(service,owned,nonce)&&watch.Elapsed.TotalSeconds<20)Thread.Sleep(100);
     if(!PrivateTasksQuiet(service,owned,nonce))throw new InvalidOperationException("Private recovery cleanup unknown");

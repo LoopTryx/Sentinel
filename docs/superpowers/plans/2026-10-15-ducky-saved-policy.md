@@ -16,3 +16,5 @@ Constraints: no class-wide denial, driver/filter changes, hubs/controllers, E: a
 Sources: Microsoft IGroupPolicyObject OpenLocalMachineGPO/GetRegistryKey/Save; Registry Policy File Format; RefreshPolicyEx.
 
 Blocking evidence: independent SYSTEM test was Defender-blocked; exact repeating private task removed. No GPO live activation or installed update. Review requires bounded worker execution before earliest outstanding recovery deadline and actual hung-lock containment tests. Source-based recovery transport must be investigated without Defender exclusions or detection evasion.
+
+15 October continuation: corrected producer deadline budgeting and stale-success cleanup reuse in the private native qualification broker. Regression failed before and passed after. Independent review cleared private trial scope. Actual native SYSTEM saved-policy/independent release trial then completed State=complete,Stage=0,NativePrivateSavedRecovery=1; fresh cleanup+verifier completed and broker exited. No DeviceInstall mutation or installed app update. Remaining production engine migration and real Ducky refusal/release acceptance are unchanged.
