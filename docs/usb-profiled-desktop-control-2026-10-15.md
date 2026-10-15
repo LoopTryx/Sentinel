@@ -101,3 +101,45 @@ Fix: retain compressed/base64 trusted payload, but pass the fixed ASCII decompre
 Regression now measures the full scheduling pipeline, not only its inner command. It executes the actual generated management script under Windows PowerShell with every task cmdlet overridden by inert functions; captured action must equal the original exactly. Existing deterministic/action-size, oversized legacy marker, exit7/exception1 and retirement-restart tests remain. Independent review found no quoting/security blocker. Existing old real actions were retired by successful Allow; stage32 candidate attempts never reached registration. Actual installed scheduling and hardware refusal/release acceptance remain pending.
 
 Stage32 transport fix validation: full tools/verify.ps1 PASS (artifacts/ducky-schedule-verify.log), native regression PASS with scheduled action5794chars and management6922chars, desktop build and visible smoke PASS (ducky-schedule-build.log, ducky-schedule-smoke.log). The former full-pipeline guard failure was reproduced before the fix. Independent quoting/security review found no blocker. This establishes command transport only; actual task registration and refusal/release remain pending owner acceptance.
+
+### Installed 47c99a3 trial: owner reports QUACK still runs
+
+Owner answered the reconnect-after-Block trial with “QUACK still runs”. This is a FAILED live acceptance result; the scheduling transport fix does not establish input blocking.
+
+Read-only categorical snapshots: 2026-10-15T07:27:50Z exact enrolled rule present, deny=1, retroactive=1, matching owner nonce, input_missing, no helper running. At 07:30:36Z and 07:31:37Z the same rule remained present but input health was ready (root status OK/problem0). Transient missing-input state is not proof of containment. The bounded SetupAPI log tail still yielded only the earlier 08:03 local matching policy-removal section, not a fresh matching root enforcement event. This does not establish the cause or rule-consumption timing.
+
+At 07:31:55Z the non-elevated Task Scheduler view exposed zero Sentinel app tasks. SYSTEM tasks may be hidden; this is NOT evidence that recovery was absent or failed. Next diagnostic must obtain protected journal deadline plus exact task timing/result through a fixed read-only elevated path, and correlate native state across the operation. Do not broaden device matching, enable the old interception backend, remove drivers, or call rule-present status protection. Actual refusal and release/reconnect without restart both remain unverified. No new machine changes were made during these checks.
+
+### Research: policy persistence and composite-interface hypotheses
+
+Read-only check on 15 October: local machine Registry.pol exists (190 bytes), but does not contain the enrolled target. Current helper writes the effective HKLM policy directly and runs gpupdate; it does not edit/save the local GPO. This is a concrete implementation difference from the supported Group Policy editing workflow, NOT proof of the enforcement root cause. Microsoft documents IGroupPolicyObject::Save as persisting registry policy and updating GPO revision. A candidate must preserve unrelated local policy and make independent recovery reverse BOTH persisted policy and effective state; otherwise refresh could reapply a supposedly released block.
+
+Ranked research options:
+1. Compare supported local-GPO save/apply with current raw registry path, keeping the same exact enrolled root. Correlate policy processing and native state with a deadline before asking for another reconnect. Do not call a registry match enforced.
+2. Audit the composite parent's current child interfaces and exact keyboard ancestry. Windows represents USB composite devices using parent plus child interfaces. If evidence proves a child escapes the current rule, consider separately enrolled exact child rules; no global HID class/VID-wide matching. Parent-only success once does not prove child rules are necessary.
+3. PnP direct disable/enable is documented, but our prior exact keyboard disable returned CR_NOT_DISABLEABLE (40). Do not retry through another wrapper expecting a different guarantee, use force, or expand to hubs/controllers. A driver-level input gate is a separate longer-term design, not a verified fallback.
+
+Acceptance: positive typing baseline; Block completes with actual Windows state evidence; no QUACK across repeated reconnects while hold active; ordinary controls unaffected; Allow and automatic rollback each restore QUACK without Windows restart. Unknown/restart-required states remain explicit. Detect-after-arrival does not establish first-keystroke prevention for unseen devices.
+
+Sources:
+- https://learn.microsoft.com/en-us/windows/win32/api/gpedit/nf-gpedit-igrouppolicyobject-save
+- https://learn.microsoft.com/en-us/windows/win32/api/userenv/nf-userenv-refreshpolicyex
+- https://learn.microsoft.com/en-us/windows-hardware/drivers/install/determining-the-parent-of-a-device
+- https://learn.microsoft.com/en-us/windows-hardware/drivers/devtest/pnputil-command-syntax
+- https://learn.microsoft.com/en-us/windows/win32/api/cfgmgr32/nf-cfgmgr32-cm_disable_devnode
+
+Research only: no new blocker implementation, GPO mutation or live disabling was performed.
+
+### Saved-local-GPO continuation and Defender-blocked SYSTEM test
+
+Owner approved the saved-policy experiment. Added a default-private-only GPO adapter and fixed harmless native probe. TDD: missing adapter and missing recovery routing were observed failing before implementation. Native-access private HKCU tests passed exact target/deletion, unrelated-policy preservation, intended foreign-drift failures, five interrupted-edit prefixes, and throwing-save recovery. Actual Windows read-only COM binding passed after correcting CLSID/IID against Microsoft's SDK header.
+
+Native private GPO qualification passed save -> fresh COM armed readback -> gpupdate -> effective private value -> saved exact deletion -> fresh COM released readback -> gpupdate -> effective private value absent. Unrelated saved policy digest matched. A second native trial intentionally threw after a REAL Save, then verified fresh-session persisted state and recovered it. Receipt complete/stage0. No DeviceInstall entry was applied by these tests; live deny entries remained0. Full tools/verify.ps1 passed (artifacts/ducky-gpo-verify.log); native builds and pure v1/v2 routing command-bound tests passed.
+
+The independent SYSTEM source-action test did NOT qualify. Owner reported refusing a Defender detection. Read-only Defender events confirmed Trojan:Win32/ClickFix.DBU!MTB with repeated one-minute detections/removal attempts. Treat this as Defender-blocked/unverified, not proof of a false positive or an intrinsic cleanup bug. No exclusion/allow/restoration/protection change was requested or made. An action-hash-matched administrative cleanup stopped/removed exactly ONE private Sentinel-Ducky-App-Probe task; receipt CleanupCount1 at2026-10-15T08:00:20Z. Real recovery tasks were outside that cleanup filter. The tested fallback restored the original private probe; the separate SYSTEM probe may retain harmless private saved data pending a non-flagged reviewed cleanup design.
+
+Independent review also identified a genuine architecture gap: COM calls can hang while holding the cross-process mutex. A fixed Windows task worker with externally enforced time limit was proposed; its limit must fit BEFORE the earliest outstanding protected recovery deadline, including a Release operation started near expiry. Prove actual held-mutex hang termination and descendant containment before activation. Do not respond to Defender by obfuscating/re-encoding the payload, disabling protection or asking the owner to allow it.
+
+The attempted v2 Main integration was withdrawn locally. Main's hold/release implementation remains the existing v1 path; the build does NOT define SENTINEL_DUCKY_GPO_LAB. New GPO recovery generation/private qualification functions are dormant and not invoked by installed UI. No new installed app was deployed. Remaining: investigate exact Defender resource provenance, replace/review the flagged recovery transport without security bypasses, implement bounded worker containment, qualify independent saved-policy recovery, capture historical v1 action migration evidence, then integrate and perform actual refusal/release tests. Full issue remains unfinished.
+
+Post-cleanup read-only check: zero new Defender detection events1116 over174 seconds after the exact private task removal; real-time protection remained enabled. This supports the test-task correlation but does not independently classify the underlying detection as a false positive. Final default native build passed (artifacts/ducky-gpo-disabled-build.log); fixed-purpose v1 helper tests and dormant v1/v2 routing tests passed after Main was restored. No installed binaries were replaced.

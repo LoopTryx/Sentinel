@@ -28,6 +28,14 @@ public static class DuckyPolicyHost {
   string data=new JavaScriptSerializer().Serialize(new{path=path,target=target,nonce=nonce});
   return "try{Add-Type -TypeDefinition ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('"+B64(source)+"')));$p=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('"+B64(data)+"'))|ConvertFrom-Json;[SentinelDuckyEntry]::Restore($p.path,$p.target,$p.nonce,$true); & (Join-Path ([Environment]::GetFolderPath('System')) 'gpupdate.exe') /target:computer /force /wait:30 *> $null;if($LASTEXITCODE -ne 0){exit 19};exit 0}catch{exit 18}";
  }
+ static string RecoveryFor(string engine,string source,string gpoSource,string path,string target,string nonce){
+  if(engine=="profiled-ducky-v1")return Recovery(source,path,target,nonce);
+  if(engine!="profiled-ducky-gpo-v2")throw new InvalidOperationException("Unknown recovery engine");
+  if(path!=Policy&&path!=@"SOFTWARE\Sentinel\DuckyPolicyProbe\"+nonce)throw new InvalidOperationException("Invalid recovery namespace");
+  string data=new JavaScriptSerializer().Serialize(new{path=path,target=target,nonce=nonce});
+  string edit=path==Policy?"[SentinelDuckyLocalGpo]::EditEnrolled($p.target,$p.nonce,$false);[SentinelDuckyEntry]::Restore($p.path,$p.target,$p.nonce,$true);":"[SentinelDuckyLocalGpo]::EditPrivateProbe($p.nonce,$false);";
+  return "try{Add-Type -TypeDefinition ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('"+B64("#define SENTINEL_DUCKY_GPO_LAB\n"+gpoSource)+"')));Add-Type -TypeDefinition ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('"+B64(source)+"')));$p=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('"+B64(data)+"'))|ConvertFrom-Json;"+edit+" & (Join-Path ([Environment]::GetFolderPath('System')) 'gpupdate.exe') /target:computer /force /wait:30 *> $null;if($LASTEXITCODE -ne 0){exit 19};exit 0}catch{exit 18}";
+ }
  static string Arguments(string payload){return DuckyCommandEncoding.Arguments(payload);}
  static string ScheduleScript(string name,string recovery,DateTime at){
   string escaped=Arguments(recovery).Replace("'","''");
@@ -118,6 +126,15 @@ public static class DuckyPolicyHost {
    return 0;
   }catch{return stage;}
   finally{for(int i=anchors.Count-1;i>=0;i--)anchors[i].Dispose();}
+ }
+ internal static void QualifySavedRecovery(string source,string gpoSource){
+  string probeNonce=Guid.NewGuid().ToString("N"),probePath=@"SOFTWARE\Sentinel\DuckyPolicyProbe\"+probeNonce,probeTask="Sentinel-Ducky-App-Probe-"+probeNonce;
+  stage=32;Schedule(probeTask,RecoveryFor("profiled-ducky-gpo-v2",source,gpoSource,probePath,@"USB\VID_0001&PID_0001\PRIVATE-PROBE",probeNonce),DateTime.UtcNow.AddSeconds(3));
+  stage=33;string before,after;SentinelDuckyLocalGpo.PrivateProbeState(probeNonce,out before);SentinelDuckyLocalGpo.EditPrivateProbe(probeNonce,true);
+  stage=34;
+  if(Run("$ErrorActionPreference='Stop';$n='"+probeTask+"';Start-ScheduledTask -TaskName $n;$until=[datetime]::UtcNow.AddSeconds(50);do{$r=Get-ScheduledTaskInfo -TaskName $n;if($r.LastRunTime -gt (Get-Date).AddMinutes(-1) -and $r.LastTaskResult -eq 0){Unregister-ScheduledTask -TaskName $n -Confirm:$false;exit 0};Start-Sleep -Milliseconds 250}while([datetime]::UtcNow -lt $until);exit 18")!=0)throw new InvalidOperationException("Independent saved recovery qualification failed");
+  if(SentinelDuckyLocalGpo.PrivateProbeState(probeNonce,out after)!="released"||before!=after)throw new InvalidOperationException("Independent saved recovery readback failed");
+  using(var list=Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Sentinel\DuckyGpoProbe\"+probeNonce+@"\DenyInstanceIDs"))if(list!=null&&list.GetValue("1",null)!=null)throw new InvalidOperationException("Independent effective recovery readback failed");
  }
 }
 public static class DuckyCommandEncoding {
