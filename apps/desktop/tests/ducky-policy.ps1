@@ -18,6 +18,10 @@ $fixtureSource=@'
 using System;
 using System.Collections.Generic;
 using System.Web.Script.Serialization;
+using System.IO;
+using System.Text;
+using System.Diagnostics;
+using System.Reflection;
 class TaskStateTest {
  static int Main(){
   var pending=DuckyTaskState.Create("target","nonce","new-task","old-task",DateTime.UtcNow.AddMinutes(5));
@@ -27,7 +31,25 @@ class TaskStateTest {
   if((string)reloaded["retiringTask"]!="old-task"||(string)reloaded["task"]!="new-task")return 1;
   bool refused=false;try{DuckyTaskState.AssertReady(reloaded);}catch(InvalidOperationException){refused=true;}
   if(!refused)return 2;
-  reloaded["retiringTask"]=null;DuckyTaskState.AssertReady(reloaded);return 0;
+  reloaded["retiringTask"]=null;DuckyTaskState.AssertReady(reloaded);
+  string source;using(var reader=new StreamReader(typeof(DuckyPolicyHost).Assembly.GetManifestResourceStream("Sentinel.Ducky.Entry")))source=reader.ReadToEnd();
+  var flags=BindingFlags.NonPublic|BindingFlags.Static;
+  string recovery=(string)typeof(DuckyPolicyHost).GetMethod("Recovery",flags).Invoke(null,new object[]{source,@"SOFTWARE\Sentinel\DuckyPolicyProbe\0123456789abcdef0123456789abcdef",@"USB\VID_0001&PID_0001\TEST","0123456789abcdef0123456789abcdef"});
+  string nested=(string)typeof(DuckyPolicyHost).GetMethod("Arguments",flags).Invoke(null,new object[]{recovery});
+  string marker=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"ducky-command-codec.txt");
+  string script="$unused='"+nested+"';[IO.File]::WriteAllText('"+marker.Replace("'","''")+"','ok')";
+  if(Convert.ToBase64String(Encoding.Unicode.GetBytes(script)).Length<=32767)return 3;
+  string arguments=DuckyCommandEncoding.Arguments(script);
+  if(arguments.Length>28000)return 4;
+  string ps=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),@"WindowsPowerShell\v1.0\powershell.exe");
+  using(var process=Process.Start(new ProcessStartInfo(ps,arguments){UseShellExecute=false,CreateNoWindow=true})){if(!process.WaitForExit(15000)||process.ExitCode!=0)return 5;}
+  if(!File.Exists(marker)||File.ReadAllText(marker)!="ok")return 6;
+  string[] failures={"exit 7","throw 'intentional_codec_exception'"};int[] expected={7,1};
+  for(int i=0;i<failures.Length;i++){
+   var info=new ProcessStartInfo(ps,DuckyCommandEncoding.Arguments(failures[i])){UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true};
+   using(var process=Process.Start(info)){var output=process.StandardOutput.ReadToEndAsync();var error=process.StandardError.ReadToEndAsync();if(!process.WaitForExit(15000)||process.ExitCode!=expected[i])return 7;}
+  }
+  return 0;
  }
 }
 '@
@@ -39,4 +61,4 @@ $arguments+=@('/main:TaskStateTest',$fixture)
 if($LASTEXITCODE -ne 0){throw 'Task restart regression compile failed'}
 & $journalExe
 if($LASTEXITCODE -ne 0){throw 'Retirement timeout/restart regression failed'}
-Write-Output 'Retirement timeout preserves both task identities and refuses another hold after restart: PASS'
+Write-Output 'Retirement restart refusal and native compressed management-command regression PASS (old encoding exceeded Windows limit)'

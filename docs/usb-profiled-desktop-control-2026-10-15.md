@@ -32,3 +32,9 @@ Removing the deny entry alone did not restore the device. After policy refresh, 
 Open USB Guard → Manage device. Choose Hold for 5 minutes and approve Windows. Reconnect the enrolled Ducky; record the Windows result, harmless payload outcome, normal input usability and notification visibility. Choose Release and approve Windows; reconnect and confirm the harmless payload and ordinary controls again. Repeat the cycle, then leave the device released. These app-button and notification observations remain pending until actually performed; the prior direct controlled trial does not substitute for them.
 
 This implementation is on the owned PR74 branch pending coordinator integration. It does not complete broad USB input quarantine or the whole S1 milestone.
+
+## App acceptance follow-up
+
+The first screenshot came from an older running backup installation: the single-instance launch brought that window forward. The exact stale process was shut down after its authenticated runtime shutdown, and the newly built console was launched. No backup files were deleted.
+
+The first native-panel attempt remained Hold off and failed before creating a deny entry. Its recovery-registration script nested an already encoded action in another EncodedCommand, exceeding Windows' 32767-character process command limit. The fixed helper transports its internally generated management script with a bounded self-contained gzip/Base64 loader. No caller script or mutable file is loaded. A regression uses the actual recovery payload, proves the old command exceeds the Windows limit, executes the new loader in native Windows PowerShell, and verifies explicit failure/exception propagation. The native panel now displays redacted failure stages. This fixes a reproduced app-path failure; another actual app hold/release check is still required.

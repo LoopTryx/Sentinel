@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text;
@@ -12,13 +13,14 @@ using Microsoft.Win32;
 
 // Elevated fixed-purpose helper: no device IDs, paths or scripts accepted as arguments.
 public static class DuckyPolicyHost {
+ static int stage=30;
  [System.Runtime.InteropServices.DllImport("cfgmgr32.dll",CharSet=System.Runtime.InteropServices.CharSet.Unicode)]static extern int CM_Locate_DevNode(out uint node,string id,int flags);
  [System.Runtime.InteropServices.DllImport("cfgmgr32.dll")]static extern int CM_Get_DevNode_Status(out uint status,out uint problem,uint node,int flags);
  const string Policy=@"SOFTWARE\Policies\Microsoft\Windows\DeviceInstall\Restrictions";
  static string PS {get{return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),@"WindowsPowerShell\v1.0\powershell.exe");}}
  static string B64(string text){return Convert.ToBase64String(Encoding.UTF8.GetBytes(text));}
  static int Run(string script){
-  using(var p=Process.Start(new ProcessStartInfo(PS,"-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand "+Convert.ToBase64String(Encoding.Unicode.GetBytes(script))){UseShellExecute=false,CreateNoWindow=true})){
+  using(var p=Process.Start(new ProcessStartInfo(PS,DuckyCommandEncoding.Arguments(script)){UseShellExecute=false,CreateNoWindow=true})){
    if(!p.WaitForExit(90000))throw new InvalidOperationException("Windows policy operation still pending");return p.ExitCode;
   }
  }
@@ -54,7 +56,7 @@ public static class DuckyPolicyHost {
   if(!new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator))return 11;
   var anchors=new List<IDisposable>();
   try{
-   string directory=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),"SentinelDuckyPolicy");
+   stage=30;string directory=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),"SentinelDuckyPolicy");
    var parents=new List<string>();for(var d=new DirectoryInfo(directory);d!=null;d=d.Parent)parents.Insert(0,d.FullName);
    foreach(string d in parents){anchors.Add(new SentinelPolicyDirectory(d));CheckDirectory(d,d==directory);}
    anchors.Add(new FileStream(Path.Combine(directory,".lock"),FileMode.OpenOrCreate,FileAccess.ReadWrite,FileShare.None));
@@ -64,7 +66,7 @@ public static class DuckyPolicyHost {
    }
    string target=profile["target"] as string,nonce=profile["nonce"] as string;
    if(!Regex.IsMatch(target??"",@"\AUSB\\VID_[0-9A-Fa-f]{4}&PID_[0-9A-Fa-f]{4}\\[A-Za-z0-9&_.-]{1,160}\z")||!Regex.IsMatch(nonce??"",@"\A[0-9a-f]{32}\z"))return 12;
-   DuckyPolicyEnrollment.Publish(target,nonce);
+   stage=31;DuckyPolicyEnrollment.Publish(target,nonce);
    string previousTask=null,retiringTask=null,desktopReceipt=Path.Combine(directory,"desktop-trial.json");Dictionary<string,object> priorRecord=null;
    if(File.Exists(desktopReceipt)){
     using(var file=new FileStream(desktopReceipt,FileMode.Open,FileAccess.Read,FileShare.None)){
@@ -81,7 +83,7 @@ public static class DuckyPolicyHost {
    string task="Sentinel-Ducky-App-Recovery-"+nonce+"-"+Guid.NewGuid().ToString("N");
    string source;using(var reader=new StreamReader(typeof(DuckyPolicyHost).Assembly.GetManifestResourceStream("Sentinel.Ducky.Entry")))source="#define SENTINEL_DUCKY_POLICY_LAB\n"+reader.ReadToEnd();
    if(args[0]=="release"){
-    SentinelDuckyEntry.Restore(Policy,target,nonce,true);Refresh();
+    stage=40;SentinelDuckyEntry.Restore(Policy,target,nonce,true);stage=41;Refresh();
     if(priorRecord!=null){Healthy(target);string expected=Arguments(Recovery(source,Policy,target,nonce));Retire(retiringTask,expected);Retire(previousTask,expected);priorRecord["retiringTask"]=null;Save(desktopReceipt,priorRecord);}
     return 0;
    }
@@ -90,26 +92,39 @@ public static class DuckyPolicyHost {
    Refresh();
    if(previousTask!=null){uint node,status,problem;if(CM_Locate_DevNode(out node,target,0)!=0||CM_Get_DevNode_Status(out status,out problem,node,0)!=0||problem!=0)throw new InvalidOperationException("Reconnect the released device before arming again");}
    string probeNonce=Guid.NewGuid().ToString("N"),probePath=@"SOFTWARE\Sentinel\DuckyPolicyProbe\"+probeNonce,probeTask="Sentinel-Ducky-App-Probe-"+probeNonce;
-   Schedule(probeTask,Recovery(source,probePath,target,probeNonce),DateTime.UtcNow.AddSeconds(3));
-   SentinelDuckyEntry.Apply(probePath,target,probeNonce,true,0);
+   stage=32;Schedule(probeTask,Recovery(source,probePath,target,probeNonce),DateTime.UtcNow.AddSeconds(3));
+   stage=33;SentinelDuckyEntry.Apply(probePath,target,probeNonce,true,0);
+   stage=34;
    if(Run("$ErrorActionPreference='Stop';$n='"+probeTask+"';Start-ScheduledTask -TaskName $n;$until=[datetime]::UtcNow.AddSeconds(50);do{$r=Get-ScheduledTaskInfo -TaskName $n;if($r.LastRunTime -gt (Get-Date).AddMinutes(-1) -and $r.LastTaskResult -eq 0){Unregister-ScheduledTask -TaskName $n -Confirm:$false;exit 0};Start-Sleep -Milliseconds 250}while([datetime]::UtcNow -lt $until);exit 18")!=0)throw new InvalidOperationException("Independent recovery qualification failed");
    using(var list=Registry.LocalMachine.OpenSubKey(probePath+@"\DenyInstanceIDs")){if(list==null||list.GetValue("1",null)!=null)throw new InvalidOperationException("Independent recovery readback failed");}
    // Register replacement before retiring anything; there is no gap in recovery coverage.
    string action=Arguments(Recovery(source,Policy,target,nonce));
    DateTime deadline=DateTime.UtcNow.AddMinutes(5);
-   var receipt=DuckyTaskState.Create(target,nonce,task,previousTask,deadline);
+   stage=35;var receipt=DuckyTaskState.Create(target,nonce,task,previousTask,deadline);
    Save(desktopReceipt,receipt);
-   Schedule(task,Recovery(source,Policy,target,nonce),deadline);
+   stage=36;Schedule(task,Recovery(source,Policy,target,nonce),deadline);
    if(previousTask!=null){
     uint node,status,problem;if(CM_Locate_DevNode(out node,target,0)!=0||CM_Get_DevNode_Status(out status,out problem,node,0)!=0||problem!=0)throw new InvalidOperationException("Device recovery changed before task retirement");
     Retire(previousTask,action);
    }
    receipt["retiringTask"]=null;Save(desktopReceipt,receipt);
-   try{SentinelDuckyEntry.Arm(Policy,target,nonce,true,deadline);Refresh();}
+   try{stage=37;SentinelDuckyEntry.Arm(Policy,target,nonce,true,deadline);stage=38;Refresh();}
    catch{try{SentinelDuckyEntry.Restore(Policy,target,nonce,true);Refresh();}catch{}throw;}
    return 0;
-  }catch{return 18;}
+  }catch{return stage;}
   finally{for(int i=anchors.Count-1;i>=0;i--)anchors[i].Dispose();}
+ }
+}
+public static class DuckyCommandEncoding {
+ public static string Arguments(string script){
+  byte[] bytes=Encoding.UTF8.GetBytes(script);string compressed;
+  using(var memory=new MemoryStream()){
+   using(var zip=new GZipStream(memory,CompressionMode.Compress,true))zip.Write(bytes,0,bytes.Length);
+   compressed=Convert.ToBase64String(memory.ToArray());
+  }
+  string loader="$ErrorActionPreference='Stop';$m=New-Object IO.MemoryStream(,[Convert]::FromBase64String('"+compressed+"'));$z=New-Object IO.Compression.GZipStream($m,[IO.Compression.CompressionMode]::Decompress);$r=New-Object IO.StreamReader($z,[Text.Encoding]::UTF8);try{& ([scriptblock]::Create($r.ReadToEnd()))}finally{$r.Dispose();$z.Dispose();$m.Dispose()}";
+  string arguments="-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand "+Convert.ToBase64String(Encoding.Unicode.GetBytes(loader));
+  if(arguments.Length>28000)throw new InvalidOperationException("Management command exceeds Windows limit");return arguments;
  }
 }
 public static class DuckyTaskState {
