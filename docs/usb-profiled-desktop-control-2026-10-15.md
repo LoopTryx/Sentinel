@@ -85,3 +85,9 @@ Candidate: after validating the exclusive owned three-value/one-subkey namespace
 The existing helper completed Allow with exit0 before this source/encoding change, including its validated task retirement. New compressed scheduled actions remain self-contained and deterministic; changed/foreign task actions must still cause refusal. Do not bypass task-identity checks to migrate a live old task.
 
 Independent review found no blocker for a bounded exclusively owned trial, conditional on no unmatched old recovery tasks. Private tests pass; actual repeated refusal and release without a Windows restart remain required. UI no longer asserts that an enrolled device is restricted merely because its rule exists. No successful candidate hardware result is recorded here.
+
+### Candidate baseline check: no activation
+
+Owner reported silence on insertion BEFORE clicking Block. Native read at 2026-10-15T06:53:09Z confirmed enrolled rule absent, owned nonce matched, keyboard-driver state ready, and no Ducky helper running. CIRCUITPY was healthy on D:. This attempt is INCONCLUSIVE for candidate blocking because its positive typing baseline failed; no candidate rule was activated by this check.
+
+Read-only source/process audit found only the installed Sentinel.Glass process, no old hold/interception test process. Current Glass input monitoring registers observation flags0x2100, not suppression. Dormant DuckyFilterHold source selects a unique hardware-ID match and refuses ambiguous selection, but opens multiple filter contexts during discovery; earlier context teardown stalled. No filter handles were opened, no macro enabled, no routing broadened, and no drivers changed. Do not activate that backend as a fallback. Requested known recovery: save work, Ducky absent, Windows restart, normal reconnect, verify QUACK BEFORE any Block. If the baseline remains silent, stop enforcement trials and retain unqualified status.
