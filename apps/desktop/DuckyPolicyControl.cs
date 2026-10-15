@@ -29,7 +29,7 @@ public static class DuckyPolicyControl {
     if(!Regex.IsMatch(nonce??"",@"\A[0-9a-f]{32}\z")||!Regex.IsMatch(target,@"\AUSB\\VID_[0-9A-Fa-f]{4}&PID_[0-9A-Fa-f]{4}\\[A-Za-z0-9&_.-]{1,160}\z")||Convert.ToInt32(key.GetValue("DenyInstanceIDs",0))!=1)return new DuckyPolicyState("unavailable","Policy unavailable","Windows policy does not match this control.");
     uint node,status,problem;
     if(CM_Locate_DevNode(out node,target,0)==0&&CM_Get_DevNode_Status(out status,out problem,node,0)==0&&problem==28)return new DuckyPolicyState("driver_unavailable","Device driver unavailable","Hold is armed; Windows reports no installed driver for the enrolled device.");
-    return new DuckyPolicyState("armed","Hold armed","The enrolled Ducky is restricted. Reconnect it to check installation.");
+    return new DuckyPolicyState("armed","Hold armed","The rule is configured. Input blocking is not confirmed.");
    }
   }}catch{return new DuckyPolicyState("unavailable","Status unavailable","Windows device policy could not be read.");}
  }

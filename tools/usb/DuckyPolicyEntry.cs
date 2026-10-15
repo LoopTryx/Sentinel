@@ -18,6 +18,21 @@ public static class SentinelDuckyEntry {
  }
  static RegistryKey Base(bool machine){return RegistryKey.OpenBaseKey(machine?RegistryHive.LocalMachine:RegistryHive.CurrentUser,RegistryView.Registry64);}
  static void Fault(int fail,int step){if(fail==step)throw new InvalidOperationException("Injected entry stage "+step);}
+ static bool Exclusive(RegistryKey key,RegistryKey list,string target,string nonce){
+  if(key.ValueCount!=3||key.SubKeyCount!=1||list.SubKeyCount!=0||list.ValueCount>1)return false;
+  if(key.GetValueKind("SentinelOperation")!=RegistryValueKind.String||(string)key.GetValue("SentinelOperation")!=nonce)return false;
+  if(key.GetValueKind("DenyInstanceIDs")!=RegistryValueKind.DWord||((int)key.GetValue("DenyInstanceIDs")!=0&&(int)key.GetValue("DenyInstanceIDs")!=1)||key.GetValueKind("DenyInstanceIDsRetroactive")!=RegistryValueKind.DWord||(int)key.GetValue("DenyInstanceIDsRetroactive")!=1)return false;
+  return list.ValueCount==0||(list.GetValue("1",null) is string&&list.GetValueKind("1")==RegistryValueKind.String&&(string)list.GetValue("1")==target);
+ }
+ // A child-list edit alone does not notify a parent LAST_SET watcher. This
+ // qualified candidate reasserts only the exclusive owned namespace, ending at
+ // its original DWORD 1. It is not proof that Windows consumed the policy.
+ static void Reassert(RegistryKey key,RegistryKey list,string target,string nonce,int fail){
+  if(!Exclusive(key,list,target,nonce))throw new InvalidOperationException("Policy drift; reassertion refused");
+  key.SetValue("DenyInstanceIDs",0,RegistryValueKind.DWord);key.Flush();Fault(fail,2);
+  if(!Exclusive(key,list,target,nonce))throw new InvalidOperationException("Policy drift; reassertion uncertain");
+  key.SetValue("DenyInstanceIDs",1,RegistryValueKind.DWord);key.Flush();Fault(fail,3);
+ }
  public static void Apply(string path,string target,string nonce,bool machine,int fail){
   Validate(path,target,nonce);if(fail<0 || fail>5)throw new ArgumentException("Invalid failure stage");
   if(path.StartsWith("SOFTWARE\\Policies\\",StringComparison.Ordinal) && !machine)throw new InvalidOperationException("Machine hive required");
@@ -43,17 +58,24 @@ public static class SentinelDuckyEntry {
   using(RegistryKey hive=Base(machine))using(RegistryKey key=hive.OpenSubKey(path,true)){
    if(key==null)return;
    using(RegistryKey list=key.OpenSubKey("DenyInstanceIDs",true)){
-    if(list==null || list.GetValue("1",null)==null)return;
+    if(list==null)return;
+    if(list.GetValue("1",null)==null){if(Exclusive(key,list,target,nonce))Reassert(key,list,target,nonce,0);return;}
     if(key.GetValueKind("SentinelOperation")!=RegistryValueKind.String || (string)key.GetValue("SentinelOperation")!=nonce)throw new InvalidOperationException("Ownership drift; recovery uncertain");
     if(list.GetValueKind("1")!=RegistryValueKind.String || (string)list.GetValue("1")!=target)throw new InvalidOperationException("Target drift; recovery uncertain");
-    // Delete exactly the owned entry. Never delete a key or change global flags.
+    // Delete exactly the owned entry. Never delete a key or reassert a namespace
+    // containing any foreign entry. Preserve incomplete Apply prefixes.
     list.DeleteValue("1",true);list.Flush();
     if(list.GetValue("1",null)!=null)throw new InvalidOperationException("Owned entry reappeared; recovery uncertain");
+    if(Exclusive(key,list,target,nonce))Reassert(key,list,target,nonce,0);
    }
   }
  }
  public static void Arm(string path,string target,string nonce,bool machine,DateTime deadline){
+  Arm(path,target,nonce,machine,deadline,0);
+ }
+ public static void Arm(string path,string target,string nonce,bool machine,DateTime deadline,int fail){
   Validate(path,target,nonce);
+  if(fail<0||fail>3)throw new ArgumentException("Invalid failure stage");
   if(path.StartsWith("SOFTWARE\\Policies\\",StringComparison.Ordinal) && !machine)throw new InvalidOperationException("Machine hive required");
   if(deadline.Kind!=DateTimeKind.Utc || deadline<=DateTime.UtcNow || deadline>DateTime.UtcNow.AddMinutes(6))throw new InvalidOperationException("Invalid arm deadline");
   using(RegistryKey hive=Base(machine))using(RegistryKey key=hive.OpenSubKey(path,true)){
@@ -62,6 +84,7 @@ public static class SentinelDuckyEntry {
     if(list==null || list.ValueCount!=0 || list.SubKeyCount!=0)throw new InvalidOperationException("Existing deny entries; arm refused");
     if(deadline<=DateTime.UtcNow)throw new InvalidOperationException("Invalid arm deadline");
     list.SetValue("1",target,RegistryValueKind.String);list.Flush();
+    Fault(fail,1);Reassert(key,list,target,nonce,fail);
    }
   }
   if(deadline<=DateTime.UtcNow){Restore(path,target,nonce,machine);throw new InvalidOperationException("Arm deadline elapsed");}

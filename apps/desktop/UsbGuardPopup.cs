@@ -15,7 +15,7 @@ internal sealed class UsbGuardNotice {
  internal static UsbGuardNotice Disconnected(string reference){return new UsbGuardNotice(reference,"USB device","Disconnected","Device disconnected","This connection is no longer available.",false);}
  internal static UsbGuardNotice Profiled(string reference,string name,string capabilities,string state){
   if(state=="off")return new UsbGuardNotice(reference,name,capabilities,"Ducky rule: allowed","No enrolled-device block rule is active. Open USB Guard to block it.",false);
-  if(state=="armed"||state=="driver_unavailable")return new UsbGuardNotice(reference,name,capabilities,"Ducky block rule armed","Windows installation restriction is active for this enrolled device. Open USB Guard to allow it.",false);
+  if(state=="armed"||state=="driver_unavailable")return new UsbGuardNotice(reference,name,capabilities,"Ducky block rule armed","An installation rule is configured for this enrolled device. Input blocking is not confirmed. Open USB Guard to allow it.",false);
   return Unavailable(reference,name,capabilities,"service_unavailable");
  }
  public override string ToString(){return Status;}

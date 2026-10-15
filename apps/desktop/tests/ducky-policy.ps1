@@ -36,6 +36,8 @@ class TaskStateTest {
   var flags=BindingFlags.NonPublic|BindingFlags.Static;
   string recovery=(string)typeof(DuckyPolicyHost).GetMethod("Recovery",flags).Invoke(null,new object[]{source,@"SOFTWARE\Sentinel\DuckyPolicyProbe\0123456789abcdef0123456789abcdef",@"USB\VID_0001&PID_0001\TEST","0123456789abcdef0123456789abcdef"});
   string nested=(string)typeof(DuckyPolicyHost).GetMethod("Arguments",flags).Invoke(null,new object[]{recovery});
+  if(nested.Length>28000||nested!=(string)typeof(DuckyPolicyHost).GetMethod("Arguments",flags).Invoke(null,new object[]{recovery}))return 8;
+  string legacy="-NoProfile -EncodedCommand "+Convert.ToBase64String(Encoding.Unicode.GetBytes(recovery));
   string marker=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"ducky-command-codec.txt");
   string script="$unused='"+nested+"';[IO.File]::WriteAllText('"+marker.Replace("'","''")+"','ok')";
   if(Convert.ToBase64String(Encoding.Unicode.GetBytes(script)).Length<=32767)return 3;
