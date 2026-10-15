@@ -91,7 +91,7 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
                 background: "linear-gradient(180deg, #85f0bc, #31cf85)",
                 color: "#04220f",
                 fontFamily: "var(--font-mono)",
-                fontSize: 12.5,
+                fontSize: "0.78125rem",
                 fontWeight: 700,
                 letterSpacing: "0.14em",
                 boxShadow: "0 4px 18px rgba(47, 214, 126, 0.35), 0 0 0 4px rgba(18,18,24,0.55)",
@@ -114,7 +114,7 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
             <div
               style={{
                 fontFamily: "var(--font-mono)",
-                fontSize: 12.5,
+                fontSize: "0.78125rem",
                 letterSpacing: "0.06em",
                 color: "rgba(226,233,246,0.92)",
                 textShadow: "0 1px 8px rgba(10,14,31,0.8)",
@@ -163,7 +163,7 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
           <div
             style={{
               fontFamily: "var(--font-mono)",
-              fontSize: 12,
+              fontSize: "0.75rem",
               lineHeight: 1.75,
               overflowY: "auto",
               maxHeight: 300,
@@ -216,7 +216,7 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
         <div className="side-rail">
           <section className="panel">
             <h3 className="panel-title">ATTACK SIMULATION — SYNTHETIC SCENARIO</h3>
-            <p style={{ color: "var(--text-dim)", fontSize: 13, lineHeight: 1.6, margin: "0 0 14px" }}>
+            <p style={{ color: "var(--text-dim)", fontSize: "0.8125rem", lineHeight: 1.6, margin: "0 0 14px" }}>
               Changes the console theme using invented evidence. No file, device
               or system policy is touched.
             </p>
@@ -260,7 +260,7 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
       {/* ── SHIELD MODULES — section head outside, grid inside ── */}
       <div>
         <div className="section-head" style={{ marginBottom: 12 }}>
-          <h3 className="panel-title" style={{ margin: 0, fontSize: 19 }}>
+          <h3 className="panel-title" style={{ margin: 0, fontSize: "1.1875rem" }}>
             SHIELD MODULES
           </h3>
         </div>
@@ -279,7 +279,7 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
                 <div
                   style={{
                     fontFamily: "var(--font-mono)",
-                    fontSize: 12,
+                    fontSize: "0.75rem",
                     letterSpacing: "0.18em",
                     color: "var(--chrome-mid)",
                     marginBottom: 12,
@@ -300,12 +300,12 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
                           boxShadow: m.status === "LOCAL LESSON" ? "0 0 8px var(--safe)" : "none",
                         }}
                       />
-                      <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{m.name}</span>
+                      <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text)" }}>{m.name}</span>
                       <span
                         style={{
                           marginLeft: "auto",
                           fontFamily: "var(--font-mono)",
-                          fontSize: 10,
+                          fontSize: "0.75rem",
                           letterSpacing: "0.1em",
                           color: m.status === "LOCAL LESSON" ? "var(--safe)" : "var(--text-faint)",
                         }}
@@ -313,7 +313,7 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
                         {m.status}
                       </span>
                     </div>
-                    <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 3, paddingLeft: 14 }}>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-faint)", marginTop: 3, paddingLeft: 14 }}>
                       {m.desc}
                     </div>
                   </div>

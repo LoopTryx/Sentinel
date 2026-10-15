@@ -50,3 +50,11 @@ test('confirmation opens only the displayed destination and refuses stale or cha
  click(links[1]);current=false;dialog.querySelectorAll('button')[1].click();assert.equal(opened.length,1);
  cleanup();dom.window.close();
 });
+
+test('thicker warning frame stays inside the provider clipping boundary',()=>{
+ const dom=new JSDOM('<article style="overflow:hidden"></article>'),doc=dom.window.document,root=doc.querySelector('article');
+ const cleanup=showEmailWarning(root,{tier:'Likely Scam',reasons:[]});
+ const css=doc.querySelector('[data-sentinel-email="frame-style"]').textContent;
+ assert.ok(css.includes('outline:5px solid'));assert.ok(css.includes('outline-offset:-5px'));assert.equal(root.style.overflow,'hidden');
+ cleanup();assert.equal(doc.querySelector('[data-sentinel-email="frame-style"]'),null);dom.window.close();
+});

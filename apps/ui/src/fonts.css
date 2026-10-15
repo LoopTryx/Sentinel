@@ -15,3 +15,5 @@
   font-display: swap;
   src: url('./assets/fonts/JetBrainsMono-500.woff2') format('woff2');
 }
+
+@font-face{font-family:"Cabinet Grotesk";src:url("./assets/CabinetGrotesk-Variable.woff2") format("woff2");font-weight:100 900;font-style:normal;font-display:swap}

@@ -29,7 +29,7 @@ export default function TelemetryFeed({ feed }: { feed: TelemetryLine[] }) {
 
   if (feed.length === 0) {
     return (
-      <div style={{ color: "var(--text-faint)", fontSize: 13, padding: "8px 0" }}>
+      <div style={{ color: "var(--text-faint)", fontSize: "0.8125rem", padding: "8px 0" }}>
         No scenario activity. Live monitoring is unavailable.
       </div>
     );

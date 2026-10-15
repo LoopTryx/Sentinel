@@ -12,6 +12,7 @@ import UsbGuardView from "./features/usb/UsbGuardView";
 import Dither from "./components/ui/Dither";
 import Icon from "./components/Icon";
 import "./theme.css";
+import "./readability.css";
 
 type ViewId =
   | "dashboard"
@@ -113,11 +114,11 @@ function useBoxGlow() {
 function Shell() {
   const {state:demo}=useDemoState();
   const [view, setView] = useState<ViewId>("dashboard");
-  const { level } = useThreat();
+  const { level, scanAlert } = useThreat();
   useBoxGlow();
 
   const statusLabel =
-    demo ? 'Connected · partial coverage' : level === "danger"
+    scanAlert ? 'Scan finding · review required' : demo ? 'Connected · partial coverage' : level === "danger"
       ? "Preview · scenario alert"
       : level === "warn"
         ? "Preview · scenario attention"
@@ -178,7 +179,7 @@ function Shell() {
                 style={{
                   marginLeft: "auto",
                   fontFamily: "var(--font-mono)",
-                  fontSize: 10.5,
+                  fontSize: "0.75rem",
                   padding: "1.5px 7px",
                   borderRadius: 99,
                   background: "var(--state-dim)",
@@ -195,7 +196,7 @@ function Shell() {
 
         <div className="sidebar-footer">
           <div className="sidebar-footer-text" style={{ color: "rgba(232,241,255,0.55)" }}>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.18em" }}>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", letterSpacing: "0.18em" }}>
               THINK · PROTECT · DEFEND
             </div>
             <div className="sidebar-footer-ver" style={{ marginTop: 4 }}>
@@ -212,6 +213,7 @@ function Shell() {
             <span className="led" /> {statusLabel}
           </div>
         </header>
+        {scanAlert && <section className="scan-global-alert" role="alert"><div><strong>Scan finding needs review</strong><p>Partial coverage · files were not quarantined.</p></div><button className="btn" onClick={()=>{setView("scan");const content=document.querySelector(".content");if(content)content.scrollTop=0;}}>Review scan</button></section>}
         <div
           className="content"
           style={{ position: "relative", zIndex: 1, background: "transparent" }}

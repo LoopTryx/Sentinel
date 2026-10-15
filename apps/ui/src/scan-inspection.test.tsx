@@ -2,6 +2,7 @@
 import {act} from 'react';
 import {createRoot} from 'react-dom/client';
 import {expect,it,vi} from 'vitest';
+import {ThreatProvider} from './state';
 import ScanView from './views/ScanView';
 import {demoCall} from './demo-bridge';
 const model=vi.hoisted(()=>({state:{scan:{id:'a'.repeat(24),status:'partial'}},snapshot:null as unknown}));
@@ -14,12 +15,12 @@ it('shows partial large-file evidence without full hash and gates quarantine eve
  const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
  const button=(text:string)=>Array.from(host.querySelectorAll('button')).find(b=>b.textContent?.includes(text))!;
  try{
-  await act(()=>root.render(<ScanView/>));
+  await act(()=>root.render(<ThreatProvider><ScanView/></ThreatProvider>));
   expect(host.textContent).toContain('Inspected 8388608 of 67108864 bytes');
   expect(host.textContent).toContain('Full-file SHA-256 unavailable');
   expect(button('Quarantine').disabled).toBe(true);
   expect(host.textContent).not.toContain('ClamAV');
-  model.snapshot={...(model.snapshot as object),reports:[{...report,state:'completed',verdict:'none_observed',logicalBytes:'3',inspectedBytes:'3',sha256:'a'.repeat(64),evidence:null,findings:[]}]};
+  model.snapshot={...(model.snapshot as object),jobRef:'next-job',reports:[{...report,state:'completed',verdict:'none_observed',logicalBytes:'3',inspectedBytes:'3',sha256:'a'.repeat(64),evidence:null,findings:[]}]};
   await act(async()=>button('Choose file').click());
   await act(async()=>{await new Promise(r=>setTimeout(r,950));});
   expect(button('Quarantine').disabled).toBe(true);

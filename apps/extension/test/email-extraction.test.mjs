@@ -47,7 +47,7 @@ test('missing layout gives unavailable rather than a clean email result',async()
 });
 test('SHA256 cache avoids duplicate analysis and changed text is reanalyzed',async()=>{
  const {dom,doc}=await fixture();let reads=0;const control=observeOpenedEmails(doc,{crypto:webcrypto,onEmail:()=>reads++});
- try{await control.ready;assert.equal(reads,1);await control.refresh();assert.equal(reads,1);doc.querySelector('.a3s').firstChild.nodeValue='Changed local text';await new Promise(resolve=>setTimeout(resolve,limits.debounceMs+80));await control.refresh();assert.equal(reads,2);}finally{control.stop();dom.window.close();}
+ try{await control.ready;assert.equal(reads,1);await control.refresh();assert.equal(reads,1);doc.querySelector('.a3s').firstChild.nodeValue='Changed local text';await eventually(()=>reads===2);assert.equal(reads,2);}finally{control.stop();dom.window.close();}
 });
 test('stop while fingerprinting prevents stale callbacks and clears observer work',async()=>{
  const {dom,doc}=await fixture();let release,reads=0;const crypto={subtle:{digest:()=>new Promise(resolve=>{release=resolve;})}};

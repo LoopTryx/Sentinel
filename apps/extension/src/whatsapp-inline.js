@@ -1,11 +1,11 @@
 import {explainMessage} from './local-checks.js';
 const STYLE=`
-:host{display:block;margin:8px 0 0;font:12px/1.45 system-ui,sans-serif;color:#eee9dc}
+:host{display:block;margin:8px 0 0;font: 16px/1.45 system-ui,sans-serif;color:#eee9dc}
 [hidden]{display:none!important}*{box-sizing:border-box}
-button{cursor:pointer;border:1px solid #ff827b;border-radius:10px;background:linear-gradient(125deg,#ec2937,#d21319 65%,#b91034);color:#fff;padding:8px 12px;font:700 12px/1.4 system-ui}
+button{cursor:pointer;border:1px solid #ff827b;border-radius:10px;background:linear-gradient(125deg,#ec2937,#d21319 65%,#b91034);color:#fff;padding:8px 12px;font: 700 16px/1.4 system-ui}
 button:focus-visible{outline:3px solid #8ac7ff;outline-offset:3px}
 .detail{max-width:320px;margin-top:8px;padding:10px 12px;border:1px solid #afaea24d;border-radius:8px;background:#1b1e4a;overflow-wrap:anywhere}
-p{margin:0}.muted{margin-top:6px;color:#c0bfb4;font-size:11px}
+p{margin:0}.muted{margin-top:6px;color:#c0bfb4;font-size:14px}
 @media(forced-colors:active){button,.detail{background:Canvas;color:CanvasText;border-color:CanvasText}.muted{color:CanvasText}}
 `;
 export function mountWhatsAppWarnings(doc){
