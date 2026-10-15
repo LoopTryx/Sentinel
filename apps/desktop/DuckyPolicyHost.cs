@@ -29,14 +29,19 @@ public static class DuckyPolicyHost {
   return "try{Add-Type -TypeDefinition ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('"+B64(source)+"')));$p=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('"+B64(data)+"'))|ConvertFrom-Json;[SentinelDuckyEntry]::Restore($p.path,$p.target,$p.nonce,$true); & (Join-Path ([Environment]::GetFolderPath('System')) 'gpupdate.exe') /target:computer /force /wait:30 *> $null;if($LASTEXITCODE -ne 0){exit 19};exit 0}catch{exit 18}";
  }
  static string Arguments(string payload){return DuckyCommandEncoding.Arguments(payload);}
+ static string ScheduleScript(string name,string recovery,DateTime at){
+  string escaped=Arguments(recovery).Replace("'","''");
+  string script="$ErrorActionPreference='Stop';$name='"+name+"';if(Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue){throw 'Existing recovery task'};$a=New-ScheduledTaskAction -Execute '"+PS+"' -Argument '"+escaped+"';$t=New-ScheduledTaskTrigger -Once -At ([datetime]::Parse('"+at.ToLocalTime().ToString("o")+"')) -RepetitionInterval (New-TimeSpan -Minutes 1);$p=New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest;$s=New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 1);Register-ScheduledTask -TaskName $name -Action $a -Trigger $t -Principal $p -Settings $s|Out-Null";
+  return script;
+ }
  static void Schedule(string name,string recovery,DateTime at){
-  string script="$ErrorActionPreference='Stop';$name='"+name+"';if(Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue){throw 'Existing recovery task'};$a=New-ScheduledTaskAction -Execute '"+PS+"' -Argument '"+Arguments(recovery)+"';$t=New-ScheduledTaskTrigger -Once -At ([datetime]::Parse('"+at.ToLocalTime().ToString("o")+"')) -RepetitionInterval (New-TimeSpan -Minutes 1);$p=New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest;$s=New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 1);Register-ScheduledTask -TaskName $name -Action $a -Trigger $t -Principal $p -Settings $s|Out-Null";
-  if(Run(script)!=0)throw new InvalidOperationException("Recovery task unavailable");
+  if(Run(ScheduleScript(name,recovery,at))!=0)throw new InvalidOperationException("Recovery task unavailable");
  }
  static void Refresh(){if(Run("& (Join-Path ([Environment]::GetFolderPath('System')) 'gpupdate.exe') /target:computer /force /wait:30 *> $null;exit $LASTEXITCODE")!=0)throw new InvalidOperationException("Windows policy refresh failed");}
  static void Save(string path,Dictionary<string,object> record){byte[] bytes=Encoding.UTF8.GetBytes(new JavaScriptSerializer().Serialize(record));using(var file=new FileStream(path,FileMode.Create,FileAccess.Write,FileShare.None)){file.Write(bytes,0,bytes.Length);file.Flush(true);}}
  static void Retire(string task,string action){
   if(task==null)return;
+  action=action.Replace("'","''");
   string script="$ErrorActionPreference='Stop';$n='"+task+"';$t=Get-ScheduledTask -TaskName $n -ErrorAction SilentlyContinue;if($t){if($t.Principal.UserId -notin @('SYSTEM','S-1-5-18') -or $t.Actions.Count -ne 1 -or $t.Actions[0].Execute -cne '"+PS+"' -or $t.Actions[0].Arguments -cne '"+action+"'){exit 18};Disable-ScheduledTask -TaskName $n|Out-Null;Stop-ScheduledTask -TaskName $n;$until=[datetime]::UtcNow.AddSeconds(10);$service=New-Object -ComObject Schedule.Service;$service.Connect();do{$running=@($service.GetRunningTasks(1)|Where-Object {$_.Path -ceq ('\\'+$n)});if($running.Count -eq 0){Unregister-ScheduledTask -TaskName $n -Confirm:$false;exit 0};Start-Sleep -Milliseconds 250}while([datetime]::UtcNow -lt $until);exit 18}";
   if(Run(script)!=0)throw new InvalidOperationException("Previous recovery task did not retire");
  }
@@ -123,7 +128,10 @@ public static class DuckyCommandEncoding {
    compressed=Convert.ToBase64String(memory.ToArray());
   }
   string loader="$ErrorActionPreference='Stop';$m=New-Object IO.MemoryStream(,[Convert]::FromBase64String('"+compressed+"'));$z=New-Object IO.Compression.GZipStream($m,[IO.Compression.CompressionMode]::Decompress);$r=New-Object IO.StreamReader($z,[Text.Encoding]::UTF8);try{& ([scriptblock]::Create($r.ReadToEnd()))}finally{$r.Dispose();$z.Dispose();$m.Dispose()}";
-  string arguments="-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand "+Convert.ToBase64String(Encoding.Unicode.GetBytes(loader));
+  // Only this fixed ASCII loader reaches -Command. The trusted payload stays
+  // compressed/base64 inside a single-quoted literal; no shell/file reload.
+  if(loader.IndexOf('"')>=0||loader.IndexOf('\r')>=0||loader.IndexOf('\n')>=0)throw new InvalidOperationException("Invalid fixed loader");
+  string arguments="-NoProfile -NonInteractive -WindowStyle Hidden -Command \""+loader+"\"";
   if(arguments.Length>28000)throw new InvalidOperationException("Management command exceeds Windows limit");return arguments;
  }
 }

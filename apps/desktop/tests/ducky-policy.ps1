@@ -38,8 +38,16 @@ class TaskStateTest {
   string nested=(string)typeof(DuckyPolicyHost).GetMethod("Arguments",flags).Invoke(null,new object[]{recovery});
   if(nested.Length>28000||nested!=(string)typeof(DuckyPolicyHost).GetMethod("Arguments",flags).Invoke(null,new object[]{recovery}))return 8;
   string legacy="-NoProfile -EncodedCommand "+Convert.ToBase64String(Encoding.Unicode.GetBytes(recovery));
+  string schedule=(string)typeof(DuckyPolicyHost).GetMethod("ScheduleScript",flags).Invoke(null,new object[]{"Sentinel-Ducky-App-Probe-0123456789abcdef0123456789abcdef",recovery,DateTime.UtcNow.AddMinutes(1)});
+  string scheduleArgs=DuckyCommandEncoding.Arguments(schedule);Console.WriteLine("Scheduled action chars="+nested.Length+", management chars="+scheduleArgs.Length);if(scheduleArgs.Length>28000)return 9;
+  string captured=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"ducky-scheduled-action.txt");
+  string stubs="function Get-ScheduledTask {param($TaskName,$ErrorAction)};function New-ScheduledTaskAction {param($Execute,$Argument)[IO.File]::WriteAllText('"+captured.Replace("'","''")+"',$Argument);'action'};function New-ScheduledTaskTrigger {param([switch]$Once,$At,$RepetitionInterval)'trigger'};function New-ScheduledTaskPrincipal {param($UserId,$LogonType,$RunLevel)'principal'};function New-ScheduledTaskSettingsSet {param([switch]$StartWhenAvailable,[switch]$AllowStartIfOnBatteries,[switch]$DontStopIfGoingOnBatteries,$ExecutionTimeLimit)'settings'};function Register-ScheduledTask {param($TaskName,$Action,$Trigger,$Principal,$Settings)};";
+  string hostPS=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),@"WindowsPowerShell\v1.0\powershell.exe");
+  File.WriteAllText(captured,"not_run");
+  using(var process=Process.Start(new ProcessStartInfo(hostPS,DuckyCommandEncoding.Arguments(stubs+schedule)){UseShellExecute=false,CreateNoWindow=true})){if(!process.WaitForExit(15000)||process.ExitCode!=0)return 10;}
+  if(File.ReadAllText(captured)!=nested)return 11;
   string marker=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"ducky-command-codec.txt");
-  string script="$unused='"+nested+"';[IO.File]::WriteAllText('"+marker.Replace("'","''")+"','ok')";
+  string script="$unused='"+legacy+"';[IO.File]::WriteAllText('"+marker.Replace("'","''")+"','ok')";
   if(Convert.ToBase64String(Encoding.Unicode.GetBytes(script)).Length<=32767)return 3;
   string arguments=DuckyCommandEncoding.Arguments(script);
   if(arguments.Length>28000)return 4;
@@ -63,4 +71,4 @@ $arguments+=@('/main:TaskStateTest',$fixture)
 if($LASTEXITCODE -ne 0){throw 'Task restart regression compile failed'}
 & $journalExe
 if($LASTEXITCODE -ne 0){throw 'Retirement timeout/restart regression failed'}
-Write-Output 'Retirement restart refusal and native compressed management-command regression PASS (old encoding exceeded Windows limit)'
+Write-Output 'Complete registration round-trip, retirement refusal and bounded native codec regressions PASS; task cmdlets stubbed'
