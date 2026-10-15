@@ -22,21 +22,21 @@ export default function ScanView(){
    retainedReceipts.delete(reference);setReceipts([...retainedReceipts]);setNotice('Original bytes restored.');
   }else setNotice('Operation not completed: '+(r.data?.code||r.type||'unavailable'));
  }catch(e){setNotice(e instanceof Error?e.message:'Native operation unavailable');}finally{setBusy(false);}}
- return <section className="panel glm-page"><div className="glm-page-heading"><div><span className="pm-eyebrow">SENTINEL / SCAN & DETECT</span><h3 className="panel-title">Virus Sample Detector</h3></div><span className="badge">{state?'Connected · partial coverage':'Scanner disconnected'}</span></div>
- {scanAlert&&<div className="pm-advice" role="status"><strong>Scan indicator found · review required</strong><p>{inspectionError?"Last available finding; scanner unavailable.":"Review the reports below. File checks have partial coverage; no files were quarantined."}</p></div>}
+ return <section className="panel glm-page"><div className="glm-page-heading"><div><span className="pm-eyebrow">SENTINEL / SCAN & DETECT</span><h3 className="panel-title">File & folder scan</h3></div><span className="badge">{state?'Connected · partial coverage':'Scanner disconnected'}</span></div>
+ {scanAlert&&<div className="pm-advice" role="status"><strong>Scan indicator found · review required</strong><p>{inspectionError?"Last available finding; scanner unavailable.":"Review findings below. Partial scan · no files quarantined."}</p></div>}
  <ScanTargetPanel running={running} disabled={!state||busy||running||receipts.length>0} onChoose={kind=>void select(kind)}/>
- <div className="glm-toolbar"><span role="status">{busy?'Opening native picker…':running?'Inspection running':state?'Ready to inspect':'Connect the desktop runtime to scan'}</span><button className="btn ghost" disabled={busy||!running} onClick={()=>void demoCall('cancel').catch(e=>setNotice(e.message))}>Cancel inspection</button></div>
+ <div className="glm-toolbar"><span role="status">{busy?'Choosing a target…':running?'Inspection running':state?.scan?.status==='failed'?'Scan failed · choose another file to retry':state?'Ready to inspect':'Scanner unavailable · open the desktop app'}</span><button className="btn ghost" disabled={busy||!running} onClick={()=>void demoCall('cancel').catch(e=>setNotice(e.message))}>Cancel inspection</button></div>
  <details className="glm-details"><summary>Coverage & limits</summary><p>Read-only Rust byte inspection checks local signatures and structural clues. Indicators need review; they do not prove malware. No automatic remediation or USB release.</p><p>8 MiB per file · 64 files · 256 entries · four directory levels. Larger files receive partial reports with no full-file hash. Links are refused. Quarantine is unavailable until recovery survives the five-minute native worker expiry.</p></details>
  {(notice||error||inspectionError)&&<p role="status">{notice||error||inspectionError}</p>}
  {snapshot&&<section aria-live="polite">
  {inspectionError&&<p role="status">Last available report · current inspection unavailable.</p>}<h3>{snapshot.cancellationRequested?'Cancellation requested':snapshot.state} · partial coverage</h3>
- <p>Latest file bytes acquired: {snapshot.currentFileBytes}. Reports: {snapshot.reports.length}. No estimated percentage.</p>
+ <p>{snapshot.reports.length} reports · {snapshot.currentFileBytes} current bytes</p>
  {snapshot.reports.map(report=><div className="pm-advice" key={snapshot.jobRef+report.reportRef}>
  <strong>{report.reportRef} · {report.state.replaceAll('_',' ')} · {report.verdict.replaceAll('_',' ')}</strong>
  <p>Inspected {report.inspectedBytes} of {report.logicalBytes} bytes.</p>
- <p>{report.sha256?<code style={{overflowWrap:'anywhere'}}>SHA-256: {report.sha256}</code>:'Full-file SHA-256 unavailable; inspection is incomplete.'}</p>
+ <details className="glm-details"><summary>Report details</summary><p>{report.sha256?<code style={{overflowWrap:'anywhere'}}>SHA-256: {report.sha256}</code>:'Full-file SHA-256 unavailable; inspection is incomplete.'}</p>
  {report.evidence&&<p>Zero bytes in inspected range: {report.evidence.zeroBytes} ({report.evidence.zeroPermille/10}%). Executable header: {report.evidence.peHeaderPresent?'observed':'not observed'}.</p>}
- <p>{report.findings.length?report.findings.map(f=>f.replaceAll('_',' ')).join(', '):'No local indicator observed. This does not guarantee safety.'}</p>
+ </details><p>{report.findings.length?report.findings.map(f=>f.replaceAll('_',' ')).join(', '):'No local indicator observed. This does not guarantee safety.'}</p>
  <button className="btn ghost" disabled={!quarantineAvailable||busy||running||selection?.kind!=='file'||selection.id!==state?.scan?.id||snapshot.cancellationRequested||report.state!=='completed'||snapshot.reports.length!==1} onClick={()=>void disposition(false,report.reportRef)}>Quarantine unavailable · recovery pending</button>
  </div>)}</section>}
  {receipts.length>0&&<p role="status">Restore quarantined files before selecting another file or closing. Restore authority lasts only for this running session.</p>}

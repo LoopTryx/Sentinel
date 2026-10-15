@@ -55,6 +55,15 @@ test('thicker warning frame stays inside the provider clipping boundary',()=>{
  const dom=new JSDOM('<article style="overflow:hidden"></article>'),doc=dom.window.document,root=doc.querySelector('article');
  const cleanup=showEmailWarning(root,{tier:'Likely Scam',reasons:[]});
  const css=doc.querySelector('[data-sentinel-email="frame-style"]').textContent;
- assert.ok(css.includes('outline:5px solid'));assert.ok(css.includes('outline-offset:-5px'));assert.equal(root.style.overflow,'hidden');
+ assert.ok(css.includes('outline:5px solid'));assert.ok(css.includes('outline-offset:-16px'));assert.equal(root.style.overflow,'hidden');
  cleanup();assert.equal(doc.querySelector('[data-sentinel-email="frame-style"]'),null);dom.window.close();
+});
+
+test('footer centres on the framed email despite an avatar gutter and releases resize observation',()=>{
+ const dom=new JSDOM('<article><div class="a3s">Invented email</div></article>'),doc=dom.window.document,root=doc.querySelector('article'),body=root.firstElementChild;let gutter=100,callback,disconnected=0;
+ root.getBoundingClientRect=()=>({left:0,width:1000});body.getBoundingClientRect=()=>({left:gutter,width:1000-gutter});
+ dom.window.ResizeObserver=class{constructor(cb){callback=cb;}observe(){}disconnect(){disconnected++;}};
+ const cleanup=showEmailWarning(root,{tier:'Likely Scam',reasons:[]}),host=body.querySelector('[data-sentinel-email]');
+ assert.equal(host.style.getPropertyValue('--footer-centre-shift'),'-50px');gutter=200;callback();assert.equal(host.style.getPropertyValue('--footer-centre-shift'),'-100px');
+ cleanup();cleanup();assert.equal(disconnected,1);assert.equal(body.querySelector('[data-sentinel-email]'),null);dom.window.close();
 });

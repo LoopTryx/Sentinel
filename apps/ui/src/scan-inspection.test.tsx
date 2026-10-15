@@ -27,5 +27,7 @@ it('shows partial large-file evidence without full hash and gates quarantine eve
   await act(async()=>button('Quarantine').click());
   expect(demoCall).not.toHaveBeenCalledWith('quarantine.request',{reportRef:'report_0'});
   expect(host.textContent).toContain('five-minute native worker expiry');
+  model.state.scan.status='failed';await act(()=>root.render(<ThreatProvider><ScanView/></ThreatProvider>));
+  expect(host.textContent).toContain('Scan failed · choose another file to retry');expect(button('Choose file').disabled).toBe(false);
  }finally{await act(()=>root.unmount());host.remove();}
 });
