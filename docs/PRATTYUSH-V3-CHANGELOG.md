@@ -56,3 +56,5 @@ Owner requested replacing the squeezed Gmail side warning with a frame around th
 Owner requested darker outer red, lighter central ring, better edge padding and a thicker email frame using ui-styling/ui-ux-pro-max. Footer uses a static radial gradient; spacing uses 16px insets/top gap and the frame increases from 2px to 3px with a closer offset. Navy text, mascots, message DOM and detection behavior are preserved. Checked 375px browser preview and existing UI regressions. New test package v11 / manifest 0.2.6; previous downloads preserved.
 
 Owner follow-up: replace the custom lighter-ring variant with the exact layered radial background from warning-page.css (URL warning page). Deep navy text, 16px spacing and 3px frame remain. v12 / manifest0.2.7 supersedes v11 for this appearance.
+
+Owner follow-up: enlarge footer mascots (112px desktop / 60px narrow), brighten radial centre while retaining dark red edges, and replace button borders/light surfaces with deep-navy buttons and light-blue labels. v13 / manifest0.2.8. Warning text/outline/padding/detection remain unchanged.
