@@ -20,3 +20,7 @@ test('unverified repeated observations never silently grant trust; sender store 
 test('sender storage refuses malformed addresses and unavailable private storage rather than storing broadly',async()=>{
  const store=createSenderStore({storage:{local:{get:async()=>({})}}});assert.throws(()=>store.context('not an address'));await assert.rejects(store.context('sender@example.test'),/unavailable/);
 });
+test('semantic requests require combinations and retain legitimate notification regressions',()=>{
+ for(const body of ['Confirm your account information immediately to avoid account suspension.','Urgent: provide your personal details and verify your account.','Please wire the money today and keep this confidential.'])assert.notEqual(assessEmail(email(body),{firstTime:true}).tier,'Safe',body);
+ for(const body of ['verify','confirm','account','security','payment','Your account update is complete.','Your verification code is 123456. Never share your code.'])assert.equal(assessEmail(email(body),{firstTime:true}).tier,'Safe',body);
+});

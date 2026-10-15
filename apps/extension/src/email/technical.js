@@ -17,7 +17,9 @@ export function inspectEmail(email){
  }
  if(Object.values(email.authentication||{}).some(v=>typeof v==='string'&&/^fail$/i.test(v)))add('authentication','An exposed email authentication check failed','authentication');
  if(mixed(`${email.sender?.name||''} ${email.subject||''}`))add('mixedScript','Mixed Latin and Cyrillic characters need inspection','script');
- for(const link of (email.links||[]).slice(0,policy.limits.links)){
+ const textLinks=(email.body||'').slice(0,8192).match(/https?:\/\/[^\s<>"']+|www\.[^\s<>"']+/giu)||[];
+ const links=[...(email.links||[]),...textLinks.slice(0,policy.limits.links).map(value=>({text:value,destination:value.startsWith('www.')?`https://${value}`:value}))].slice(0,policy.limits.links);
+ for(const link of links){
   const destination=link.destination||link.href;
   if(typeof destination!=='string'||destination.length>2048)continue;
   let url;try{url=new URL(destination);if(!['http:','https:'].includes(url.protocol))continue;}catch{continue;}

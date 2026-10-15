@@ -13,8 +13,8 @@
         "samples": 80,
         "scams": 40,
         "legitimate": 40,
-        "falsePositives": 3,
-        "falseNegatives": 25
+        "falsePositives": 4,
+        "falseNegatives": 23
       }
     },
     "comparison": {

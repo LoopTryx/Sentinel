@@ -42,3 +42,7 @@ Keep the changelog and PR description aligned with the final requested behavior.
 ## 14 October — email detector draft
 
 Implemented Gmail/Outlook reader, local scoring/config, technical clues, explicit site opt-ins, address-only sender history and compact warnings/link confirmation. Added 120 evaluation fixtures and measured results. WhatsApp flow stays intact. See [email draft evidence](evidence/email-detector-draft.md). Public-corpus recall is poor; not release-ready. Independent review and actual inbox acceptance remain. No installed extension changed.
+
+## 15 October — extension download continuation
+
+Added semantic email request patterns, truthful per-provider reader status, warning-to-trust-settings navigation, plain-text URL clues and stale-link/snapshot checks. Extension test build version is 0.2.4; release identity/native connection permissions are preserved. Owner requested a repository ZIP without creating a release. Detection still misses 31/50 public phishing examples; real inbox acceptance and independent review remain open.

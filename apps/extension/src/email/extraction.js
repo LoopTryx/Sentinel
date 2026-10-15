@@ -13,26 +13,27 @@ export function observeOpenedEmails(doc,{onEmail,onStatus=()=>{},adapter=emailPr
  if(typeof onEmail!=='function')throw new Error('A local email consumer is required.');
  if(!adapter){onStatus({state:'unsupported',messages:0});return {refresh:async()=>{},stop(){}};}
  if(!crypto?.subtle)throw new Error('Local fingerprinting unavailable.');
- const win=doc.defaultView,cache=new Map();let stopped=false,running=false,queued=false,timer=null,generation=0;
+ const win=doc.defaultView,cache=new Map(),verified=new Map();let stopped=false,running=false,queued=false,timer=null,generation=0;
  const report=(state,messages=0)=>{if(!stopped)onStatus({provider:adapter.id,state,messages});};
  async function refresh(){
   if(stopped)return;if(doc.hidden){report('paused');return;}if(running){queued=true;return;}
   running=true;const revision=generation;let supported=0;
   try{
    const roots=adapter.roots(doc).slice(0,limits.messages),live=new Set(roots);
-   for(const node of cache.keys())if(!live.has(node)||!node.isConnected)cache.delete(node);
+   for(const node of cache.keys())if(!live.has(node)||!node.isConnected){cache.delete(node);verified.delete(node);}
    if(!roots.length){report('no_supported_open_message');return;}
    for(const root of roots){
     if(stopped||generation!==revision)return;
-    const snapshot=adapter.read(root);if(!snapshot){cache.delete(root);continue;}
+    const snapshot=adapter.read(root);if(!snapshot){cache.delete(root);verified.delete(root);continue;}
     supported++;
     const bytes=new TextEncoder().encode(JSON.stringify(snapshot));
     const digest=await crypto.subtle.digest('SHA-256',bytes);
     if(stopped||generation!==revision||!root.isConnected)return;
     const key=Array.from(new Uint8Array(digest),value=>value.toString(16).padStart(2,'0')).join('');
-    if(cache.get(root)===key)continue;
-    cache.set(root,key);
-    try{await onEmail(snapshot,root,()=>!stopped&&generation===revision&&root.isConnected);}catch{cache.delete(root);report('consumer_unavailable');return;}
+    if(cache.get(root)===key){verified.set(root,revision);continue;}
+    let committed=false;
+    const isCurrent=()=>!stopped&&root.isConnected&&(committed?cache.get(root)===key&&verified.get(root)===generation:generation===revision);
+    try{await onEmail(snapshot,root,isCurrent);if(!stopped&&generation===revision&&root.isConnected){cache.set(root,key);verified.set(root,revision);committed=true;}else{cache.delete(root);verified.delete(root);}}catch{cache.delete(root);verified.delete(root);report('consumer_unavailable');return;}
    }
    report(supported?'partial':'unsupported_open_layout',supported);
   }catch{report('extraction_unavailable');}
@@ -50,8 +51,8 @@ export function observeOpenedEmails(doc,{onEmail,onStatus=()=>{},adapter=emailPr
   });
   if(relevant)schedule();
  });
- observer.observe(doc.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['hidden','aria-hidden','href','email','data-email-address','title','class']});
+ observer.observe(doc.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['hidden','aria-hidden','aria-label','href','email','data-email-address','data-email','data-filename','data-field','data-testid','title','class','style']});
  doc.addEventListener('visibilitychange',schedule);
  const ready=refresh();
- return {ready,refresh,stop(){stopped=true;generation++;observer.disconnect();if(timer!==null)win.clearTimeout(timer);doc.removeEventListener('visibilitychange',schedule);cache.clear();}};
+ return {ready,refresh,stop(){stopped=true;generation++;observer.disconnect();if(timer!==null)win.clearTimeout(timer);doc.removeEventListener('visibilitychange',schedule);cache.clear();verified.clear();}};
 }

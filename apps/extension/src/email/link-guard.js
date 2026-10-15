@@ -1,5 +1,5 @@
 /** Confirmation for flagged mail only; page-level interception is not OS/network blocking. */
-export function guardEmailLinks(root){
+export function guardEmailLinks(root,{isCurrent=()=>true}={}){
  const doc=root.ownerDocument;let panel=null;
  function close(){panel?.remove();panel=null;}
  function click(event){
@@ -13,7 +13,7 @@ export function guardEmailLinks(root){
   const label=doc.createElement('p');label.textContent=`Actual destination: ${url.href}`;
   const cancel=doc.createElement('button');cancel.type='button';cancel.textContent='Stay here';cancel.onclick=close;
   const proceed=doc.createElement('button');proceed.type='button';proceed.textContent='Open anyway';
-  proceed.onclick=()=>{if(!root.isConnected||link.getAttribute('href')!==raw){close();return;}doc.defaultView.open(url.href,'_blank','noopener,noreferrer');close();};
+  proceed.onclick=()=>{if(!root.isConnected||!root.contains(link)||!isCurrent()||link.getAttribute('href')!==raw){close();return;}doc.defaultView.open(url.href,'_blank','noopener,noreferrer');close();};
   box.append(label,cancel,proceed);shadow.append(style,box);root.prepend(panel);cancel.focus();
  }
  root.addEventListener('click',click,true);root.addEventListener('auxclick',click,true);

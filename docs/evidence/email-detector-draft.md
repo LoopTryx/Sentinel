@@ -21,7 +21,7 @@ Frozen initial email policy versus updated policy and technical checks (`node ap
 
 | Set | Before FP / FN | After FP / FN |
 | --- | --- | --- |
-| 80 public tuning samples (40 scam / 40 ham) | 0 / 38 | 3 / 25 |
+| 80 public tuning samples (40 scam / 40 ham) | 0 / 38 | 4 / 23 |
 | 20 public comparison samples (10 scam / 10 ham) | 0 / 9 | 0 / 8 |
 | 20 authored legitimate regressions | 0 / 0 | 0 / 0 |
 
@@ -32,3 +32,13 @@ Validation: stage-1 full verifier passed; the authorized full verifier passed ag
 ## Public data attribution
 
 Research mirror: https://github.com/rokibulroni/Phishing-Email-Dataset (Rokibul Roni; README declares CC BY-SA 4.0). Original corpora: Jose Nazario phishing corpus and Apache SpamAssassin public corpus. Adapted public fixture portions are CC BY-SA 4.0: https://creativecommons.org/licenses/by-sa/4.0/ . Changes are listed above; source row IDs and original-body hashes are retained. No endorsement is implied. Dataset licensing/provenance should receive release review before redistribution; it is not part of the installed package.
+
+## 15 October continuation — extension 0.2.4 test build
+
+Owner requested remaining implementation and a GitHub ZIP without a release. Added bounded semantic request patterns to editable email policy, plain-text URL technical checks, reader-status reporting (including unsupported/paused/unavailable), trusted-sender settings access from the compact warning, and prioritized explanations. Reader status is an ephemeral capped 32-tab map with a 15-second expiry and fixed enums/counts only. Trust changes stay popup-only; no sender is silently trusted. Red-link confirmation now rechecks that the original link is still attached, unchanged and belongs to the current snapshot. Observer watches sender/attachment/visibility metadata changes. New regressions cover asynchronous stale snapshots, status validation, semantic requests and exact/stale link confirmation.
+
+Public evaluation remains insufficient for release: total 4 false positives among 70 legitimate samples and 31 false negatives among 50 phishing samples. The original frozen policy had 0/47. This continuation improves recall on the tuning examples but does not establish reliable inbox protection. Actual Gmail/Outlook acceptance, fresh independent corpus evaluation and independent peer review are still outstanding. User has been asked whether a harmless test account is available; no private inbox is accessed.
+
+No LLM or public reputation uploads were added because raw-email privacy restrictions remain binding. No attachment byte scanning, automatic deletion or email delivery blocking is claimed. The ZIP is a labeled test build, not a production release. Native app/installed browser changes are not part of this download task.
+
+Final local validation for 15 October: all 115 extension tests PASS, full tools/verify.ps1 PASS, extension build/smoke parity PASS. Source review caught a freshness fence that stayed invalid after unrelated DOM updates; fixed with a digest-only verified-generation map, committing a snapshot only after its asynchronous consumer remains current. Regression confirms unchanged emails regain link freshness without duplicate scoring. Package script validates root manifest and every shipped file hash, rejects fixtures/tests and bounds package size. Live inbox/independent review/quality gates above remain outstanding.

@@ -5,6 +5,11 @@ export const emailDetectorConfig={
  bonuses:{combination:2,proximity:2,pressureLink:6,attachmentPressure:5,directRequest:7,changedBank:8,firstTime:1},
  limits:{text:12288,categoryCap:7,signals:24,links:64,attachments:20,senders:512,trusted:128,queue:16},
  proximityWords:10,
+ semanticPatterns:{
+  identityRequest:{label:'Request to confirm personal or account details',category:'credentials',weight:9,patterns:['(?:verify|confirm|update|validate|reenter|submit|provide|enter) (?:[\\p{L}\\p{N}]+ ){0,6}(?:account|identity|information|details|password|credentials|card|pin|code)','(?:account|identity|information|details|password|credentials) (?:[\\p{L}\\p{N}]+ ){0,6}(?:verification|required|confirm|update|validate)','(?:ارسل|أرسل|ادخل|أدخل|اكد|أكد|تحقق) (?:[\\p{L}\\p{N}]+ ){0,5}(?:حساب|حسابك|رمز|كود|كلمة المرور|بطاقة)']},
+  paymentDirective:{label:'Request to send money or change payment instructions',category:'payment',weight:7,patterns:['(?:send|pay|wire|transfer|purchase|buy) (?:[\\p{L}\\p{N}]+ ){0,5}(?:money|funds|fee|deposit|gift cards|bitcoin|cryptocurrency)','(?:bank|payment|payroll) (?:[\\p{L}\\p{N}]+ ){0,4}(?:changed|updated|new beneficiary)']},
+  accountThreatPattern:{label:'Account restriction or security threat',category:'accountThreat',weight:6,patterns:['(?:account|access|mailbox|service) (?:[\\p{L}\\p{N}]+ ){0,5}(?:suspend|suspended|blocked|restricted|disabled|expire|expires|terminated)','(?:avoid|prevent) (?:[\\p{L}\\p{N}]+ ){0,4}(?:suspension|closure|termination)']}
+ },
  baseWeights:{reward:3,action:2,urgency:3,credentials:1,authority:1,link:0},
  categories:{
   emailAction:{label:'Action requested',weight:3,phrases:['click here','click below','log in','log on','update your','confirm your','download','complete the','follow the link','sign in']},

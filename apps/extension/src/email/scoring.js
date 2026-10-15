@@ -21,6 +21,10 @@ export function assessEmail(email,context={},technical=[],policy=defaultPolicy){
   for(const phrase of category.phrases){const match=pattern(escape(normalizeMessage(phrase))).exec(normalized);if(match){matched++;positions.push({id,index:match.index});}}
   if(matched)add(id,category.label,Math.min(policy.limits.categoryCap,category.weight*matched),({emailAction:'action',emailCredentials:'credentials',accountSecurity:'accountThreat',pressure:'urgency'}[id]||id));
  }
+ for(const [id,rule]of Object.entries(policy.semanticPatterns||{})){
+  const match=rule.patterns.map(p=>pattern(p).exec(normalized)).find(Boolean);
+  if(match){add(id,rule.label,rule.weight,rule.category);positions.push({id:rule.category,index:match.index});}
+ }
  for(const signal of technical){if(typeof signal.code!=='string'||!Object.hasOwn(policy.technicalWeights,signal.code))throw new Error('Invalid technical signal.');add(signal.code,signal.label,policy.technicalWeights[signal.code],signal.category||signal.code);}
  const directRequest=base.some(r=>r.reasons.some(reason=>reason.code==='contact_request'));
  const changedBank=policy.changedBankPatterns.some(p=>pattern(p).test(normalized));

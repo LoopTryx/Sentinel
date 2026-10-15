@@ -22,4 +22,8 @@ test('content cannot trust senders, submit bodies, impersonate popup or use an u
  assert.ok(!JSON.stringify(h.saved).includes('private'));
  assert.deepEqual(await h.call({kind:'email_feedback',tier:'Suspicious'},content),{recorded:true});assert.equal(h.saved.emailWrongFlagCount,1);
  assert.ok((await h.call({kind:'email_feedback',tier:'Suspicious',body:'private'},content)).error);
+ assert.deepEqual(await h.call({kind:'email_reader_status',state:'unsupported_open_layout',messages:0},content),{recorded:true});
+ assert.equal((await h.call({kind:'email_status',provider:'gmail'},popup)).reader,'unsupported_open_layout');
+ assert.ok((await h.call({kind:'email_reader_status',state:'partial',messages:9},content)).error);
+ assert.ok((await h.call({kind:'email_reader_status',state:'partial',messages:1,body:'private'},content)).error);
 });

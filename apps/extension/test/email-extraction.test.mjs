@@ -63,3 +63,12 @@ test('provider reads do not mutate messages, click links or open attachments',as
 test('image-only messages are identified without reading image data',async()=>{
  const {dom,doc,adapter}=await fixture();try{const body=doc.querySelector('.a3s');body.replaceChildren(doc.createElement('img'));const result=adapter.read(adapter.roots(doc)[0]);assert.equal(result.imageOnly,true);assert.equal(result.body,'');}finally{dom.window.close();}
 });
+test('async consumers cannot render an old snapshot after a message changes',async()=>{
+ const {dom,doc}=await fixture();let release,entered=false;const validity=[];
+ const control=observeOpenedEmails(doc,{crypto:webcrypto,onEmail:async(_snapshot,_root,isCurrent)=>{if(!entered){entered=true;await new Promise(resolve=>release=resolve);}validity.push(isCurrent());}});
+ try{await eventually(()=>entered);doc.querySelector('.a3s').firstChild.nodeValue='Changed while sender context was pending';await new Promise(resolve=>setTimeout(resolve,0));release();await control.ready;assert.equal(validity[0],false);await eventually(()=>validity.includes(true));}finally{control.stop();dom.window.close();}
+});
+test('unchanged messages regain link freshness after unrelated DOM updates without duplicate scoring',async()=>{
+ const {dom,doc}=await fixture();let fresh,reads=0;const control=observeOpenedEmails(doc,{crypto:webcrypto,onEmail:(_snapshot,_root,isCurrent)=>{fresh=isCurrent;reads++;}});
+ try{await control.ready;assert.equal(fresh(),true);const aside=doc.createElement('aside');aside.textContent='Sidebar changed';doc.body.append(aside);await new Promise(resolve=>setTimeout(resolve,0));assert.equal(fresh(),false);await eventually(()=>fresh());assert.equal(reads,1);control.stop();assert.equal(fresh(),false);}finally{control.stop();dom.window.close();}
+});
