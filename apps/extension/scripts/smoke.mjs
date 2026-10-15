@@ -15,6 +15,8 @@ const requiredFiles = [
   'src/email/runtime.js',
   'src/email/bootstrap.js',
   'src/email/banner.js',
+  'src/assets/blue-investigate-v1.png',
+  'src/assets/red-alert-v1.png',
   'src/email/link-guard.js',
   'src/email/scoring.js',
   'src/email/technical.js',

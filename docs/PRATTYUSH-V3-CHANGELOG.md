@@ -46,3 +46,7 @@ Implemented Gmail/Outlook reader, local scoring/config, technical clues, explici
 ## 15 October — extension download continuation
 
 Added semantic email request patterns, truthful per-provider reader status, warning-to-trust-settings navigation, plain-text URL clues and stale-link/snapshot checks. Extension test build version is 0.2.4; release identity/native connection permissions are preserved. Owner requested a repository ZIP without creating a release. Detection still misses 31/50 public phishing examples; real inbox acceptance and independent review remain open.
+
+## 15 October — email warning frame and mascot footer
+
+Owner requested replacing the squeezed Gmail side warning with a frame around the email and warning below its body. Implemented deep-navy footer text, bright red gradient, blue-investigate mascot left and red-alert mascot right. Provider flex layout and message nodes stay intact; owned frame/footer clean up on reanalysis or disable. Checked wide and 390px synthetic previews plus DOM/data-preservation regressions. New extension test ZIP v10 / manifest 0.2.5 preserves v9 and the owner’s extracted v9 folder. Detection quality limits remain unchanged.
