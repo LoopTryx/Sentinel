@@ -46,3 +46,15 @@ Sources:
 - https://learn.microsoft.com/en-us/windows-hardware/drivers/devtest/pnputil-examples
 - https://learn.microsoft.com/en-us/windows-hardware/drivers/hid/keyboard-and-mouse-hid-client-drivers
 - https://learn.microsoft.com/en-us/windows-hardware/drivers/install/kernel-mode-code-signing-policy--windows-vista-and-later-
+
+## Native inventory and owner verification follow-up
+
+The owner explicitly retained Windows Hello for USB approval. The elevated, same-process native qualification was completed interactively: the owner reported success and the categorical HKLM receipt was independently read as `State=verified`. This proves the owner-verification API works on this machine; the qualification receipt is never an enrollment, permission token or device approval. No USB policy changed during this check.
+
+`apps/desktop/UsbAdmissionInventory.cs` now provides a native ConfigMgr32 collector. Live collection completed with 17 present USB nodes, 35 property queries, two internal safety candidates, four external approval candidates and zero unresolved subjects. All external candidates remain pending. The first run exposed a real Windows property edge case: an empty MULTISZ may contain a single UTF-16 NUL. A regression reproduces this and the decoder accepts only that exact empty representation while retaining strict nonempty termination checks. IDs remain in memory; published evidence contains counts only. Collection remains soft-bounded and requires an external worker timeout before production integration.
+
+`UsbAdmissionOwnerQualification.cs` is an isolated interactive test executable. It owns the foreground HWND, invokes the existing Windows Hello verifier directly and retains its message loop until a canceled or timed-out native operation actually terminates. Late success cannot authorize anything. `UsbOwnerVerification.HasPending` is a read-only completion-latch accessor. Focused inventory decoder tests, invalid-window refusal and owner prompt cancellation/completion regressions passed again after the live test.
+
+The next implementation is a protected persistent enrollment configuration separate from the five-minute operation journal, followed by an independently reviewed native policy transaction and real USB Guard integration. A timed operation journal cannot safely double as an approval database. Neither successful Hello nor inventory qualification enables general blocking in the installed console by itself.
+
+Follow-up verification: unchanged tools/verify.ps1 completed with exit 0 and 'All available T01 checks passed.' in artifacts/usb-admission-owner-inventory-verify-native.log. The preceding sandbox run failed filesystem/quarantine tests with path access errors; native access rerun passed without weakening checks. Independent qualification review found no concrete blocker within this read-only/test scope; production authority and hard-timeout integration remain separate requirements.

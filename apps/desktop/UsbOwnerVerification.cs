@@ -16,6 +16,7 @@ internal static class UsbOwnerVerification {
  [DllImport("user32.dll")]static extern uint GetWindowThreadProcessId(IntPtr window,out uint process);
  [DllImport("user32.dll")]static extern IntPtr GetForegroundWindow();
  static int pending;
+ internal static bool HasPending {get{return System.Threading.Volatile.Read(ref pending)!=0;}}
  internal static async Task<bool> Verify(IntPtr window,string message){
   uint process;if(window==IntPtr.Zero||!IsWindow(window)||GetWindowThreadProcessId(window,out process)==0||process!=(uint)Process.GetCurrentProcess().Id||GetForegroundWindow()!=window||string.IsNullOrEmpty(message)||message.Length>160||message.IndexOf('\0')>=0)return false;
   if(Interlocked.CompareExchange(ref pending,1,0)!=0)return false;
