@@ -11,6 +11,9 @@ public sealed class DuckyPolicyState {
  public DuckyPolicyState(string state,string title,string detail){State=state;Title=title;Detail=detail;}
 }
 public static class DuckyPolicyControl {
+ public static object Snapshot(){var state=Read();string target,nonce;string input=DuckyPolicyEnrollment.Read(out target,out nonce)?DuckyInputHealth.Read(target):"unavailable";return new{state=state.State,title=state.Title,detail=state.Detail,input};}
+ public static string Failure(int code){switch(code){case 21:return "Windows approval cancelled.";case 20:return "Windows is still processing. Outcome unknown; check device status before retrying.";case 40:return "The owned block entry could not be validated.";case 41:return "Release removed the rule, but Windows refresh or input recovery is incomplete. Reconnect the Ducky, then retry Allow.";case 31:return "The protected profile or recovery journal needs attention.";case 34:return "Independent automatic recovery test failed.";case 36:return "Automatic release could not be scheduled.";default:return "Device action failed at stage "+code+". No successful change is confirmed.";}}
+ public static bool IsEnrolled(string root){string target,nonce;return DuckyPolicyEnrollment.Read(out target,out nonce)&&string.Equals(root,target,StringComparison.OrdinalIgnoreCase);}
  [DllImport("cfgmgr32.dll",CharSet=CharSet.Unicode)]static extern int CM_Locate_DevNode(out uint node,string id,int flags);
  [DllImport("cfgmgr32.dll")]static extern int CM_Get_DevNode_Status(out uint status,out uint problem,uint node,int flags);
  public static DuckyPolicyState Read(){

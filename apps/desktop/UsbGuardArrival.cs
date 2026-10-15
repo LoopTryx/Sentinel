@@ -24,7 +24,8 @@ internal sealed class UsbGuardArrival:IDisposable {
  readonly UsbGuardArrivalLedger ledger=new UsbGuardArrivalLedger();readonly Dictionary<string,UsbGuardPopup> popups=new Dictionary<string,UsbGuardPopup>(StringComparer.OrdinalIgnoreCase);readonly Dictionary<string,string> interfaceRoots=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);IntPtr notification;bool disposed;int pending;
  internal int ArrivalCount{get;private set;}internal int PopupCount{get;private set;}internal int EventCount{get;private set;}internal int RejectedBroadcasts{get;private set;}internal int UnresolvedParents{get;private set;}internal bool Registered{get{return notification!=IntPtr.Zero;}}
  static readonly Guid UsbInterface=new Guid("a5dcbf10-6530-11d2-901f-00c04fb951ed");
- internal UsbGuardArrival(Window window,IntPtr handle){var filter=new Filter{Size=(uint)Marshal.SizeOf(typeof(Filter)),Type=5,Class=UsbInterface};notification=RegisterDeviceNotificationW(handle,ref filter,0);}
+ readonly Func<string,string,string,string,UsbGuardNotice> enrolledNotice;
+ internal UsbGuardArrival(Window window,IntPtr handle,Func<string,string,string,string,UsbGuardNotice> noticeProvider=null){enrolledNotice=noticeProvider;var filter=new Filter{Size=(uint)Marshal.SizeOf(typeof(Filter)),Type=5,Class=UsbInterface};notification=RegisterDeviceNotificationW(handle,ref filter,0);}
  internal void Receive(IntPtr operation,IntPtr data){
   EventCount=Math.Min(1000000,EventCount+1);
   if(disposed||notification==IntPtr.Zero||data==IntPtr.Zero||(operation.ToInt64()!=0x8000&&operation.ToInt64()!=0x8004))return;
@@ -43,7 +44,7 @@ internal sealed class UsbGuardArrival:IDisposable {
    // No admission service is installed yet; never offer a cosmetic release or
    // claim this post-arrival notification prevented the device's first input.
    string kind="USB connection";var type=metadata.collections.GetType();var keyboards=type.GetProperty("keyboards");var mice=type.GetProperty("mice");if(keyboards!=null&&mice!=null){int k=(int)keyboards.GetValue(metadata.collections,null),m=(int)mice.GetValue(metadata.collections,null);if(k>0&&m>0)kind="Keyboard and mouse input";else if(k>0)kind="Keyboard input";else if(m>0)kind="Mouse input";}
-   if(popups.Count>=4)return;var popup=new UsbGuardPopup(UsbGuardNotice.Unavailable(reference,metadata.name,kind,"service_unavailable"),null);popups[root]=popup;popup.Closed+=(s,e)=>{UsbGuardPopup current;if(popups.TryGetValue(root,out current)&&object.ReferenceEquals(current,popup))popups.Remove(root);};popup.Show();PopupCount=Math.Min(1000000,PopupCount+1);
+   if(popups.Count>=4)return;var popup=new UsbGuardPopup((enrolledNotice==null?null:enrolledNotice(root,reference,metadata.name,kind))??UsbGuardNotice.Unavailable(reference,metadata.name,kind,"service_unavailable"),null);popups[root]=popup;popup.Closed+=(s,e)=>{UsbGuardPopup current;if(popups.TryGetValue(root,out current)&&object.ReferenceEquals(current,popup))popups.Remove(root);};popup.Show();PopupCount=Math.Min(1000000,PopupCount+1);
   }catch{}finally{pending--;}
  }
  static string Name(string root){uint node;if(CM_Locate_DevNodeW(out node,root,0)!=0)return "USB device";foreach(var key in new[]{new PropertyKey{Format=new Guid("540b947e-8b40-45bc-a8a2-6a0b894cbda2"),Id=4},new PropertyKey{Format=new Guid("a45c254e-df1c-4efd-8020-67d146a850e0"),Id=14}}){var property=key;var bytes=new byte[512];uint size=512,type;if(CM_Get_DevNode_PropertyW(node,ref property,out type,bytes,ref size,0)==0&&type==18&&size>=2&&size<=512&&size%2==0)return Encoding.Unicode.GetString(bytes,0,(int)size).TrimEnd('\0');}return "USB device";}

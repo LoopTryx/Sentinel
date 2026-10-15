@@ -36,13 +36,14 @@ public static class UsbDeviceInventory {
   }
   return new Node{Id=instance,Root=root,Placement=UsbInputIdentity.ClassifyAncestry(ancestry),Kind=kind,Name=name};
  }
- internal static object Aggregate(IEnumerable<Node> nodes,bool partial,int omitted){
+ internal static object Aggregate(IEnumerable<Node> nodes,bool partial,int omitted,Func<string,bool> excluded=null){
   var groups=new Dictionary<string,Group>(StringComparer.OrdinalIgnoreCase);var order=new List<Group>();var ids=new HashSet<string>(StringComparer.OrdinalIgnoreCase);int count=0;
   foreach(var node in nodes){
    if(++count>512){partial=true;omitted=Math.Min(512,omitted+1);break;}
    if(node==null||string.IsNullOrEmpty(node.Id)||node.Id.Length>512||!ids.Add(node.Id)){partial=true;continue;}
    if(node.Placement=="platform_input"||node.Placement=="non_usb")continue;
    if(node.Root==null||node.Placement!="usb_placement_unverified")partial=true;
+   if(node.Root!=null&&excluded!=null&&excluded(node.Root))continue;
    string key=node.Root==null?"node:"+node.Id:"root:"+node.Root;Group group;
    if(!groups.TryGetValue(key,out group)){if(groups.Count>=64){partial=true;omitted=Math.Min(512,omitted+1);continue;}group=new Group{Ref="device-"+(order.Count+1),Name=node.Name,Evidence=node.Root!=null&&node.Placement=="usb_placement_unverified"?"os_reported":"unresolved"};groups.Add(key,group);order.Add(group);}
    group.Kinds.Add(node.Kind);
@@ -51,8 +52,9 @@ public static class UsbDeviceInventory {
   return new{schemaVersion=1,mode="observation_only",state=partial||omitted>0?"partial":"observed",observedAt=DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),omitted=Math.Min(512,omitted),devices};
  }
  public static object Snapshot(){return Collect(false);}
+ public static object Snapshot(Func<string,bool> excluded){return Collect(false,excluded);}
  internal static object PolicyCandidateCounts(){return Collect(true);}
- static object Collect(bool counts){
+ static object Collect(bool counts,Func<string,bool> excluded=null){
   try{
    var nodes=new List<Node>();bool partial=false;int omitted=0;var watch=Stopwatch.StartNew();
    var classes=new[]{"{4d36e96b-e325-11ce-bfc1-08002be10318}","{4d36e96f-e325-11ce-bfc1-08002be10318}","{745a17a0-74d3-11d0-b6fe-00a0c90f57da}","{4d36e967-e325-11ce-bfc1-08002be10318}"};var kinds=new[]{"hid_keyboard","hid_mouse","hid_other","storage"};
@@ -63,7 +65,7 @@ public static class UsbDeviceInventory {
      var info=new DeviceInfo{Size=(uint)Marshal.SizeOf(typeof(DeviceInfo))};if(!SetupDiEnumDeviceInfo(set,index,ref info)){if(Marshal.GetLastWin32Error()!=259)partial=true;break;}
      if(index==128){partial=true;omitted=Math.Min(512,omitted+1);break;}var node=Resolve(info.Node,kinds[c]);if(node==null){partial=true;continue;}nodes.Add(node);
     }}finally{SetupDiDestroyDeviceInfoList(set);}
-   }if(counts){int input=0,platform=0,other=0,unresolved=0;foreach(var node in nodes){if(node.Kind=="storage")continue;input++;if(node.Placement=="platform_input")platform++;else if(node.Placement=="non_usb")other++;else if(node.Root==null)unresolved++;}return new{state=partial||unresolved>0?"partial":"observed",inputSetupNodes=input,platformInputNodes=platform,nonUsbInputNodes=other,unresolvedInputNodes=unresolved,omitted};}return Aggregate(nodes,partial,omitted);
+   }if(counts){int input=0,platform=0,other=0,unresolved=0;foreach(var node in nodes){if(node.Kind=="storage")continue;input++;if(node.Placement=="platform_input")platform++;else if(node.Placement=="non_usb")other++;else if(node.Root==null)unresolved++;}return new{state=partial||unresolved>0?"partial":"observed",inputSetupNodes=input,platformInputNodes=platform,nonUsbInputNodes=other,unresolvedInputNodes=unresolved,omitted};}return Aggregate(nodes,partial,omitted,excluded);
   }catch{return new{schemaVersion=1,mode="observation_only",state="unavailable",observedAt=DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),omitted=0,devices=new object[0]};}
  }
 }

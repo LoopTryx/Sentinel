@@ -13,6 +13,11 @@ internal sealed class UsbGuardNotice {
  static string Clean(string text,int limit,string fallback){if(string.IsNullOrEmpty(text))return fallback;var value=new StringBuilder();foreach(char c in text)if(c>=0x20&&c<=0x7E&&value.Length<limit)value.Append(c);return value.Length==0?fallback:value.ToString();}
  internal static UsbGuardNotice Unavailable(string reference,string name,string capabilities,string reason){if(string.IsNullOrEmpty(reference)||reference.Length>128)throw new ArgumentException("Invalid native connection reference.");return new UsbGuardNotice(reference,name,capabilities,"Input blocking unavailable",reason=="disconnected"?"Device disconnected.":"USB Guard is not enforcing input restrictions.",false);}
  internal static UsbGuardNotice Disconnected(string reference){return new UsbGuardNotice(reference,"USB device","Disconnected","Device disconnected","This connection is no longer available.",false);}
+ internal static UsbGuardNotice Profiled(string reference,string name,string capabilities,string state){
+  if(state=="off")return new UsbGuardNotice(reference,name,capabilities,"Ducky rule: allowed","No enrolled-device block rule is active. Open USB Guard to block it.",false);
+  if(state=="armed"||state=="driver_unavailable")return new UsbGuardNotice(reference,name,capabilities,"Ducky block rule armed","Windows installation restriction is active for this enrolled device. Open USB Guard to allow it.",false);
+  return Unavailable(reference,name,capabilities,"service_unavailable");
+ }
  public override string ToString(){return Status;}
  // Blocked/approval-enabled factory intentionally absent until a reviewed native
  // service supplies actual measured admission evidence. No UI may invent it.

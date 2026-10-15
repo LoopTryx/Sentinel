@@ -24,8 +24,8 @@ export default function UsbGuardView(){
  return <section className="usb-guard usb-minimal" aria-labelledby="usb-heading">
   <div className="usb-page-heading"><h2 id="usb-heading">USB Guard</h2><span className="usb-mode">{state?'Monitoring connected devices':'Desktop disconnected'}</span></div>
   <dl className="usb-status-strip"><div><dt>Unknown devices</dt><dd className="usb-status-warning">Not blocked</dd></div><div><dt>Profiled Ducky</dt><dd>Windows policy control</dd></div><div><dt>Storage scan</dt><dd>Not running</dd></div></dl>
-  <DuckyControlPanel enabled={!!state}/>
   <section className="panel"><div className="usb-toolbar"><h3>Connected input and storage</h3><button className="btn ghost" disabled={observing||!state} onClick={()=>void observe()}>{observing?'Updating…':'Refresh'}</button></div>
+   <DuckyControlPanel enabled={!!state}/>
    {notice&&<p role="status">{notice}</p>}
    {snapshot&&snapshot.state!=='unavailable'?<><p className="usb-inventory-count">{useful.length} Windows device groups · Updated {new Date(snapshot.observedAt).toLocaleTimeString()}{snapshot.state==='partial'?' · Incomplete inventory':''}</p>
     <div className="usb-device-list">{useful.map(device=><article key={device.ref} data-usb-device className="usb-device-card">

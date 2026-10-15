@@ -1,12 +1,16 @@
-import {useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {demoCall} from '../../demo-bridge';
-
+type DeviceState={state:'off'|'armed'|'driver_unavailable'|'unavailable';title:string;detail:string;input:'ready'|'input_missing'|'input_error'|'disconnected'|'unavailable'};
+function parse(value:unknown):DeviceState{const d=value as DeviceState;if(!d||!['off','armed','driver_unavailable','unavailable'].includes(d.state)||!['ready','input_missing','input_error','disconnected','unavailable'].includes(d.input)||typeof d.title!=='string'||typeof d.detail!=='string'||d.detail.length>512)throw Error('Device status unavailable.');return d;}
 export default function DuckyControlPanel({enabled}:{enabled:boolean}){
- const [busy,setBusy]=useState(false),[error,setError]=useState('');
- async function open(){setBusy(true);setError('');try{await demoCall('usb.ducky.open');}catch{setError('The device control could not open. Try again from the Sentinel tray menu.');}finally{setBusy(false);}}
- return <section className="panel" aria-labelledby="profiled-usb-heading">
-  <div className="usb-toolbar"><div><h3 id="profiled-usb-heading">Profiled Ducky</h3><p>RP2040-Zero · five-minute hold and release</p></div><button className="btn" disabled={!enabled||busy} onClick={()=>void open()}>{busy?'Opening…':'Manage device'}</button></div>
-  <p>Windows approval is required. This control applies to the enrolled device on this computer.</p>
+ const [device,setDevice]=useState<DeviceState|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');const live=useRef(false),running=useRef(false);
+ useEffect(()=>{live.current=enabled;setDevice(null);if(!enabled)return;let active=true;async function refresh(){if(running.current)return;try{const next=parse(await demoCall('usb.ducky.status'));if(active)setDevice(next);}catch{if(active)setDevice(null);}}void refresh();const timer=setInterval(refresh,2500);return()=>{active=false;live.current=false;clearInterval(timer);};},[enabled]);
+ async function run(action:'block'|'allow'){if(running.current)return;running.current=true;setBusy(true);setError('');try{const next=parse(await demoCall('usb.ducky.'+action));if(live.current)setDevice(next);}catch(e){if(live.current)setError(e instanceof Error?e.message:'Device action failed.');}finally{running.current=false;setBusy(false);}}
+ const armed=device?.state==='armed'||device?.state==='driver_unavailable';
+ return <article className="usb-device-card usb-enrolled-device" aria-label="Enrolled Ducky">
+  <div className="usb-device-title"><span className="usb-device-glyph" aria-hidden="true">⌨</span><div><strong>RP2040-Zero</strong><span className="usb-device-reference">Enrolled Ducky · this computer</span></div><span className="usb-chip">{!enabled?'Disconnected':!device?'Status unavailable':device.input==='disconnected'?'Unplugged':device.input==='unavailable'?'Connection unknown':'Connected'}</span></div>
+  <dl className="usb-device-facts"><div><dt>Windows rule</dt><dd>{!device?'Unknown':armed?'Block armed':device.state==='off'?'Allowed':'Unavailable'}</dd></div><div><dt>Input driver</dt><dd>{device?.input==='ready'?'Ready':device?.input==='disconnected'?'Disconnected':device?.input==='input_error'?'Driver error':device?.input==='input_missing'?'Not installed':'Unknown'}</dd></div><div><dt>Automatic release</dt><dd>{armed?'Within five minutes':'No active block reported'}</dd></div></dl>
+  <div className="usb-toolbar"><p className="usb-check-note">{busy?'Approve Windows to continue…':armed?'This enrolled device is restricted on connection while the rule is armed.':'Allow removes the rule; reconnect the Ducky to run its startup script.'}</p><div><button className="btn" disabled={!enabled||busy||!device||device.state==='unavailable'||armed} onClick={()=>void run('block')}>Block</button><button className="btn ghost" disabled={!enabled||busy} onClick={()=>void run('allow')}>Allow</button></div></div>
   {error&&<p role="alert">{error}</p>}
- </section>;
+ </article>;
 }

@@ -40,7 +40,7 @@ public static class DuckyPolicyHost {
   string script="$ErrorActionPreference='Stop';$n='"+task+"';$t=Get-ScheduledTask -TaskName $n -ErrorAction SilentlyContinue;if($t){if($t.Principal.UserId -notin @('SYSTEM','S-1-5-18') -or $t.Actions.Count -ne 1 -or $t.Actions[0].Execute -cne '"+PS+"' -or $t.Actions[0].Arguments -cne '"+action+"'){exit 18};Disable-ScheduledTask -TaskName $n|Out-Null;Stop-ScheduledTask -TaskName $n;$until=[datetime]::UtcNow.AddSeconds(10);$service=New-Object -ComObject Schedule.Service;$service.Connect();do{$running=@($service.GetRunningTasks(1)|Where-Object {$_.Path -ceq ('\\'+$n)});if($running.Count -eq 0){Unregister-ScheduledTask -TaskName $n -Confirm:$false;exit 0};Start-Sleep -Milliseconds 250}while([datetime]::UtcNow -lt $until);exit 18}";
   if(Run(script)!=0)throw new InvalidOperationException("Previous recovery task did not retire");
  }
- static void Healthy(string target){uint node,status,problem;if(CM_Locate_DevNode(out node,target,0)!=0||CM_Get_DevNode_Status(out status,out problem,node,0)!=0||problem!=0)throw new InvalidOperationException("Reconnect the released device before another hold");}
+ static void Healthy(string target){if(DuckyInputHealth.Read(target)!="ready")throw new InvalidOperationException("Reconnect the released device; input driver recovery is incomplete");}
  static bool Trusted(string sid){return sid=="S-1-5-18"||sid=="S-1-5-32-544"||sid=="S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464";}
  static void CheckDirectory(string path,bool privateDirectory){
   var acl=Directory.GetAccessControl(path);
@@ -84,7 +84,7 @@ public static class DuckyPolicyHost {
    string source;using(var reader=new StreamReader(typeof(DuckyPolicyHost).Assembly.GetManifestResourceStream("Sentinel.Ducky.Entry")))source="#define SENTINEL_DUCKY_POLICY_LAB\n"+reader.ReadToEnd();
    if(args[0]=="release"){
     stage=40;SentinelDuckyEntry.Restore(Policy,target,nonce,true);stage=41;Refresh();
-    if(priorRecord!=null){Healthy(target);string expected=Arguments(Recovery(source,Policy,target,nonce));Retire(retiringTask,expected);Retire(previousTask,expected);priorRecord["retiringTask"]=null;Save(desktopReceipt,priorRecord);}
+    Healthy(target);if(priorRecord!=null){string expected=Arguments(Recovery(source,Policy,target,nonce));Retire(retiringTask,expected);Retire(previousTask,expected);priorRecord["retiringTask"]=null;Save(desktopReceipt,priorRecord);}
     return 0;
    }
    DuckyTaskState.AssertReady(priorRecord);

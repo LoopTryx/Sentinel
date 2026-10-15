@@ -3,7 +3,7 @@ $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 $compiler=Join-Path $env:WINDIR 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
 $output=Join-Path $root 'artifacts/DuckyPolicyArgumentTest.exe'
 $arguments=@('/nologo','/target:exe','/platform:x64','/define:SENTINEL_DUCKY_POLICY_LAB',('/out:'+$output),('/reference:'+(Join-Path (Split-Path $compiler) 'System.Web.Extensions.dll')),('/resource:'+(Join-Path $root 'tools/usb/DuckyPolicyEntry.cs')+',Sentinel.Ducky.Entry'))
-$arguments+=@('apps/desktop/DuckyPolicyHost.cs','apps/desktop/DuckyPolicyEnrollment.cs','tools/usb/DuckyPolicyEntry.cs','tools/usb/DuckyPolicyJournal.cs')|ForEach-Object {Join-Path $root $_}
+$arguments+=@('apps/desktop/DuckyPolicyHost.cs','apps/desktop/DuckyInputHealth.cs','apps/desktop/DuckyPolicyEnrollment.cs','tools/usb/DuckyPolicyEntry.cs','tools/usb/DuckyPolicyJournal.cs')|ForEach-Object {Join-Path $root $_}
 & $compiler $arguments
 if($LASTEXITCODE -ne 0){throw 'Fixed-purpose helper compile failed'}
 # Deliberately omit elevation manifest for these rejection-only tests. No accepted

@@ -6,6 +6,7 @@ import UsbGuardView from './UsbGuardView';
 import {demoCall,useDemoState} from '../../demo-bridge';
 vi.mock('../../demo-bridge',()=>({demoCall:vi.fn(),useDemoState:vi.fn()}));
 vi.mock('./UsbActivityPanel',()=>({default:()=>null}));
+vi.mock('./DuckyControlPanel',()=>({default:()=>null}));
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;
 it('shows every HID group including unnamed and unresolved groups without inventing a hold',async()=>{
  vi.mocked(useDemoState).mockReturnValue({state:{} as any,error:''});

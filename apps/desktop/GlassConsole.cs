@@ -144,7 +144,7 @@ public sealed class SentinelGlassConsole : Window
         grid.Children.Add(header);
         view.DefaultBackgroundColor = System.Drawing.Color.Transparent;
         Grid.SetRow(view, 1); grid.Children.Add(view); Content = grid;
-        SourceInitialized += delegate { EnableBackdrop();var handle=new WindowInteropHelper(this).Handle;inputMonitor.Start(handle);usbArrival=new UsbGuardArrival(this,handle);HwndSource.FromHwnd(handle).AddHook(delegate(IntPtr hwnd,int message,IntPtr wParam,IntPtr lParam,ref bool handled){if(message==0x00FF)inputMonitor.Receive(lParam);if(message==0x00FE&&wParam.ToInt32()==2)inputMonitor.Removed(lParam);if(message==0x0219&&usbArrival!=null)usbArrival.Receive(wParam,lParam);return IntPtr.Zero;}); };
+        SourceInitialized += delegate { EnableBackdrop();var handle=new WindowInteropHelper(this).Handle;inputMonitor.Start(handle);usbArrival=new UsbGuardArrival(this,handle,(root,reference,name,kind)=>DuckyPolicyControl.IsEnrolled(root)?UsbGuardNotice.Profiled(reference,name,kind,DuckyPolicyControl.Read().State):null);HwndSource.FromHwnd(handle).AddHook(delegate(IntPtr hwnd,int message,IntPtr wParam,IntPtr lParam,ref bool handled){if(message==0x00FF)inputMonitor.Receive(lParam);if(message==0x00FE&&wParam.ToInt32()==2)inputMonitor.Removed(lParam);if(message==0x0219&&usbArrival!=null)usbArrival.Receive(wParam,lParam);return IntPtr.Zero;}); };
         Closed+=delegate{if(usbArrival!=null)usbArrival.Dispose();};
         Loaded += Initialize;
         Loaded += delegate { Dispatcher.BeginInvoke(new Action(EnableBackdrop),DispatcherPriority.ContextIdle); };
@@ -251,6 +251,19 @@ public sealed class SentinelGlassConsole : Window
             id = request["id"] as string;
             string method = request["method"] as string;
             if (id == null || !System.Text.RegularExpressions.Regex.IsMatch(id, "^[a-zA-Z0-9_-]{1,64}$")) return;
+            if(method=="usb.ducky.status"||method=="usb.ducky.block"||method=="usb.ducky.allow"){
+                var empty=request["data"] as Dictionary<string,object>;
+                if(empty==null||empty.Count!=0)throw new InvalidOperationException();
+                if(method=="usb.ducky.status"){Reply(id,DuckyPolicyControl.Snapshot());return;}
+                if(!IsVisible||!IsActive||selectionRequest){Reply(id,new{error="action_unavailable"});return;}
+                if(actionDialog){Reply(id,new{error="action_busy"});return;}
+                actionDialog=true;requests++;
+                try{bool block=method=="usb.ducky.block";int code=await DuckyPolicyControl.Execute(block?"hold":"release");
+                    if(code!=0){Reply(id,new{error=DuckyPolicyControl.Failure(code)});return;}
+                    NotifyDucky(block?"Ducky block rule armed for five minutes. Reconnect to test.":"Ducky block rule removed. Reconnect to run.");Reply(id,DuckyPolicyControl.Snapshot());
+                }finally{actionDialog=false;requests--;}
+                return;
+            }
             if(method=="usb.ducky.open"){
                 var empty=request["data"] as Dictionary<string,object>;
                 if(empty==null||empty.Count!=0)throw new InvalidOperationException();
@@ -269,7 +282,7 @@ public sealed class SentinelGlassConsole : Window
                 try{ReleaseCapture();SendMessage(new WindowInteropHelper(this).Handle,0x00A1,new IntPtr(2),IntPtr.Zero);}
                 finally{dragging=false;}
                 return;
-            }            if(method=="usb.observe"){var empty=data as Dictionary<string,object>;if(empty==null||empty.Count!=0)throw new InvalidOperationException();Reply(id,UsbDeviceInventory.Snapshot());return;} if(method=="usb.activity"){var empty=data as Dictionary<string,object>;if(empty==null||empty.Count!=0)throw new InvalidOperationException();Reply(id,inputMonitor.Snapshot());return;}
+            }            if(method=="usb.observe"){var empty=data as Dictionary<string,object>;if(empty==null||empty.Count!=0)throw new InvalidOperationException();Reply(id,UsbDeviceInventory.Snapshot(DuckyPolicyControl.IsEnrolled));return;} if(method=="usb.activity"){var empty=data as Dictionary<string,object>;if(empty==null||empty.Count!=0)throw new InvalidOperationException();Reply(id,inputMonitor.Snapshot());return;}
             if(method=="window.hide"){var empty=data as Dictionary<string,object>;if(empty==null||empty.Count!=0)throw new InvalidOperationException();HideToTray();Reply(id,new{ok=true});return;}
             if (method == "vault.copy" || method == "vault.rotate" || method=="vault.view" || method=="vault.remove" || method=="vault.add" || method=="vault.update") {
                 if(actionDialog||selectionRequest){Reply(id,new {error="action_busy"});return;}
