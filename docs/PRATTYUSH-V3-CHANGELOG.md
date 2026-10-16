@@ -92,3 +92,5 @@ Owner approved replacing native toolbar popup with a navigation-only panel injec
 Owner requested revert of a92bdf5: restored the prior blue glass material, top counter row and Console copy. Kept the blue horizon ASCII background, collapsible sidebar and bottom Sentinel ribbon. Compact layout remains recoverable in Git history.
 
 17 October: ribbon reduced to22px type/38px band, moved to natural end of scrolling page with full-bleed edges and16px bottom gap. Responsive line width keeps type size stable at wide/HiDPI sizes. Decorative sidebar slogan/version removed. Requested ui-styling/ui-ux-pro-max applied; evidence/small-flow-ribbon-2026-10-17.md.
+
+17 October: sidebar restyled with shared premium liquid-glass tokens, subtle background-only refraction, paused/reduced-motion-aware blooms, synchronized500ms collapse, fixed icon slots and unclipped glass tooltips. Existing navigation/collapse state preserved; explicit owner tagline restored without version text. Matrix opacity25%. Evidence: evidence/premium-sidebar-2026-10-17.md.

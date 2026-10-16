@@ -1,44 +1,68 @@
-/* The supplied sample's separate frost, tint, reflection and shine layers.
-   Keep effects local to the sidebar; never filter text, animate blur or resize icons. */
-.shell.sidebar-collapsed{grid-template-columns:84px minmax(0,1fr)}
-#root .liquid-sidebar{display:flex;flex-direction:column;position:relative;margin:12px 0 12px 12px;min-height:0;padding:14px 10px;gap:12px;border:1px solid #c2dcf04d;border-radius:26px;overflow:hidden;background:#101c34;backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:0 12px 32px #02061445,inset 0 1px 0 #e6f4ff44}
+@import './liquid-sidebar-tokens.css';
+/* Existing navigation and collapse state; visual layers never contain text. */
+#root .shell{grid-template-rows:minmax(0,1fr);grid-template-columns:var(--sidebar-expanded-width) minmax(0,1fr);transition:grid-template-columns var(--sidebar-width-duration) var(--sidebar-width-ease)}
+#root .shell.sidebar-collapsed{grid-template-columns:var(--sidebar-collapsed-width) minmax(0,1fr)}
+#root .liquid-sidebar{position:relative;z-index:3;display:flex;flex-direction:column;min-width:0;min-height:0;margin:12px 0 12px 12px;padding:10px;gap:12px;overflow:visible;border:1px solid var(--sidebar-border);border-radius:var(--sidebar-radius);background:var(--sidebar-solid);backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:var(--sidebar-shadow)}
 #root .liquid-sidebar::before,#root .liquid-sidebar::after{content:none;animation:none}
 .liquid-sidebar-optics{position:absolute!important;inset:0;z-index:0!important;pointer-events:none;overflow:hidden;border-radius:inherit}
 .liquid-sidebar-optics>div{position:absolute;inset:0;border-radius:inherit}
-.liquid-sidebar-tint{background:linear-gradient(145deg,#a9d0f02e,#102343ad 45%,#060c1cbd)}
-.liquid-sidebar-reflection{box-shadow:inset 1px 1px 1px #ebf7ff88,inset -1px -1px 1px #b8ddff38,inset 0 0 24px #b8ddff12}
-.liquid-sidebar-shine{inset:0 20px auto!important;height:1px;background:linear-gradient(90deg,transparent,#e7f6ffe0,transparent)}
+.liquid-sidebar-tint{background:var(--sidebar-surface)}
+.liquid-sidebar-reflection{box-shadow:var(--sidebar-inner-reflection)}
+.liquid-sidebar-shine{inset:0 22px auto!important;height:1px;background:linear-gradient(90deg,var(--sidebar-clear),var(--sidebar-edge),var(--sidebar-clear))}
+.liquid-sidebar-refraction-defs{position:absolute;width:0;height:0;pointer-events:none}
+.liquid-sidebar-optics .liquid-sidebar-bloom{inset:10% -35% auto;width:140%;height:180px;background:radial-gradient(ellipse,var(--sidebar-bloom-blue),var(--sidebar-clear) 70%);filter:blur(var(--sidebar-bloom-blur));animation:sidebar-bloom-drift var(--sidebar-bloom-duration) ease-in-out infinite alternate}
+.liquid-sidebar-optics .liquid-sidebar-bloom.second{top:auto;bottom:12%;background:radial-gradient(ellipse,var(--sidebar-bloom-indigo),var(--sidebar-clear) 70%);animation-delay:-10s}
+@keyframes sidebar-bloom-drift{from{transform:translate3d(-8px,-16px,0)}to{transform:translate3d(16px,24px,0)}}
+#root .liquid-sidebar[data-motion-paused=true] .liquid-sidebar-bloom{animation-play-state:paused}
 @supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
- #root .liquid-sidebar{background:transparent}
- .liquid-sidebar-frost{backdrop-filter:blur(12px) saturate(120%);-webkit-backdrop-filter:blur(12px) saturate(120%)}
+ #root .liquid-sidebar{background:var(--sidebar-clear)}
+ .liquid-sidebar-frost{backdrop-filter:blur(var(--sidebar-blur)) saturate(var(--sidebar-saturation));-webkit-backdrop-filter:blur(var(--sidebar-blur)) saturate(var(--sidebar-saturation));filter:var(--sidebar-refraction-filter,none)}
 }
-.liquid-sidebar-content{position:relative;z-index:1;display:flex;flex-direction:column;gap:4px;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-gutter:stable}
-.sidebar-toggle{position:relative;z-index:1;flex:none;align-self:flex-end;display:grid;place-items:center;width:44px;height:44px;border:1px solid #b5d4f245;border-radius:14px;background:#112541c7;color:#dbedff;cursor:pointer;transition:background-color 240ms ease,border-color 240ms ease}
-.sidebar-toggle:hover{background:#244367;border-color:#b5d4f280}.sidebar-toggle:active{background:#0b172c}.sidebar-toggle:focus-visible{outline:3px solid #9bddff;outline-offset:2px}
-#root .liquid-sidebar .nav-btn{background:#07132680;color:#e3efff;min-height:46px;border-radius:14px;text-shadow:0 1px 2px #0008;transition:background-color 240ms ease,box-shadow 240ms ease}
-#root .liquid-sidebar .nav-btn:hover{background:#294563b8}#root .liquid-sidebar .nav-btn.active{background:linear-gradient(var(--state-dim),var(--state-dim)),#0b1930c7;box-shadow:inset 0 1px 0 #e3f1ff33;border:1px solid var(--state);color:#f1f7ff}
-#root .liquid-sidebar .nav-btn:focus-visible{outline:3px solid #9bddff;outline-offset:-3px}
-#root .liquid-sidebar[data-collapsed=true] .nav-label,#root .liquid-sidebar[data-collapsed=true] .brand,#root .liquid-sidebar[data-collapsed=true] .sidebar-footer{display:none}
-#root .liquid-sidebar[data-collapsed=true] .nav-btn{font-size:0;gap:0;padding:0;justify-content:center}
-#root .liquid-sidebar[data-collapsed=true] .nav-btn>span{display:none}
+/* Buffered scrollport keeps short windows usable. Row layers stay overflow-visible;
+   tooltip portal escapes the scrollport entirely. Only optics use overflow:hidden. */
+.liquid-sidebar-content{position:relative;z-index:1;display:flex;flex-direction:column;gap:4px;flex:1;min-height:0;overflow:auto;padding:var(--sidebar-hover-buffer);margin:0 calc(-1 * var(--sidebar-hover-buffer));scrollbar-width:none;scrollbar-gutter:auto}
+.liquid-sidebar-content::-webkit-scrollbar{display:none}
+#root .liquid-sidebar .sidebar-nav{overflow:visible;min-width:0}
+.sidebar-toggle{position:relative;z-index:2;flex:none;align-self:flex-end;display:grid;place-items:center;width:40px;height:40px;padding:0;border:1px solid var(--sidebar-border);border-radius:var(--sidebar-toggle-radius);background:var(--sidebar-toggle-fill);color:var(--sidebar-white);cursor:pointer;transition:background-color var(--sidebar-hover-duration) ease,box-shadow var(--sidebar-hover-duration) ease}
+.sidebar-toggle:hover{background:var(--sidebar-toggle-hover);box-shadow:var(--sidebar-logo-shadow)}
+.sidebar-toggle:active{background:var(--sidebar-solid)}
+.sidebar-toggle:focus-visible,#root .liquid-sidebar .nav-btn:focus-visible{outline:2px solid var(--sidebar-focus);outline-offset:2px}
+#root .liquid-sidebar .brand{padding:4px 8px 12px;gap:10px;min-height:50px;flex:none}
+#root .liquid-sidebar .brand-mark{width:34px;height:34px;border-radius:var(--sidebar-toggle-radius);border:1px solid var(--sidebar-border);background:var(--sidebar-logo-fill);box-shadow:var(--sidebar-logo-shadow);flex:none}
+#root .liquid-sidebar .brand-mark svg{stroke:var(--sidebar-blue)}
+#root .liquid-sidebar .brand-dot{color:var(--sidebar-blue);background:currentColor;box-shadow:var(--sidebar-dot-shadow);animation:none}
+#root .liquid-sidebar .brand-name{font:700 16px var(--font-body);letter-spacing:.12em;white-space:nowrap;color:var(--sidebar-white);background:var(--sidebar-wordmark-scrim);border-radius:var(--sidebar-caption-radius);padding:4px 6px;-webkit-text-fill-color:var(--sidebar-white)}
+#root .liquid-sidebar .nav-label{font:600 11px/1.5 var(--font-body);letter-spacing:.14em;text-transform:uppercase;color:var(--sidebar-muted);opacity:var(--sidebar-muted-opacity);background:var(--sidebar-text-scrim);padding:6px 10px;margin:8px 0 4px;border-radius:var(--sidebar-caption-radius)}
+#root .liquid-sidebar .nav-btn{position:relative;z-index:1;display:flex;align-items:center;gap:0;min-height:50px;height:50px;padding:0;margin-bottom:4px;overflow:visible;border:1px solid var(--sidebar-item-border);border-radius:var(--sidebar-item-radius);background:linear-gradient(var(--sidebar-item-fill),var(--sidebar-item-fill)),var(--sidebar-item-scrim);color:var(--sidebar-ink);font:500 14px var(--font-body);letter-spacing:normal;text-transform:none;text-align:left;text-shadow:var(--sidebar-item-text-shadow);transform-origin:left center;transition:transform var(--sidebar-hover-duration) var(--sidebar-hover-ease),background-color var(--sidebar-hover-duration) ease,box-shadow var(--sidebar-hover-duration) ease}
+#root .liquid-sidebar .nav-icon-slot{display:grid;place-items:center;flex:0 0 52px;width:52px;height:48px}
+#root .liquid-sidebar .nav-icon-slot svg,.sidebar-toggle svg{width:20px;height:20px;stroke-width:1.75;flex:none;transform:none;transition:none}
+#root .liquid-sidebar .nav-item-label{white-space:nowrap;min-width:0;pointer-events:none}
+#root .liquid-sidebar .nav-btn.active{background:linear-gradient(var(--sidebar-active-aa-scrim),var(--sidebar-active-aa-scrim)),linear-gradient(135deg,var(--sidebar-active-start),var(--sidebar-active-end));border-color:var(--sidebar-active-ring);box-shadow:var(--sidebar-active-shadow);color:var(--sidebar-white)}
+@media(hover:hover){#root .liquid-sidebar .nav-btn:hover{z-index:4;transform:translateX(2px) scale(1.03);box-shadow:var(--sidebar-logo-shadow)}}
+#root .liquid-sidebar .nav-btn:not(.active):hover{background:linear-gradient(var(--sidebar-item-hover),var(--sidebar-item-hover)),var(--sidebar-item-scrim)}
+#root .liquid-sidebar .nav-btn:focus-visible{z-index:4}
+#root .liquid-sidebar .nav-btn:active{transform:translateX(1px) scale(.99)}
+#root .liquid-sidebar .sidebar-footer{flex:none;border-top:1px solid var(--sidebar-divider);margin-top:auto;padding:12px 8px 4px}
+#root .liquid-sidebar .sidebar-footer-text{font:500 11px/1.7 var(--font-mono);letter-spacing:.2em;white-space:normal;color:var(--sidebar-footer-ink);background:var(--sidebar-text-scrim)}
+#root .liquid-sidebar[data-collapsed=false] :is(.brand-name,.nav-item-label,.sidebar-footer){animation:sidebar-label-in var(--sidebar-label-duration) ease-out var(--sidebar-label-delay) both}
+#root .liquid-sidebar[data-collapsed=false] .nav-label{animation:sidebar-section-in var(--sidebar-label-duration) ease-out var(--sidebar-label-delay) both}
+@keyframes sidebar-label-in{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
+@keyframes sidebar-section-in{from{opacity:0;transform:translateX(-6px)}to{opacity:var(--sidebar-muted-opacity);transform:translateX(0)}}
+#root .liquid-sidebar[data-collapsed=true]{align-self:start;height:fit-content;max-height:calc(100dvh - 24px)}
 #root .liquid-sidebar[data-collapsed=true] .sidebar-toggle{align-self:center}
-#root .liquid-sidebar[data-collapsed=true] .liquid-sidebar-content{scrollbar-gutter:auto}
-@media(max-width:700px){#root .shell{grid-template-columns:200px minmax(0,1fr)}#root .shell.sidebar-collapsed{grid-template-columns:76px minmax(0,1fr)}#root .liquid-sidebar{margin:8px 0 8px 8px;padding:12px 8px;border-radius:22px}}
-html[data-glass-effects=off] #root .liquid-sidebar{background:#101c34}html[data-glass-effects=off] .liquid-sidebar-frost{backdrop-filter:none;-webkit-backdrop-filter:none}
-@media(prefers-reduced-transparency:reduce){#root .liquid-sidebar{background:#101c34}.liquid-sidebar-frost{backdrop-filter:none;-webkit-backdrop-filter:none}}
-@media(prefers-reduced-motion:reduce){.sidebar-toggle,#root .liquid-sidebar .nav-btn{transition:none}}
-@media(forced-colors:active){#root .liquid-sidebar{background:Canvas;border-color:CanvasText;box-shadow:none}.liquid-sidebar-optics{display:none}.sidebar-toggle,#root .liquid-sidebar .nav-btn{background:Canvas;color:ButtonText;border-color:ButtonText;text-shadow:none}#root .liquid-sidebar .nav-btn.active{border-color:Highlight;color:Highlight;box-shadow:none}}
-#root .liquid-sidebar .brand-name{letter-spacing:1.8px;font-size:.95rem}
-/* Keep wheel/keyboard scrolling, without a visible rail scrollbar. */
-#root .liquid-sidebar-content{scrollbar-width:none;scrollbar-gutter:auto}
-#root .liquid-sidebar-content::-webkit-scrollbar{display:none}
-/* Collapsed dock ends immediately after the final page icon. */
-#root .liquid-sidebar[data-collapsed=true]{align-self:start;height:fit-content;max-height:calc(100vh - 24px)}
 #root .liquid-sidebar[data-collapsed=true] .liquid-sidebar-content{flex:0 1 auto}
-#root .liquid-sidebar[data-collapsed=false] .nav-btn.active{background:linear-gradient(135deg,#2f89e3,#2265b5);border-color:#80b7eb;box-shadow:inset 0 1px 0 #cfe8ff40;color:#fff}
-#root .liquid-sidebar[data-collapsed=true] .nav-btn svg{transition:transform 220ms cubic-bezier(.2,.65,.3,1);transform-origin:center}
-@media(hover:hover){#root .liquid-sidebar[data-collapsed=true] .nav-btn:hover svg{transform:translateY(-2px) scale(1.12)}}
-#root .liquid-sidebar[data-collapsed=true] .nav-btn:focus-visible svg{transform:translateY(-2px) scale(1.12)}
-#root .liquid-sidebar[data-collapsed=true] .nav-btn:active svg{transform:scale(.96)}
-@media(prefers-reduced-motion:reduce){#root .liquid-sidebar[data-collapsed=true] .nav-btn svg{transition:none;transform:none!important}}
-@media(forced-colors:active){#root .liquid-sidebar[data-collapsed=false] .nav-btn.active{background:Highlight;color:HighlightText;border-color:Highlight;box-shadow:none}}
+#root .liquid-sidebar[data-collapsed=true] .brand{display:none}
+#root .liquid-sidebar[data-collapsed=true] :is(.nav-item-label,.sidebar-footer,.nav-status){opacity:0;visibility:hidden;pointer-events:none;transition:opacity var(--sidebar-label-duration) ease;max-height:0;padding:0;margin:0;border:0}
+#root .liquid-sidebar[data-collapsed=true] .nav-item-label{width:0}
+#root .liquid-sidebar[data-collapsed=true] .nav-status{display:none}
+#root .liquid-sidebar[data-collapsed=true] .nav-label{font-size:0;line-height:0;height:1px;padding:0;margin:10px 0;background:var(--sidebar-divider);border-radius:0;opacity:1}
+.sidebar-glass-tooltip{position:fixed;z-index:var(--sidebar-tooltip-z);pointer-events:none;max-width:220px;padding:8px 12px;border:1px solid var(--sidebar-border);border-radius:var(--sidebar-tooltip-radius);background:var(--sidebar-tooltip-fill);backdrop-filter:blur(var(--sidebar-blur));color:var(--sidebar-white);font:500 12px/1.4 var(--font-body);box-shadow:var(--sidebar-tooltip-shadow);transform:translateY(-50%);overflow-wrap:anywhere}
+html[data-desktop=glass] .dither-bg{opacity:var(--sidebar-matrix-opacity)!important}
+html[data-glass-effects=off] #root .liquid-sidebar{background:var(--sidebar-solid)}
+html[data-glass-effects=off] .liquid-sidebar-frost{backdrop-filter:none;-webkit-backdrop-filter:none;filter:none}
+html[data-glass-effects=off] .liquid-sidebar-bloom{display:none}
+html[data-glass-effects=off] .sidebar-glass-tooltip{backdrop-filter:none}
+@media(prefers-reduced-transparency:reduce){#root .liquid-sidebar{background:var(--sidebar-solid)}.liquid-sidebar-frost{backdrop-filter:none;-webkit-backdrop-filter:none;filter:none}.liquid-sidebar-bloom{display:none}.sidebar-glass-tooltip{backdrop-filter:none}}
+@media(prefers-reduced-motion:reduce){#root .shell,#root .liquid-sidebar .nav-btn,.sidebar-toggle{transition:none}#root .liquid-sidebar :is(.brand-name,.nav-item-label,.nav-label,.sidebar-footer){animation:none!important;transform:none!important}#root .liquid-sidebar .nav-btn{transform:none!important}.liquid-sidebar-bloom{animation:none}}
+@media(forced-colors:active){#root .liquid-sidebar{background:Canvas;border-color:CanvasText;box-shadow:none}.liquid-sidebar-optics{display:none}#root .liquid-sidebar :is(.nav-btn,.brand-name,.sidebar-footer-text,.nav-label),.sidebar-toggle{background:Canvas;color:CanvasText;text-shadow:none;-webkit-text-fill-color:CanvasText}#root .liquid-sidebar .nav-btn.active{background:Highlight;color:HighlightText;box-shadow:none}.sidebar-glass-tooltip{background:Canvas;color:CanvasText;backdrop-filter:none;box-shadow:none}}
+@media(forced-colors:active){#root .liquid-sidebar .brand-mark svg{stroke:CanvasText}#root .liquid-sidebar .nav-label{opacity:1}#root .liquid-sidebar[data-collapsed=true] .nav-label{border-bottom:1px solid CanvasText}}

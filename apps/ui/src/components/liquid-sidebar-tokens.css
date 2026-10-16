@@ -1,0 +1,15 @@
+:root {
+ --sidebar-expanded-width:264px;--sidebar-collapsed-width:88px;--sidebar-radius:32px;--sidebar-item-radius:16px;--sidebar-toggle-radius:14px;--sidebar-tooltip-radius:12px;
+ --sidebar-blur:8px;--sidebar-saturation:140%;--sidebar-bloom-blur:50px;--sidebar-matrix-opacity:.25;
+ --sidebar-surface:linear-gradient(160deg,rgba(120,160,255,.20),rgba(15,30,90,.22));--sidebar-solid:#0b142b;--sidebar-clear:transparent;
+ --sidebar-border:rgba(255,255,255,.10);--sidebar-top-highlight:rgba(255,255,255,.45);--sidebar-edge:rgba(255,255,255,.85);--sidebar-inner-shadow:rgba(0,0,25,.28);--sidebar-shadow:0 20px 60px rgba(0,0,40,.45);
+ --sidebar-bloom-blue:rgba(70,140,255,.32);--sidebar-bloom-indigo:rgba(88,70,255,.28);--sidebar-bloom-duration:20s;
+ --sidebar-ink:#d6dbee;--sidebar-white:#fff;--sidebar-wordmark-scrim:rgba(5,8,24,.72);--sidebar-caption-radius:8px;--sidebar-muted:#8e97b5;--sidebar-muted-opacity:.8;--sidebar-footer-ink:#6f7899;--sidebar-text-scrim:#050818;
+ --sidebar-item-fill:rgba(255,255,255,.05);--sidebar-item-border:rgba(255,255,255,.06);--sidebar-item-hover:rgba(255,255,255,.14);--sidebar-item-scrim:rgba(5,8,24,.80);
+ --sidebar-active-start:rgba(43,107,255,.85);--sidebar-active-end:rgba(77,163,255,.70);--sidebar-active-ring:rgba(255,255,255,.35);--sidebar-active-glow:0 0 22px rgba(43,107,255,.55);--sidebar-active-aa-scrim:rgba(0,0,0,.40);
+ --sidebar-focus:#2b6bff;--sidebar-divider:rgba(255,255,255,.08);--sidebar-logo-fill:linear-gradient(rgba(140,180,255,.12),rgba(140,180,255,.12)),rgba(5,8,24,.80);--sidebar-blue:#4da3ff;--sidebar-logo-shadow:0 0 18px rgba(43,107,255,.30);--sidebar-dot-shadow:0 0 10px currentColor;
+ --sidebar-toggle-fill:rgba(120,160,255,.10);--sidebar-toggle-hover:rgba(120,160,255,.22);--sidebar-tooltip-fill:rgba(8,16,40,.96);--sidebar-tooltip-shadow:0 8px 24px rgba(0,0,25,.30);
+ --sidebar-width-duration:500ms;--sidebar-width-ease:cubic-bezier(.22,1,.36,1);--sidebar-hover-duration:600ms;--sidebar-hover-ease:cubic-bezier(.175,.885,.32,2.2);--sidebar-label-duration:120ms;--sidebar-label-delay:620ms;
+ --sidebar-tooltip-z:100;--sidebar-hover-buffer:16px;--sidebar-inner-reflection:inset 0 1px 0 var(--sidebar-top-highlight),inset 0 0 24px var(--sidebar-inner-shadow),inset 0 0 0 1px var(--sidebar-border);--sidebar-active-shadow:0 0 0 .5px var(--sidebar-active-ring),var(--sidebar-active-glow);
+ --sidebar-item-text-shadow:0 1px 2px rgba(0,0,0,.5);
+}

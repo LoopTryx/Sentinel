@@ -127,7 +127,7 @@ function Shell() {
           position: "absolute",
           inset: 0,
           zIndex: 0,
-          opacity: view === "password" ? 0.40 : 0.75,
+          opacity: "var(--sidebar-matrix-opacity)",
         }}
       >
         <GradientASCII
@@ -153,14 +153,14 @@ function Shell() {
           {n.id === "quarantine" && <div className="nav-label">System</div>}
           <button
             key={n.id}
-            aria-label={n.label} title={n.label}
+            aria-label={n.label}
             aria-current={view === n.id ? "page" : undefined} className={`nav-btn${view === n.id ? " active" : ""}`}
             onClick={() => setView(n.id)}
           >
-            <Icon name={n.icon} size={16} />
-            {n.label}
+            <span className="nav-icon-slot"><Icon name={n.icon} size={16} /></span>
+            <span className="nav-item-label">{n.label}</span>
             {n.id === "watchtower" && level !== "preview" && (
-              <span
+              <span className="nav-status"
                 style={{
                   marginLeft: "auto",
                   fontFamily: "var(--font-mono)",
@@ -179,6 +179,7 @@ function Shell() {
           </Fragment>
         ))}</nav>
 
+        <div className="sidebar-footer"><div className="sidebar-footer-text">THINK · PROTECT · DEFEND</div></div>
       </LiquidSidebar>
 
       <main className="main">
