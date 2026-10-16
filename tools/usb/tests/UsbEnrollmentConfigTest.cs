@@ -66,6 +66,8 @@ internal static class UsbEnrollmentConfigTest {
     var third=new UsbEnrollmentConfig.Snapshot(3,"S-1-5-21-111-222-333-1001",first.InternalSafety,new string[0]);Refuses(()=>store.CommitForTest(2,third,1));
    }
    Refuses(()=>{using(var failed=new UsbEnrollmentConfig(fixture)){} });
+   Require(UsbEnrollmentConfig.ReadCommittedForRecovery(fixture).Generation==2);
+   using(var recoveryOnly=new UsbAdmissionNativeStores(fixture)){Require(recoveryOnly.Read()==null);}
    string pending=Path.Combine(fixture,"enrollment.pending");File.Delete(pending); // Exact malformed test-owned stage only; no production auto-repair.
    stage=6;string committed=Path.Combine(fixture,"enrollment.bin");byte[] saved=File.ReadAllBytes(committed);byte[] damaged=(byte[])saved.Clone();damaged[damaged.Length-1]^=1;File.WriteAllBytes(committed,damaged);
    Refuses(()=>{using(var failed=new UsbEnrollmentConfig(fixture)){} });File.WriteAllBytes(committed,saved);
@@ -76,6 +78,11 @@ internal static class UsbEnrollmentConfigTest {
     DateTime now=DateTime.UtcNow;var intent=new UsbAdmissionJournal.Record(new string('a',32),now,now.AddMinutes(2),new string('b',64),policy);stores.Arm(intent);
     // Recovery can reopen intent while the native operator/store adapter lives.
     using(var independent=new UsbAdmissionJournal(fixture)){Require(independent.Read().Nonce==intent.Nonce);}
+    Exception readerFailure=null;UsbAdmissionJournal.Record observed=null;System.Threading.Thread reader;
+    using(var held=new UsbAdmissionJournal(fixture)){
+     reader=new System.Threading.Thread(()=>{try{observed=stores.Read();}catch(Exception error){readerFailure=error;}});reader.Start();System.Threading.Thread.Sleep(150);Require(reader.IsAlive);
+    }
+    Require(reader.Join(3000)&&readerFailure==null&&observed!=null&&observed.Nonce==intent.Nonce);
     stores.ClearAfterVerifiedRestore(intent.Nonce);Require(stores.Read()==null);
    }
    passed=true;

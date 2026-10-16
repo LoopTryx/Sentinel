@@ -8,7 +8,9 @@ internal sealed class UsbAdmissionNativeStores : UsbAdmissionTransaction.IConfig
  readonly string path;readonly SentinelPolicyDirectory pin;readonly object sync=new object();bool disposed;
  internal UsbAdmissionNativeStores(string protectedDirectory){
   path=protectedDirectory;pin=new SentinelPolicyDirectory(path);
-  try{using(var config=new UsbEnrollmentConfig(path)){}using(var journal=new UsbAdmissionJournal(path)){} }
+  // Enrollment may have a malformed uncommitted proposal after a crash. Do not
+  // make that a prerequisite for opening the independent recovery journal.
+  try{using(var journal=new UsbAdmissionJournal(path)){} }
   catch{pin.Dispose();throw;}
  }
  void Current(){if(disposed)throw new ObjectDisposedException("UsbAdmissionNativeStores");}

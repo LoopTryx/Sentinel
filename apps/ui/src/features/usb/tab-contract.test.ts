@@ -1,0 +1,3 @@
+import {expect,it} from 'vitest';import {parseUsbTab} from './tab-contract';
+const sample=()=>({schemaVersion:1,verified:false,topology:'a'.repeat(64),active:false,deadline:null,devices:[{ref:'b'.repeat(64),name:'USB keyboard',access:'off',canChange:true,canBlock:false,canScan:false}],message:''});
+it('refuses malformed, duplicate and unsupported scan authority',()=>{expect(parseUsbTab(sample())).not.toBeNull();expect(parseUsbTab({...sample(),devices:[...sample().devices,...sample().devices]})).toBeNull();expect(parseUsbTab({...sample(),devices:[{...sample().devices[0],canScan:true}]})).toBeNull();expect(parseUsbTab({...sample(),topology:'raw hardware id'})).toBeNull();});

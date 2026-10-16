@@ -64,7 +64,11 @@ public sealed class UsbEnrollmentConfig : IDisposable {
   foreach(FileSystemAccessRule rule in acl.GetAccessRules(true,true,typeof(SecurityIdentifier))){if(rule.AccessControlType!=AccessControlType.Allow)continue;if(!rule.IdentityReference.Equals(admin)&&!rule.IdentityReference.Equals(system))throw Invalid();if((rule.FileSystemRights&FileSystemRights.FullControl)==FileSystemRights.FullControl)full=true;}if(!full)throw Invalid();
  }
  static void NotReparse(string path){if(File.Exists(path)&&(File.GetAttributes(path)&FileAttributes.ReparsePoint)!=0)throw Invalid();}
- public UsbEnrollmentConfig(string protectedDirectory){
+ public UsbEnrollmentConfig(string protectedDirectory):this(protectedDirectory,false){}
+ // Recovery may read the last authenticated committed owner even when a new
+ // proposal was interrupted. This path never exposes a writable store.
+ internal static Snapshot ReadCommittedForRecovery(string protectedDirectory){using(var store=new UsbEnrollmentConfig(protectedDirectory,true))return store.ReadCommitted();}
+ UsbEnrollmentConfig(string protectedDirectory,bool recoveryReadOnly){
   if(string.IsNullOrEmpty(protectedDirectory)||!Path.IsPathRooted(protectedDirectory))throw Invalid();
   // Parent retains trusted ancestry pins. This store additionally pins the final
   // protected directory for its entire lifetime; never use a user-writable parent.
@@ -74,7 +78,7 @@ public sealed class UsbEnrollmentConfig : IDisposable {
    string lockPath=Path.Combine(protectedDirectory,".enrollment.lock");NotReparse(lockPath);
    exclusive=new FileStream(lockPath,FileMode.OpenOrCreate,FileSystemRights.Read|FileSystemRights.Write,FileShare.None,4096,FileOptions.WriteThrough,Security());Protected(exclusive.GetAccessControl());
    committedPath=Path.Combine(protectedDirectory,"enrollment.bin");pendingPath=Path.Combine(protectedDirectory,"enrollment.pending");
-   ReadCore(committedPath);ReadCore(pendingPath); // Invalid existing bytes never reset or become approvals.
+   ReadCore(committedPath);if(!recoveryReadOnly)ReadCore(pendingPath); // Invalid proposals never reset or become approvals.
   }catch{if(exclusive!=null)exclusive.Dispose();anchor.Dispose();throw;}
  }
  void Current(){if(disposed)throw new ObjectDisposedException("UsbEnrollmentConfig");}

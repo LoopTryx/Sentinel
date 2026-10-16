@@ -81,9 +81,10 @@ public static class SentinelDuckyLocalGpo {
   void GetFileSysPath(uint section,[MarshalAs(UnmanagedType.LPWStr)]StringBuilder path,int max);
   void GetRegistryKey(uint section,out IntPtr key);
  }
+ static FileStream OpenSnapshot(string path){var wait=System.Diagnostics.Stopwatch.StartNew();while(true){try{return new FileStream(path,FileMode.Open,FileAccess.Read,FileShare.ReadWrite|FileShare.Delete);}catch(IOException error){int code=error.HResult&65535;if((code!=32&&code!=33)||wait.ElapsedMilliseconds>=2000)throw;Thread.Sleep(20);}}}
  static string Fingerprint(string path){
   if(!File.Exists(path))return "absent";
-  using(var file=new FileStream(path,FileMode.Open,FileAccess.Read,FileShare.ReadWrite|FileShare.Delete)){
+  using(var file=OpenSnapshot(path)){
    if(file.Length>2097152)throw new InvalidOperationException("Policy file exceeds bound");
    using(var hash=SHA256.Create())return Convert.ToBase64String(hash.ComputeHash(file));
   }

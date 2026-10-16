@@ -57,7 +57,11 @@ public sealed class UsbAdmissionJournal : IDisposable {
    if(File.Exists(path)&&(File.GetAttributes(path)&FileAttributes.ReparsePoint)!=0)throw Invalid();
    var security=new FileSecurity();security.SetOwner(new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid,null));security.SetAccessRuleProtection(true,false);
    foreach(var sid in new[]{WellKnownSidType.BuiltinAdministratorsSid,WellKnownSidType.LocalSystemSid})security.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier(sid,null),FileSystemRights.FullControl,AccessControlType.Allow));
-   file=new FileStream(path,FileMode.OpenOrCreate,FileSystemRights.Read|FileSystemRights.Write,FileShare.None,4096,FileOptions.WriteThrough,security);
+   // Recovery and read-only status snapshots briefly compete for the same
+   // exclusive journal. Retry only sharing/lock violations, never ACL/drift.
+   var contention=System.Diagnostics.Stopwatch.StartNew();
+   while(true){try{file=new FileStream(path,FileMode.OpenOrCreate,FileSystemRights.Read|FileSystemRights.Write,FileShare.None,4096,FileOptions.WriteThrough,security);break;}
+    catch(IOException error){int code=error.HResult&65535;if((code!=32&&code!=33)||contention.ElapsedMilliseconds>=2000)throw;System.Threading.Thread.Sleep(20);}}
    Protected(file.GetAccessControl());
    Read(); // Invalid existing state refuses admission; never auto-clear it.
   }catch{if(file!=null)file.Dispose();anchor.Dispose();throw;}

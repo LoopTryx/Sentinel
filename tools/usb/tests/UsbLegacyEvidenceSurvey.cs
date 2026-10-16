@@ -75,27 +75,33 @@ internal static class UsbLegacyEvidenceSurvey {
   nonce=new string('b',32);Require(!InitialActionMatches(arguments,Hash(source)));
   Require(!InitialActionMatches(new string('x',32001),Hash(source)));
  }
+ static void Count(string name){result[name]=(int)result[name]+1;}
+ static bool SystemAccount(string account){try{SecurityIdentifier sid;try{sid=new SecurityIdentifier(account);}catch(ArgumentException){sid=(SecurityIdentifier)new NTAccount(account).Translate(typeof(SecurityIdentifier));}return sid.IsWellKnown(WellKnownSidType.LocalSystemSid);}catch{return false;}}
  static void TaskMetadata(dynamic folder,string name,string sourceHash,List<string> trustedSources,bool desktop){
-  result["ReceiptBoundTaskCount"]=(int)result["ReceiptBoundTaskCount"]+1;
+  Count("ReceiptBoundTaskCount");
   try{
-   dynamic task=folder.GetTask(name),definition=task.Definition;
-   bool principal=(definition.Principal.UserId as string=="SYSTEM"||definition.Principal.UserId as string=="S-1-5-18")&&(int)definition.Principal.LogonType==5&&(int)definition.Principal.RunLevel==1;
-   bool metadata=principal&&(int)definition.Actions.Count==1;
-   bool full=false;if(metadata){dynamic action=definition.Actions[1];metadata=(int)action.Type==0&&string.Equals(action.Path as string,Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),@"WindowsPowerShell\v1.0\powershell.exe"),StringComparison.OrdinalIgnoreCase)&&string.IsNullOrEmpty(action.WorkingDirectory as string);
-    if(metadata){string arguments=action.Arguments as string;if(arguments!=null&&arguments.Length<=32000){if(desktop){foreach(string source in trustedSources)if(Hash(source)==sourceHash&&arguments==DesktopArguments(source)){full=true;break;}}else full=InitialActionMatches(arguments,sourceHash);}}
+   dynamic task;
+   try{task=folder.GetTask(name);}catch(Exception lookup){if(lookup.HResult==unchecked((int)0x80070002)){Count("AbsentReceiptTasks");return;}if(lookup is System.Runtime.InteropServices.COMException)result["TaskComHResult"]=lookup.HResult;else result["TaskManagedHResult"]=lookup.HResult;Count("UnknownTaskOwnership");return;}
+   dynamic definition=task.Definition;
+   bool principal=SystemAccount(definition.Principal.UserId as string),logon=(int)definition.Principal.LogonType==5,level=(int)definition.Principal.RunLevel==1;
+   if(!principal)Count("PrincipalMismatch");if(!logon)Count("LogonTypeMismatch");if(!level)Count("RunLevelMismatch");
+   bool one=(int)definition.Actions.Count==1;if(!one)Count("ActionCountMismatch");
+   bool metadata=principal&&logon&&level&&one,full=false;
+   if(one){dynamic action=definition.Actions[1];bool kind=(int)action.Type==0;if(!kind)Count("ActionTypeMismatch");
+    if(kind){bool image=string.Equals(action.Path as string,Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),@"WindowsPowerShell\v1.0\powershell.exe"),StringComparison.OrdinalIgnoreCase),working=string.IsNullOrEmpty(action.WorkingDirectory as string);if(!image)Count("ExecutableMismatch");if(!working)Count("WorkingDirMismatch");metadata=metadata&&image&&working;
+     if(metadata){string arguments=action.Arguments as string;if(arguments!=null&&arguments.Length<=32000){if(desktop){foreach(string source in trustedSources)if(Hash(source)==sourceHash&&arguments==DesktopArguments(source)){full=true;break;}}else full=InitialActionMatches(arguments,sourceHash);}if(!full)Count("ActionBindingMismatch");}
+    }else metadata=false;
    }
-   if(metadata)result["TaskMetadataMatches"]=(int)result["TaskMetadataMatches"]+1;
-   if(full)result["CompleteActionMatches"]=(int)result["CompleteActionMatches"]+1;else result["UnknownTaskOwnership"]=(int)result["UnknownTaskOwnership"]+1;
-   if((int)task.State==4)result["RunningReceiptTasks"]=(int)result["RunningReceiptTasks"]+1;
-   if((bool)task.Enabled)result["EnabledReceiptTasks"]=(int)result["EnabledReceiptTasks"]+1;
-  }catch(System.Runtime.InteropServices.COMException e){if(e.ErrorCode==unchecked((int)0x80070002))result["AbsentReceiptTasks"]=(int)result["AbsentReceiptTasks"]+1;else result["UnknownTaskOwnership"]=(int)result["UnknownTaskOwnership"]+1;}
-  catch{result["UnknownTaskOwnership"]=(int)result["UnknownTaskOwnership"]+1;}
+   if(metadata)Count("TaskMetadataMatches");if(full)Count("CompleteActionMatches");else Count("UnknownTaskOwnership");
+   if((int)task.State==4)Count("RunningReceiptTasks");if((bool)task.Enabled)Count("EnabledReceiptTasks");
+  }catch(System.Runtime.InteropServices.COMException e){result["TaskComHResult"]=e.ErrorCode;Count("UnknownTaskOwnership");}
+  catch(Exception e){result["TaskManagedHResult"]=e.HResult;Count("UnknownTaskOwnership");}
  }
  static void Publish(string state){using(var receipt=Registry.LocalMachine.CreateSubKey(ReceiptPath)){receipt.SetValue("State",state);receipt.SetValue("Stage",stage,RegistryValueKind.DWord);foreach(var pair in result)receipt.SetValue(pair.Key,pair.Value,pair.Value is int?RegistryValueKind.DWord:RegistryValueKind.String);}}
  [STAThread]static int Main(string[] args){
   if(args.Length!=0)return 2;using(var identity=WindowsIdentity.GetCurrent())if(!new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator))return 3;
   var held=new List<IDisposable>();
-  foreach(string key in new[]{"ProfileVerified","LegacyLockHeld","TrialPresent","TrialAuthenticated","DesktopPresent","DesktopAuthenticated","ProtectedSourceMatchesEmbedded","ReceiptBoundTaskCount","TaskMetadataMatches","CompleteActionMatches","UnknownTaskOwnership","RunningReceiptTasks","EnabledReceiptTasks","AbsentReceiptTasks","FullOwnershipProven"})result[key]=0;
+  foreach(string key in new[]{"ProfileVerified","LegacyLockHeld","TrialPresent","TrialAuthenticated","DesktopPresent","DesktopAuthenticated","ProtectedSourceMatchesEmbedded","ReceiptBoundTaskCount","TaskMetadataMatches","CompleteActionMatches","UnknownTaskOwnership","RunningReceiptTasks","EnabledReceiptTasks","AbsentReceiptTasks","FullOwnershipProven","PrincipalMismatch","LogonTypeMismatch","RunLevelMismatch","ActionCountMismatch","ActionTypeMismatch","ExecutableMismatch","WorkingDirMismatch","ActionBindingMismatch","TaskComHResult","TaskManagedHResult"})result[key]=0;
   // A quiet scheduler snapshot cannot prove absence of previously spawned
   // descendants or that an enabled task will not run later. Never imply cleanup permission.
   result["ProducerQuiescence"]="unverified";

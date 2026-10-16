@@ -1,5 +1,7 @@
 using System;
 using System.Text;
+using System.Diagnostics;
+using System.Windows.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -9,7 +11,9 @@ using System.Windows.Media.Effects;
 // Native notice model. No renderer-controlled hold Boolean or enrollment IDs.
 internal sealed class UsbGuardNotice {
  internal readonly string Reference,Name,Capabilities,Status,Reason;internal readonly bool CanApprove;
- UsbGuardNotice(string reference,string name,string capabilities,string status,string reason,bool approve){Reference=reference;Name=Clean(name,80,"USB device");Capabilities=Clean(capabilities,80,"Input device");Status=status;Reason=reason;CanApprove=approve;}
+ internal readonly bool CanManage;
+ UsbGuardNotice(string reference,string name,string capabilities,string status,string reason,bool approve,bool manage=false){Reference=reference;Name=Clean(name,80,"USB device");Capabilities=Clean(capabilities,80,"Input device");Status=status;Reason=reason;CanApprove=approve;CanManage=manage;}
+ internal static UsbGuardNotice Connected(string reference,string name,string capabilities){return new UsbGuardNotice(reference,name,capabilities,"USB device connected","Review device access in USB Guard.",false,true);}
  static string Clean(string text,int limit,string fallback){if(string.IsNullOrEmpty(text))return fallback;var value=new StringBuilder();foreach(char c in text)if(c>=0x20&&c<=0x7E&&value.Length<limit)value.Append(c);return value.Length==0?fallback:value.ToString();}
  internal static UsbGuardNotice Unavailable(string reference,string name,string capabilities,string reason){if(string.IsNullOrEmpty(reference)||reference.Length>128)throw new ArgumentException("Invalid native connection reference.");return new UsbGuardNotice(reference,name,capabilities,"Input blocking unavailable",reason=="disconnected"?"Device disconnected.":"USB Guard is not enforcing input restrictions.",false);}
  internal static UsbGuardNotice Disconnected(string reference){return new UsbGuardNotice(reference,"USB device","Disconnected","Device disconnected","This connection is no longer available.",false);}
@@ -23,7 +27,10 @@ internal sealed class UsbGuardNotice {
  // service supplies actual measured admission evidence. No UI may invent it.
 }
 internal sealed class UsbGuardPopup:Window {
- UsbGuardNotice current;readonly Button allow=new Button();readonly Button dismiss=new Button();readonly TextBlock title=new TextBlock(),status=new TextBlock(),detail=new TextBlock(),capabilities=new TextBlock();readonly Func<UsbGuardNotice,Task<UsbGuardNotice>> approve;bool busy,closed;
+ string actionError;UsbGuardNotice current;readonly Button allow=new Button();readonly Button dismiss=new Button();readonly TextBlock title=new TextBlock(),status=new TextBlock(),detail=new TextBlock(),capabilities=new TextBlock();readonly Func<UsbGuardNotice,Task<UsbGuardNotice>> approve;bool busy,closed;
+ readonly Stopwatch visibleLifetime=new Stopwatch();readonly DispatcherTimer expiryTimer=new DispatcherTimer();
+ internal static bool ShouldExpire(TimeSpan elapsed,bool actionBusy){return !actionBusy&&elapsed>=TimeSpan.FromSeconds(5);}
+ void ExpireIfDue(){if(!closed&&ShouldExpire(visibleLifetime.Elapsed,busy))Close();}
  internal bool AllowEnabled{get{return allow.IsEnabled;}}
  static SolidColorBrush Brush(byte r,byte g,byte b){return new SolidColorBrush(Color.FromRgb(r,g,b));}
  internal UsbGuardPopup(UsbGuardNotice notice,Func<UsbGuardNotice,Task<UsbGuardNotice>> nativeApproval){
@@ -37,9 +44,11 @@ internal sealed class UsbGuardPopup:Window {
   status.FontSize=14;status.FontWeight=FontWeights.SemiBold;status.Foreground=Brush(237,194,110);panel.Children.Add(status);
   detail.FontSize=12;detail.Foreground=Brush(165,186,211);detail.TextWrapping=TextWrapping.Wrap;detail.Margin=new Thickness(0,6,0,20);panel.Children.Add(detail);
   var actions=new StackPanel{Orientation=Orientation.Horizontal,HorizontalAlignment=HorizontalAlignment.Right};allow.Content="Allow once";allow.Padding=new Thickness(14,8,14,8);allow.Margin=new Thickness(0,0,8,0);allow.Background=Brush(47,137,227);allow.Foreground=Brush(238,246,255);allow.BorderThickness=new Thickness(0);allow.Click+=async(s,e)=>await Approve();actions.Children.Add(allow);dismiss.Padding=new Thickness(14,8,14,8);dismiss.Background=Brush(24,41,62);dismiss.Foreground=Brush(200,217,238);dismiss.BorderThickness=new Thickness(0);dismiss.Click+=(s,e)=>Close();actions.Children.Add(dismiss);panel.Children.Add(actions);
-  Closed+=(s,e)=>closed=true;Display();
+  expiryTimer.Interval=TimeSpan.FromMilliseconds(100);expiryTimer.Tick+=(s,e)=>ExpireIfDue();
+  Loaded+=(s,e)=>{if(!closed&&!visibleLifetime.IsRunning){visibleLifetime.Start();expiryTimer.Start();}};
+  Closed+=(s,e)=>{closed=true;expiryTimer.Stop();visibleLifetime.Stop();};Display();
  }
- void Display(){title.Text=current.Name;capabilities.Text=current.Capabilities;status.Text=current.Status;detail.Text=current.Reason;allow.IsEnabled=!closed&&!busy&&current.CanApprove&&approve!=null;dismiss.Content=current.CanApprove?"Keep blocked":"Dismiss";}
+ void Display(){title.Text=current.Name;capabilities.Text=current.Capabilities;status.Text=current.Status;detail.Text=actionError??current.Reason;allow.Content=current.CanManage?"Open USB Guard":"Allow once";allow.IsEnabled=!closed&&!busy&&(current.CanApprove||current.CanManage)&&approve!=null;dismiss.Content=current.CanApprove?"Keep blocked":"Dismiss";}
  internal void Disconnect(){current=UsbGuardNotice.Disconnected(current.Reference);Display();}
- async Task Approve(){if(busy||closed||!current.CanApprove||approve==null)return;busy=true;var subject=current;Display();try{var next=await approve(subject);if(!closed&&object.ReferenceEquals(current,subject)&&next!=null&&next.Reference==subject.Reference)current=next;}catch{if(!closed&&object.ReferenceEquals(current,subject))detail.Text="Approval could not be completed.";}finally{busy=false;if(!closed)Display();}}
+ async Task Approve(){if(busy||closed||(!current.CanApprove&&!current.CanManage)||approve==null)return;actionError=null;busy=true;var subject=current;Display();try{var next=await approve(subject);if(!closed&&object.ReferenceEquals(current,subject)&&next!=null&&next.Reference==subject.Reference)current=next;}catch{if(!closed&&object.ReferenceEquals(current,subject))actionError="USB Guard could not open.";}finally{busy=false;if(!closed){ExpireIfDue();if(!closed)Display();}}}
 }

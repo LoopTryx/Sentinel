@@ -38,8 +38,10 @@ public sealed class SentinelGlassConsole : Window
     readonly UsbInputMonitor inputMonitor=new UsbInputMonitor();
     UsbGuardArrival usbArrival;
     readonly WebView2 view = new WebView2();
+    readonly StackPanel loadingSurface=new StackPanel { HorizontalAlignment=HorizontalAlignment.Center, VerticalAlignment=VerticalAlignment.Center };
     readonly string assets, evidence;
     readonly bool smoke;
+    readonly bool displayCheck;
     readonly DispatcherTimer deadline = new DispatcherTimer();
     bool backdrop;
     bool closing;
@@ -53,7 +55,6 @@ public sealed class SentinelGlassConsole : Window
     readonly Dictionary<string, string> quarantinedPaths = new Dictionary<string, string>();
     int requests;
     System.Windows.Forms.NotifyIcon tray;
-    DuckyPolicyWindow duckyWindow;
     readonly DispatcherTimer duckyPolicyTimer=new DispatcherTimer();
     string lastDuckyPolicyState;
     bool quitting;
@@ -82,7 +83,11 @@ public sealed class SentinelGlassConsole : Window
                 if(!File.Exists(configPath)) throw new InvalidOperationException("Runtime startup timed out.");
             }
             var app = new Application();
-            var console = new SentinelGlassConsole(Path.Combine(root, "apps/ui/dist"), Path.Combine(here, "glass-smoke.txt"), Array.IndexOf(args, "--smoke") >= 0, standalone || Array.IndexOf(args, "--demo") >= 0);
+            var console = new SentinelGlassConsole(Path.Combine(root, "apps/ui/dist"), Path.Combine(here, "glass-smoke.txt"), Array.IndexOf(args, "--smoke") >= 0, standalone || Array.IndexOf(args, "--demo") >= 0, Array.IndexOf(args,"--display-check")>=0);
+            if(Array.IndexOf(args,"--usb-tab-smoke")>=0||Array.IndexOf(args,"--usb-browse-smoke")>=0)console.Loaded+=async delegate {
+                await Task.Delay(800);
+                try{bool browse=Array.IndexOf(args,"--usb-browse-smoke")>=0;string response=browse?await UsbAdmissionControl.ReadTabSnapshot():await UsbAdmissionControl.TabRequest(new WindowInteropHelper(console).Handle,"{\"action\":\"snapshot\"}");var result=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(response);bool ok=result.ContainsKey("schemaVersion")&&Convert.ToInt32(result["schemaVersion"])==1&&result.ContainsKey("devices")&&!result.ContainsKey("error");File.WriteAllText(Path.Combine(here,"usb-tab-smoke.txt"),(ok?"native_snapshot=passed\n":"native_snapshot=failed\n")+"no_device_action=True\nbroker_started="+UsbAdmissionControl.HasBrokerProcess+"\n");}catch{File.WriteAllText(Path.Combine(here,"usb-tab-smoke.txt"),"native_pipe_snapshot=failed\nno_device_action=True\n");}
+            };
             if(Array.IndexOf(args,"--tray")>=0) console.Loaded += delegate { console.HideToTray(); };
             if(Array.IndexOf(args,"--lifecycle-smoke")>=0) console.Loaded += delegate {
                 var timer=new DispatcherTimer { Interval=TimeSpan.FromSeconds(8) };
@@ -112,9 +117,9 @@ public sealed class SentinelGlassConsole : Window
         }
     }
 
-    public SentinelGlassConsole(string assets, string evidence, bool smoke, bool demo)
+    public SentinelGlassConsole(string assets, string evidence, bool smoke, bool demo, bool displayCheck=false)
     {
-        this.demo = demo;
+        this.demo = demo; this.displayCheck=displayCheck;
         this.assets = assets; this.evidence = evidence; this.smoke = smoke;
         Title = "Sentinel";
         Width = Math.Min(1080,SystemParameters.WorkArea.Width); Height = Math.Min(740,SystemParameters.WorkArea.Height);
@@ -143,8 +148,10 @@ public sealed class SentinelGlassConsole : Window
         header.MouseLeftButtonDown += delegate(object sender, System.Windows.Input.MouseButtonEventArgs e) { if(e.ClickCount==1 && e.OriginalSource is TextBlock) DragMove(); };
         grid.Children.Add(header);
         view.DefaultBackgroundColor = System.Drawing.Color.Transparent;
-        Grid.SetRow(view, 1); grid.Children.Add(view); Content = grid;
-        SourceInitialized += delegate { EnableBackdrop();var handle=new WindowInteropHelper(this).Handle;inputMonitor.Start(handle);usbArrival=new UsbGuardArrival(this,handle,(root,reference,name,kind)=>DuckyPolicyControl.IsEnrolled(root)?UsbGuardNotice.Profiled(reference,name,kind,DuckyPolicyControl.Read().State):null);HwndSource.FromHwnd(handle).AddHook(delegate(IntPtr hwnd,int message,IntPtr wParam,IntPtr lParam,ref bool handled){if(message==0x00FF)inputMonitor.Receive(lParam);if(message==0x00FE&&wParam.ToInt32()==2)inputMonitor.Removed(lParam);if(message==0x0219&&usbArrival!=null)usbArrival.Receive(wParam,lParam);return IntPtr.Zero;}); };
+        Grid.SetRow(view, 1); grid.Children.Add(view);
+        loadingSurface.Children.Add(new TextBlock { Text="Starting Sentinel…", Foreground=Brushes.White, FontSize=20, Margin=new Thickness(0,0,0,18), HorizontalAlignment=HorizontalAlignment.Center });
+        loadingSurface.Children.Add(new System.Windows.Controls.ProgressBar { IsIndeterminate=true, Width=240, Height=4 });Grid.SetRow(loadingSurface,1);grid.Children.Add(loadingSurface);Content = grid;
+        SourceInitialized += delegate { EnableBackdrop();var handle=new WindowInteropHelper(this).Handle;inputMonitor.Start(handle);usbArrival=new UsbGuardArrival(this,handle,null,()=>UsbAdmissionControl.Open(new WindowInteropHelper(this).Handle));HwndSource.FromHwnd(handle).AddHook(delegate(IntPtr hwnd,int message,IntPtr wParam,IntPtr lParam,ref bool handled){if(message==0x00FF)inputMonitor.Receive(lParam);if(message==0x00FE&&wParam.ToInt32()==2)inputMonitor.Removed(lParam);if(message==0x0219&&usbArrival!=null)usbArrival.Receive(wParam,lParam);return IntPtr.Zero;}); };
         Closed+=delegate{if(usbArrival!=null)usbArrival.Dispose();};
         Loaded += Initialize;
         Loaded += delegate { Dispatcher.BeginInvoke(new Action(EnableBackdrop),DispatcherPriority.ContextIdle); };
@@ -161,12 +168,12 @@ public sealed class SentinelGlassConsole : Window
             tray=new System.Windows.Forms.NotifyIcon { Icon=System.Drawing.SystemIcons.Shield, Text="Sentinel", Visible=true };
             var menu=new System.Windows.Forms.ContextMenuStrip();
             menu.Items.Add("Open Sentinel",null,delegate { Dispatcher.Invoke(new Action(OpenFromTray)); });
-            menu.Items.Add("Profiled USB control",null,delegate { Dispatcher.Invoke(new Action(delegate{OpenFromTray();OpenDuckyControl();})); });
+            menu.Items.Add("USB input controls",null,delegate { Dispatcher.Invoke(new Action(delegate{OpenFromTray();OpenDuckyControl();})); });
             menu.Items.Add("Quit Sentinel",null,delegate { Dispatcher.Invoke(new Action(delegate { quitting=true; Close(); })); });
             tray.ContextMenuStrip=menu;
             tray.MouseClick += delegate(object sender,System.Windows.Forms.MouseEventArgs e) { if(e.Button==System.Windows.Forms.MouseButtons.Left)Dispatcher.Invoke(new Action(OpenFromTray)); };
             Closing += delegate(object sender,System.ComponentModel.CancelEventArgs e) { if(!quitting) { e.Cancel=true; HideToTray(); } };
-            Deactivated += delegate { Dispatcher.BeginInvoke(new Action(delegate { if(!IsActive&&!dragging&&!actionDialog&&!selectionRequest&&!quitting) HideToTray(); }),DispatcherPriority.Background); };
+            if(!displayCheck) Deactivated += delegate { Dispatcher.BeginInvoke(new Action(delegate { if(!IsActive&&!dragging&&!actionDialog&&!selectionRequest&&!quitting&&!UsbAdmissionControl.IsOpen) HideToTray(); }),DispatcherPriority.Background); };
             duckyPolicyTimer.Interval=TimeSpan.FromSeconds(2);
             duckyPolicyTimer.Tick+=delegate{var state=DuckyPolicyControl.Read();if(lastDuckyPolicyState!=null&&lastDuckyPolicyState!=state.State){if(state.State=="driver_unavailable")NotifyDucky("The profiled Ducky has no installed driver while its hold is armed.");else if(state.State=="off"&&(lastDuckyPolicyState=="armed"||lastDuckyPolicyState=="driver_unavailable"))NotifyDucky("Ducky hold rule removed. Reconnect the device.");}lastDuckyPolicyState=state.State;};
             duckyPolicyTimer.Start();
@@ -179,13 +186,11 @@ public sealed class SentinelGlassConsole : Window
 
     void HideToTray() { try{if(view.CoreWebView2!=null)view.CoreWebView2.PostWebMessageAsJson("{\"kind\":\"vault-clear\"}");}catch{}ShowInTaskbar=false; Hide(); }
     void NotifyDucky(string text){if(tray!=null&&!closing)tray.ShowBalloonTip(5000,"Sentinel USB Guard",text,System.Windows.Forms.ToolTipIcon.Info);}
-    void OpenDuckyControl(){
-        if(duckyWindow!=null){duckyWindow.Activate();return;}
+    async void OpenDuckyControl(){
         if(actionDialog||selectionRequest)return;
         actionDialog=true;
-        duckyWindow=new DuckyPolicyWindow(this,NotifyDucky);
-        duckyWindow.Closed+=delegate{duckyWindow=null;actionDialog=false;};
-        duckyWindow.Show();
+        try{string error=await UsbAdmissionControl.Open(new WindowInteropHelper(this).Handle);if(error!=null)NotifyDucky(error=="approval_cancelled"?"Windows approval cancelled.":"USB input controls could not open.");}
+        finally{actionDialog=false;}
     }
     void OpenFromTray() { ShowInTaskbar=true; WindowState=WindowState.Normal; Show(); Activate(); }
 
@@ -251,24 +256,39 @@ public sealed class SentinelGlassConsole : Window
             id = request["id"] as string;
             string method = request["method"] as string;
             if (id == null || !System.Text.RegularExpressions.Regex.IsMatch(id, "^[a-zA-Z0-9_-]{1,64}$")) return;
+            if(method=="usb.admission.snapshot"||method=="usb.admission.action"){
+                var payload=request["data"] as Dictionary<string,object>;bool change=method=="usb.admission.action";
+                if(payload==null)throw new InvalidOperationException();
+                if(change){if(payload.Count!=3||!payload.ContainsKey("action")||!payload.ContainsKey("ref")||!payload.ContainsKey("topology"))throw new InvalidOperationException();string action=payload["action"] as string;if(action!="allow"&&action!="block")throw new InvalidOperationException();foreach(string key in new[]{"ref","topology"})if(!(payload[key] is string)||!System.Text.RegularExpressions.Regex.IsMatch((string)payload[key],"^[a-f0-9]{64}$"))throw new InvalidOperationException();}
+                else{if(payload.Count!=0)throw new InvalidOperationException();payload=new Dictionary<string,object>{{"action","snapshot"}};}
+                if(change&&(!IsVisible||!IsActive||selectionRequest||actionDialog)){Reply(id,new{error="action_unavailable"});return;}
+                if(!change){requests++;try{Reply(id,json.Deserialize<object>(await UsbAdmissionControl.ReadTabSnapshot()));}finally{requests--;}return;}
+                actionDialog=true;requests++;
+                try{string result=await UsbAdmissionControl.TabRequest(new WindowInteropHelper(this).Handle,json.Serialize(payload));Reply(id,json.Deserialize<object>(result));}
+                finally{actionDialog=false;requests--;}
+                return;
+            }
+            if(method=="usb.admission.open"){
+                var empty=request["data"] as Dictionary<string,object>;
+                if(empty==null||empty.Count!=0)throw new InvalidOperationException();
+                if(!IsVisible||!IsActive||selectionRequest){Reply(id,new{error="action_unavailable"});return;}
+                if(actionDialog){Reply(id,new{error="action_busy"});return;}
+                actionDialog=true;requests++;
+                try{string error=await UsbAdmissionControl.Open(new WindowInteropHelper(this).Handle);if(error!=null)Reply(id,new{error=error});else Reply(id,new{ok=true});}
+                finally{actionDialog=false;requests--;}
+                return;
+            }
             if(method=="usb.ducky.status"||method=="usb.ducky.block"||method=="usb.ducky.allow"){
                 var empty=request["data"] as Dictionary<string,object>;
                 if(empty==null||empty.Count!=0)throw new InvalidOperationException();
                 if(method=="usb.ducky.status"){Reply(id,DuckyPolicyControl.Snapshot());return;}
-                if(!IsVisible||!IsActive||selectionRequest){Reply(id,new{error="action_unavailable"});return;}
-                if(actionDialog){Reply(id,new{error="action_busy"});return;}
-                actionDialog=true;requests++;
-                try{bool block=method=="usb.ducky.block";int code=await DuckyPolicyControl.Execute(block?"hold":"release");
-                    if(code!=0){Reply(id,new{error=DuckyPolicyControl.Failure(code)});return;}
-                    NotifyDucky(block?"Ducky block rule armed for five minutes. Reconnect to test.":"Ducky block rule removed. Reconnect to run.");Reply(id,DuckyPolicyControl.Snapshot());
-                }finally{actionDialog=false;requests--;}
-                return;
+                Reply(id,new{error="use_input_controls"});return;
             }
             if(method=="usb.ducky.open"){
                 var empty=request["data"] as Dictionary<string,object>;
                 if(empty==null||empty.Count!=0)throw new InvalidOperationException();
                 if(!IsVisible||!IsActive||selectionRequest){Reply(id,new{error="action_unavailable"});return;}
-                if(actionDialog&&duckyWindow==null){Reply(id,new{error="action_busy"});return;}
+                if(actionDialog){Reply(id,new{error="action_busy"});return;}
                 OpenDuckyControl();Reply(id,new{ok=true});return;
             }
             string route = null;
@@ -282,7 +302,7 @@ public sealed class SentinelGlassConsole : Window
                 try{ReleaseCapture();SendMessage(new WindowInteropHelper(this).Handle,0x00A1,new IntPtr(2),IntPtr.Zero);}
                 finally{dragging=false;}
                 return;
-            }            if(method=="usb.observe"){var empty=data as Dictionary<string,object>;if(empty==null||empty.Count!=0)throw new InvalidOperationException();Reply(id,UsbDeviceInventory.Snapshot(DuckyPolicyControl.IsEnrolled));return;} if(method=="usb.activity"){var empty=data as Dictionary<string,object>;if(empty==null||empty.Count!=0)throw new InvalidOperationException();Reply(id,inputMonitor.Snapshot());return;}
+            }            if(method=="usb.observe"){var empty=data as Dictionary<string,object>;if(empty==null||empty.Count!=0)throw new InvalidOperationException();Reply(id,UsbDeviceInventory.Snapshot());return;} if(method=="usb.activity"){var empty=data as Dictionary<string,object>;if(empty==null||empty.Count!=0)throw new InvalidOperationException();Reply(id,inputMonitor.Snapshot());return;}
             if(method=="window.hide"){var empty=data as Dictionary<string,object>;if(empty==null||empty.Count!=0)throw new InvalidOperationException();HideToTray();Reply(id,new{ok=true});return;}
             if (method == "vault.copy" || method == "vault.rotate" || method=="vault.view" || method=="vault.remove" || method=="vault.add" || method=="vault.update") {
                 if(actionDialog||selectionRequest){Reply(id,new {error="action_busy"});return;}
@@ -467,6 +487,7 @@ public sealed class SentinelGlassConsole : Window
     {
         if (closing) return;
         deadline.Stop();
+        loadingSurface.Visibility=Visibility.Collapsed;
         File.WriteAllText(evidence, "navigation=False\nerror=" + reason + "\nbackend=unavailable\n");
         Environment.ExitCode = 1;
         if (smoke) Close();
@@ -547,7 +568,8 @@ public sealed class SentinelGlassConsole : Window
                             if (inspectionBridge == "\"\"") throw new InvalidOperationException();
                         }
                     }
-                    deadline.Stop();
+                    if(glass!="true"||heading!="\"Console\""){Fail("console_not_ready");return;}
+                    deadline.Stop();loadingSurface.Visibility=Visibility.Collapsed;
                     File.WriteAllText(evidence, "navigation=True\nglass=" + glass + "\nheading=" + heading + "\ncustom_chrome=True\nbackdrop_requested=" + backdrop + "\nbackend=" + backend + "\ninspection_bridge=" + inspectionBridge + "\n");
                     if (smoke) { if (glass != "true" || heading != "\"Console\"") Environment.ExitCode = 1; Close(); }
                 } catch (Exception error) { Fail(error.GetType().Name + "_" + error.HResult.ToString("X8")); }
