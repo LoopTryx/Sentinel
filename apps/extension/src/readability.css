@@ -29,3 +29,16 @@ body.companion{overflow:hidden}
 .companion main::-webkit-scrollbar,body.companion::-webkit-scrollbar{display:none}
 .companion .setting-card,.companion .settings-group{padding:12px;margin:0}.companion .setting-card h3{font-size:18px;margin:0 0 8px}.companion .setting-card button{margin:0 0 8px}.companion details{font-size:14px}.companion footer{display:none}
 .companion.dashboard{height:auto;max-height:none;overflow:auto;background:transparent}.companion.dashboard .popup-stage{height:auto;padding:84px 16px 150px}.companion.dashboard .popup-card{height:auto;min-height:370px}.companion.dashboard main{overflow:visible}
+
+/* Opaque brand canvas avoids the native popup's black alpha fallback. */
+html:has(body.companion:not(.dashboard)),body.companion{width:520px;min-width:520px;background:#afaea2}
+.popup-stage{height:600px;padding:66px 16px 92px;background:#afaea2}
+.popup-card{height:442px;border:2px solid #7184b1;border-radius:20px;background:linear-gradient(145deg,#202550,#171b40);box-shadow:0 10px 26px #1b1e4a26,inset 0 1px 0 #c6e4ff22}
+.popup-card::before,.popup-card::after{content:none}
+.red-peeking{width:128px;height:85px;top:-66px;right:20px}.blue-ledge{width:104px;height:104px;top:calc(100% - 14px);right:20px}
+body.companion{font-weight:600}.companion p,.companion label,.companion input,.companion textarea,.companion .connection-bar,.companion details{font-weight:600}.companion h1,.companion h2,.companion h3{font-weight:800}.companion button{font-weight:700}
+.companion.dashboard{width:auto;min-width:0;background:#afaea2}.companion.dashboard .popup-stage{height:auto;background:#afaea2;padding:66px 16px 92px}.companion.dashboard .popup-card{height:auto;min-height:442px}
+.companion #email-address:focus-visible{outline:3px solid #9bddff;outline-offset:3px}
+
+body{font-weight:500}p,li,label,input,textarea,output{font-weight:600}h1,h2,h3{font-weight:800}
+@media(max-height:500px){body.companion:not(.dashboard){overflow:auto;scrollbar-width:none}}

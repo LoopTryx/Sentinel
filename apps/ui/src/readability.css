@@ -3,3 +3,18 @@ html{font-size:18px}body{font-family:Inter,system-ui,sans-serif;font-size:1rem;l
 .scan-global-alert{flex:none;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 24px;background:#741c2a;color:#fff0ed;border-bottom:2px solid #ff8f89;position:relative;z-index:3}
 .scan-global-alert strong{font-family:var(--font-display);font-size:1.2rem}.scan-global-alert p{margin:4px 0 0}.scan-global-alert button{flex:none}
 @media(max-width:700px){.scan-global-alert{align-items:flex-start;flex-direction:column;padding:16px}}
+
+:root{--selection-bg:#9bddff;--selection-ink:#1b1e4a}
+body,.main,.content{-webkit-user-select:text;user-select:text;font-weight:500}
+::selection{background:var(--selection-bg);color:var(--selection-ink);text-shadow:none}
+p,li,label,input,textarea,select,output{font-weight:600}h1,h2,h3,.panel-title{font-weight:800}button{font-weight:700;-webkit-user-select:none;user-select:none}
+.dashboard-actions{display:flex;flex-wrap:wrap;gap:12px;margin:0}.dashboard-actions .btn{min-height:48px;gap:10px}
+button.stat{text-align:left;font:inherit;color:var(--text);cursor:pointer;min-width:0}
+.btn,.nav-btn,button.stat,.module-action{transition:background-color 150ms ease,border-color 150ms ease,transform 150ms ease;cursor:pointer}
+.btn:not(:disabled):hover,button.stat:hover,.module-action:not(:disabled):hover{border-color:var(--blue-bright);background-color:var(--state-dim);transform:translateY(-2px)}
+.btn:not(:disabled):active,button.stat:active,.module-action:not(:disabled):active{transform:translateY(1px)}
+button:focus-visible{outline:3px solid #9bddff;outline-offset:4px}
+.module-action{display:block;width:100%;text-align:left;font:inherit;color:inherit;padding:12px 0;border:0;border-top:1px solid var(--grid-line);background:transparent;border-radius:8px}
+.module-action:disabled{cursor:default;opacity:1}
+@media(prefers-reduced-motion:reduce){.btn,.nav-btn,button.stat,.module-action{transition:none!important;transform:none!important}}
+:root{--text-dim:#a4b4d5;--text-faint:#8e9fc4}

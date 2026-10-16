@@ -19,3 +19,9 @@ async function refresh(){const state=await send({kind:'email_senders'});list.rep
 document.getElementById('email-trust-form').addEventListener('submit',async event=>{event.preventDefault();const input=document.getElementById('email-address');try{const result=await send({kind:'email_trust',address:input.value.trim()});if(result?.error)throw new Error();input.value='';feedback.textContent='Sender trusted. Requests for secrets or payment can still warn.';await refresh();}catch{feedback.textContent='Could not add that sender.';}});
 document.getElementById('email-clear').addEventListener('click',async()=>{await send({kind:'email_clear'});await refresh();feedback.textContent='Email sender history cleared.';});
 void refresh().catch(()=>{});
+
+// Static deep link from a warning: reveal the actual sender controls, then focus.
+if(location.hash==='#email-trust-form'){
+ const form=document.getElementById('email-trust-form');form.closest('details').open=true;
+ form.scrollIntoView?.({block:'center'});document.getElementById('email-address').focus({preventScroll:true});
+}

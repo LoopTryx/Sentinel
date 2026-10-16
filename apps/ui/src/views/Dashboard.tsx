@@ -41,10 +41,10 @@ const statusLabel =
     danger: "Preview · scenario alert",
   } as Record<string, string>);
 
-export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => void; onOpenUsb?:()=>void }) {
+export default function Dashboard({ onViewAll, onOpenUsb, onNavigate }: { onViewAll: () => void; onOpenUsb?:()=>void; onNavigate?:(view:"scan"|"password"|"watchtower"|"usb")=>void }) {
   const {state:demo}=useDemoState();
   const modules=SHIELD_MODULES.map(g=>({...g,modules:g.modules.map(m=>demo&&m.name==='Antivirus Engine'?{...m,status:'BOUNDED DEMO',desc:'Rust byte inspection · real reports · partial coverage'}:demo&&m.name==='Password Lab'?{...m,name:'Passwords',status:'SHARED DEMO',desc:'Invented shared accounts · weakness/reuse audit · generated replacements'}:m)}));
-  const { level, feed, setLevel, push } = useThreat();
+  const { level, feed, setLevel, push, snapshot } = useThreat();
 
   function simulateAttack() {
     setLevel("danger");
@@ -120,7 +120,7 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
                 textShadow: "0 1px 8px rgba(10,14,31,0.8)",
               }}
             >
-              {demo?'ClamAV harmless-sample inspection · shared dummy vault · paired browser events':'No live protection is installed — learning and presentation preview'}
+              {demo?'Local file checks · partial coverage · shared demo accounts':'No live protection is installed — learning and presentation preview'}
             </div>
           </div>
           <div className="protection-pill" style={{ flexShrink: 0, alignSelf: "flex-start" }}>
@@ -131,20 +131,25 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
 
 
 
+      <nav className="dashboard-actions" aria-label="Quick actions">
+        <button type="button" className="btn" disabled={!onNavigate} onClick={()=>onNavigate?.('scan')}><Icon name="scan" size={18}/>Scan files</button>
+        <button type="button" className="btn ghost" disabled={!onNavigate} onClick={()=>onNavigate?.('password')}><Icon name="key" size={18}/>Passwords</button>
+        <button type="button" className="btn ghost" disabled={!onNavigate} onClick={()=>onNavigate?.('watchtower')}><Icon name="wifi" size={18}/>Watchtower</button>
+      </nav>
       {/* ── STAT TILES — no backend in this preview, so honest em-dashes ── */}
       <div className="stat-grid dashboard-stats">
-        <div className="stat">
+        <button type="button" className="stat" onClick={()=>onNavigate?.('scan')} disabled={!onNavigate}>
           <div className="num">{demo?.scan?.checked??'—'}</div>
           <div className="label">FILES INSPECTED</div>
-        </div>
-        <div className="stat">
-          <div className="num">{demo?.scan?.findings.filter(f=>f.kind==='provider_synthetic_match').length??'—'}</div>
-          <div className="label">CLAMAV TEST MATCHES</div>
-        </div>
-        <div className="stat">
+        </button>
+        <button type="button" className="stat" onClick={()=>onNavigate?.('scan')} disabled={!onNavigate}>
+          <div className="num">{snapshot?snapshot.reports.filter(r=>r.verdict==='suspicious'||r.verdict==='signature_match').length:'—'}</div>
+          <div className="label">REVIEW FINDINGS</div>
+        </button>
+        <button type="button" className="stat" onClick={()=>onNavigate?.('password')} disabled={!onNavigate}>
           <div className="num">{demo?.accounts.length??'—'}</div>
           <div className="label">DEMO ACCOUNTS</div>
-        </div>
+        </button>
       </div>
 
       <UsbCapabilityCard connected={demo!==null} onOpen={onOpenUsb}/>
@@ -201,7 +206,7 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
                 <span style={{ opacity: 0.55, flexShrink: 0 }}>{l.ts}</span>
                 <span
                   style={{
-                    fontWeight: l.level === "info" ? 400 : 600,
+                    fontWeight: l.level === "info" ? 500 : 600,
                     minWidth: 0,
                     overflowWrap: "anywhere",
                   }}
@@ -288,7 +293,7 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
                   {g.group}
                 </div>
                 {g.modules.map((m) => (
-                  <div key={m.name} style={{ padding: "8px 0", borderTop: "1px solid var(--grid-line)" }}>
+                  <button type="button" className="module-action" key={m.name} disabled={!onNavigate||m.status==='PLANNED'} onClick={()=>onNavigate?.(m.name==='Antivirus Engine'?'scan':m.name==='USB Guard'?'usb':m.name==='Watchtower'?'watchtower':'password')}>
                     <div className="dashboard-module-heading">
                       <span
                         style={{
@@ -316,7 +321,7 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
                     <div style={{ fontSize: "0.75rem", color: "var(--text-faint)", marginTop: 3, paddingLeft: 14 }}>
                       {m.desc}
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             ))}

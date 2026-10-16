@@ -67,3 +67,12 @@ test('footer centres on the framed email despite an avatar gutter and releases r
  assert.equal(host.style.getPropertyValue('--footer-centre-shift'),'-50px');gutter=200;callback();assert.equal(host.style.getPropertyValue('--footer-centre-shift'),'-100px');
  cleanup();cleanup();assert.equal(disconnected,1);assert.equal(body.querySelector('[data-sentinel-email]'),null);dom.window.close();
 });
+
+test('email buttons require real acknowledgements, display failure/retry and never pretend a no-op saved feedback',async()=>{
+ const dom=new JSDOM('<article></article>'),root=dom.window.document.querySelector('article');let shadow,calls=0;const attach=dom.window.Element.prototype.attachShadow;dom.window.Element.prototype.attachShadow=function(opts){shadow=attach.call(this,opts);return shadow;};
+ const cleanup=showEmailWarning(root,{tier:'Likely Scam',reasons:[]},{onWrongFlag:async()=>{calls++;return calls===1?undefined:{recorded:true};},onManageTrust:async()=>({opened:true})});
+ const tick=()=>new Promise(resolve=>setImmediate(resolve));try{const [feedback,trust]=shadow.querySelectorAll('button');feedback.click();await tick();assert.equal(feedback.disabled,false);assert.match(shadow.textContent,/Could not save feedback/);
+ feedback.click();await tick();assert.equal(feedback.disabled,true);assert.match(shadow.textContent,/Feedback saved on this device/);feedback.click();assert.equal(calls,2);
+ trust.click();await tick();assert.match(shadow.textContent,/Sender settings opened/);assert.equal(trust.disabled,false);
+ }finally{cleanup();dom.window.close();}
+});

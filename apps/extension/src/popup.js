@@ -74,4 +74,4 @@ requestStatus();
 
 for(const button of document.querySelectorAll('[data-view]'))button.addEventListener('click',()=>{for(const tab of document.querySelectorAll('[data-view]'))tab.setAttribute('aria-pressed',String(tab===button));for(const panel of document.querySelectorAll('[data-panel]'))panel.hidden=panel.dataset.panel!==button.dataset.view;});
 document.getElementById('open-dashboard').onclick=()=>chrome.tabs.create({url:chrome.runtime.getURL('popup.html?view=dashboard')});
-if(new URLSearchParams(location.search).get('view')==='dashboard')document.body.classList.add('dashboard');
+if(['dashboard','settings'].includes(new URLSearchParams(location.search).get('view')))document.body.classList.add('dashboard');

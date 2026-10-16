@@ -16,7 +16,7 @@ export async function startEmailWarnings(doc,api){
   if(stopped||!isCurrent())return;
   cleanups.get(root)?.();
   const result=assessEmail(snapshot,context,inspectEmail(snapshot));
-  const banner=showEmailWarning(root,result,{onWrongFlag:async()=>{const response=await request({kind:'email_feedback',tier:result.tier});if(response?.recorded!==true)throw new Error('Feedback unavailable.');},onManageTrust:async()=>{const response=await request({kind:'email_open_settings'});if(response?.opened!==true)throw new Error('Settings unavailable.');}});
+  const banner=showEmailWarning(root,result,{onWrongFlag:async()=>{const response=await request({kind:'email_feedback',tier:result.tier});if(response?.recorded!==true)throw new Error('Feedback unavailable.');return response;},onManageTrust:async()=>{const response=await request({kind:'email_open_settings'});if(response?.opened!==true)throw new Error('Settings unavailable.');return response;}});
   const links=result.tier==='Likely Scam'?guardEmailLinks(root,{isCurrent}):()=>{};
   cleanups.set(root,()=>{links();banner();});
  },onStatus:status=>{lastStatus={kind:'email_reader_status',state:status.state,messages:status.messages||0};void request(lastStatus).catch(()=>{});for(const [root,cleanup]of cleanups)if(!root.isConnected||['unsupported_open_layout','no_supported_open_message','extraction_unavailable'].includes(status.state)){cleanup();cleanups.delete(root);}}});
