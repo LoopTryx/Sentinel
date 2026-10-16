@@ -10,6 +10,8 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const dist = resolve(root, 'dist');
 
 const requiredFiles = [
+  'src/floating-control.js',
+  'src/floating-panel.js',
   'src/readability.css',
   'src/assets/blue-ledge-v1.png',
   'src/assets/red-peeking-v1.png',
@@ -68,6 +70,8 @@ const requiredFiles = [
 // a stale service-worker.js or popup.js in dist must fail parity, not just
 // static assets.
 const mirroredFromSource = [
+  'src/floating-control.js',
+  'src/floating-panel.js',
   'src/readability.css',
   'src/assets/blue-ledge-v1.png',
   'src/assets/red-peeking-v1.png',

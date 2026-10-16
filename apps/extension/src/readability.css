@@ -42,3 +42,6 @@ body.companion{font-weight:600}.companion p,.companion label,.companion input,.c
 
 body{font-weight:500}p,li,label,input,textarea,output{font-weight:600}h1,h2,h3{font-weight:800}
 @media(max-height:500px){body.companion:not(.dashboard){overflow:auto;scrollbar-width:none}}
+
+/* Secure full-tab controls keep their own navy surface; the injected panel has no canvas. */
+body.companion,html:has(body.companion),.popup-stage,.companion.dashboard,.companion.dashboard .popup-stage{background:#1b1e4a}

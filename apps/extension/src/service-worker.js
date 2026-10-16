@@ -1,3 +1,4 @@
+import {installFloatingControl} from './floating-control.js';
 import {navigationWarningStatus,setNavigationWarnings} from './navigation-policy.js';
 import {whatsAppStatus,setWhatsAppWarnings} from './whatsapp-control.js';
 import {installOmnibox} from './omnibox.js';
@@ -6,6 +7,7 @@ import {demoRequest} from './demo-transport.js';
 import {autoConnect} from './auto-connect.js';
 import {installEmailControl} from './email/control.js';
 installEmailControl(chrome);
+installFloatingControl(chrome);
 
 const STATUS_KEY = 'harnessStatus';
 // Existing nativeMessaging permission; no network or vault operation is replayed.

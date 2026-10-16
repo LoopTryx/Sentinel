@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Sentinel Browser Companion",
-  "version": "0.2.12",
+  "version": "0.2.13",
   "optional_permissions": [
     "scripting"
   ],
@@ -25,7 +25,6 @@
     "type": "module"
   },
   "action": {
-    "default_popup": "popup.html",
     "default_title": "Sentinel Browser Companion"
   },
   "declarative_net_request": {
@@ -89,6 +88,16 @@
         "https://outlook.live.com/*",
         "https://outlook.office.com/*",
         "https://outlook.office365.com/*"
+      ]
+    },
+    {
+      "resources": [
+        "src/assets/blue-ledge-v1.png",
+        "src/assets/red-peeking-v1.png"
+      ],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
       ]
     }
   ],

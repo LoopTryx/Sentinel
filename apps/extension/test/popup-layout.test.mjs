@@ -15,3 +15,10 @@ test('popup opens Settings first and both tabs remain interactive',async()=>{
   assert.equal(doc.querySelector('.blue-ledge').parentElement.className,'popup-card');
  }finally{Object.assign(globalThis,previous);dom.window.close();}
 });
+
+test('Password navigation opens its secure full-tab view instead of Settings',async()=>{
+ const dom=new JSDOM(await readFile(new URL('../popup.html',import.meta.url),'utf8'),{url:'https://extension.example.test/popup.html?view=passwords'}),doc=dom.window.document;
+ const previous={document:globalThis.document,location:globalThis.location,chrome:globalThis.chrome};Object.assign(globalThis,{document:doc,location:dom.window.location,chrome:{runtime:{sendMessage:async()=>({status:null}),getURL:p=>p},tabs:{create:()=>{}}}});
+ try{await import('../src/popup.js?password-view-test');assert.equal(doc.body.classList.contains('dashboard'),true);assert.equal(doc.querySelector('[data-panel=passwords]').hidden,false);assert.equal(doc.querySelector('[data-panel=settings]').hidden,true);assert.equal(doc.querySelector('[data-view=passwords]').getAttribute('aria-pressed'),'true');}
+ finally{Object.assign(globalThis,previous);dom.window.close();}
+});
