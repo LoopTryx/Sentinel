@@ -9,6 +9,8 @@ import QuarantineView from "./views/QuarantineView";
 import ThreatLogView from "./views/ThreatLogView";
 import WatchtowerView from "./views/WatchtowerView";
 import UsbGuardView from "./features/usb/UsbGuardView";
+import TextLoop from "./components/ui/TextLoop";
+import "./components/text-loop.css";
 import GradientASCII from "./components/ui/GradientASCII";
 import Icon from "./components/Icon";
 import LiquidSidebar from "./components/LiquidSidebar";
@@ -209,6 +211,9 @@ function Shell() {
           {view === "quarantine" && <QuarantineView />}
           {view === "log" && <ThreatLogView />}
         </div>
+        <footer className="desktop-ribbon">
+          <TextLoop text="Sentinel" shape="line" speed={135} direction="forward" separator="✦" curviness={90} tilt={0} fontSize={40} fontWeight={800} letterSpacing={1} uppercase ribbon ribbonColor="#414bff" ribbonWidth={76} edgeFade={0.1} cross={false} crossAngle={14} draggable scrollBoost={0} outline={false} pauseOnHover outlineWidth={1.5} color="#000000"/>
+        </footer>
       </main>
     </div>
   );

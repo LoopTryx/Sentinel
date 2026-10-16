@@ -86,3 +86,5 @@ Owner approved replacing native toolbar popup with a navigation-only panel injec
 16 October: owner-supplied GradientASCII backdrop (rose/rise/cell22/density.8) replaces the dither instance with bounded24fps/DPR1 and lifecycle/fallback safeguards. Console Shield Modules and USB summary removed; USB page retained. Sidebar scrollbar hidden, collapsed tail trimmed, expanded selection azure, collapsed icons hover/focus lift. Evidence: evidence/ascii-sidebar-2026-10-16.md.
 
 16 October preset follow-up: ASCII background switches to owner blue/white/cyan horizon palette,cell18,density.8,same characters. Static fallback blue; existing24fps/DPR1/cleanup guards retained. Sidebar/Console/scan behavior unchanged.
+
+16 October: owner-supplied Sentinel TextLoop ribbon added to a reserved bottom footer with16px edge gap. Exact owner preset, drag/hover pause plus keyboard and reduced-motion/lifecycle safeguards; same GSAP dependency. Evidence: evidence/text-loop-2026-10-16.md.
