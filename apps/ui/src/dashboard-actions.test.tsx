@@ -12,6 +12,10 @@ it('dashboard quick actions and capability cards navigate without starting privi
   resetConsole.mockClear();const reset=Array.from(host.querySelectorAll('button')).find(button=>button.textContent?.includes('RESET CONSOLE'));await act(()=>reset!.click());expect(resetConsole).toHaveBeenCalledOnce();
   const buttons=Array.from(host.querySelectorAll<HTMLButtonElement>('.dashboard-actions button'));
   for(const b of buttons)await act(()=>b.click());expect(navigate.mock.calls).toEqual([['scan'],['password'],['watchtower']]);
+  const stats=host.querySelector('.side-rail > .dashboard-stats');expect(stats?.querySelectorAll('button')).toHaveLength(3);
+  navigate.mockClear();for(const button of stats!.querySelectorAll<HTMLButtonElement>('button'))await act(()=>button.click());expect(navigate.mock.calls).toEqual([['scan'],['scan'],['password']]);
+  const status=host.querySelector('.dashboard-capability-status');expect(status?.parentElement?.classList.contains('side-rail')).toBe(true);expect(status?.previousElementSibling?.textContent).toContain('ALERT PREVIEW');expect(status?.textContent).toContain('unavailable');
+  expect(host.textContent).toContain('Activity unavailable.');
   expect(host.querySelector('.module-action')).toBeNull();expect(host.textContent).not.toContain('SHIELD MODULES');expect(host.textContent).not.toContain('Open USB Guard');
  }finally{await act(()=>root.unmount());host.remove();}
 });

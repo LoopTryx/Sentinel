@@ -88,3 +88,5 @@ Owner approved replacing native toolbar popup with a navigation-only panel injec
 16 October preset follow-up: ASCII background switches to owner blue/white/cyan horizon palette,cell18,density.8,same characters. Static fallback blue; existing24fps/DPR1/cleanup guards retained. Sidebar/Console/scan behavior unchanged.
 
 16 October: owner-supplied Sentinel TextLoop ribbon added to a reserved bottom footer with16px edge gap. Exact owner preset, drag/hover pause plus keyboard and reduced-motion/lifecycle safeguards; same GSAP dependency. Evidence: evidence/text-loop-2026-10-16.md.
+
+16 October: info boxes switch to neutral charcoal glass with desaturated backdrop; animated blue hero fill removed. Console counters move into compact right rail. Status stays after Alert Preview, tighter rows/padding; Console copy shortened with demo/partial/unavailable meanings preserved. Evidence: evidence/compact-console-2026-10-16.md.
