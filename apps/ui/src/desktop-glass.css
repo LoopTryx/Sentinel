@@ -4,12 +4,12 @@
   --glass-blur: 14px;
   --glass-opacity: .78;
   --glass-deep-opacity: .88;
-  --glass-fill: linear-gradient(145deg, rgba(24, 25, 29, var(--glass-opacity)), rgba(7, 8, 11, var(--glass-deep-opacity)));
-  --glass-solid: linear-gradient(145deg, #18191d, #07080b);
-  --glass-border: rgba(221, 225, 233, .22);
-  --glass-highlight: rgba(235, 235, 239, .13);
+  --glass-fill: linear-gradient(145deg, rgba(20, 37, 66, var(--glass-opacity)), rgba(5, 12, 25, var(--glass-deep-opacity)));
+  --glass-solid: linear-gradient(145deg, #142542, #050c19);
+  --glass-border: rgba(172, 202, 235, .24);
+  --glass-highlight: rgba(220, 235, 252, .13);
   --glass-glow-opacity: .11;
-  --glass-glow: rgba(190, 190, 196, var(--glass-glow-opacity));
+  --glass-glow: rgba(53, 103, 164, var(--glass-glow-opacity));
   --glass-radius: var(--layout-radius, var(--radius, 16px));
   --glass-shadow: 0 10px 30px rgba(0, 4, 12, .25), 0 0 28px var(--glass-glow);
   --glass-elevated-shadow: 0 16px 38px rgba(0, 4, 12, .32), 0 0 36px var(--glass-glow);
@@ -35,7 +35,7 @@
   position: absolute;
   inset: 0 12px auto;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(225, 225, 233, .30), transparent);
+  background: linear-gradient(90deg, transparent, rgba(202, 224, 250, .30), transparent);
   animation: none;
   opacity: 1;
   pointer-events: none;
@@ -43,24 +43,24 @@
 #root :is(.panel, .stat)::after { content: none; }
 #root :is(.dashboard-hero, .pm-detail) { box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-elevated-shadow); }
 /* All boxes share the tint, but only a bounded set of outer surfaces gets blur.
-   Stats receive only static desaturation; nested boxes never add another blur layer. */
+   Stats, nested boxes and long lists never add another filtered layer. */
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  #root :is(.panel, .stat) { background: var(--glass-fill); backdrop-filter:grayscale(1); -webkit-backdrop-filter:grayscale(1); }
+  #root :is(.panel, .stat) { background: var(--glass-fill); }
   #root :is(.content > .panel:nth-of-type(-n+3), .dashboard-hero, .pm-workspace > .panel:nth-of-type(-n+2), .usb-guard > .panel:nth-of-type(-n+2)) {
-    backdrop-filter: blur(var(--glass-blur)) grayscale(1);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) grayscale(1);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
   }
   #root .panel :is(.panel, .stat) { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 }
 /* Do not make informational sections look clickable. Existing buttons/links only. */
 @media (hover: hover) {
   #root :is(button, a):is(.panel, .stat):not(:disabled):not([aria-disabled="true"]):hover {
-    border-color: rgba(216, 221, 228, .48);
+    border-color: rgba(172, 202, 235, .48);
     box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-elevated-shadow);
     transform: translateY(-2px);
   }
 }
-#root :is(.panel, .stat):focus-within { border-color: rgba(216, 221, 228, .48); }
+#root :is(.panel, .stat):focus-within { border-color: rgba(172, 202, 235, .48); }
 #root :is(button, a):is(.panel, .stat):focus-visible { outline: 3px solid #9bddff; outline-offset: 4px; }
 #root :is(button, a):is(.panel, .stat):not(:disabled):not([aria-disabled="true"]):active { transform: translateY(0); box-shadow: inset 0 1px 0 var(--glass-highlight), 0 4px 16px rgba(0, 4, 12, .25); }
 /* Native backdrop remains opt-in and does not grant capabilities. No shell blur. */

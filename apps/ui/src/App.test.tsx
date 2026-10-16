@@ -14,8 +14,7 @@ describe('integrated console capability boundaries', () => {
     expect(html).not.toContain('LIVE PROTECTION ACTIVE');
     expect(html).not.toContain('All systems secure');
     expect(html).not.toContain('signature engine online');
-    expect(html).toContain('ALERT PREVIEW');
-    expect(html).toContain('Demo only. No system changes.');
+    expect(html).toContain('SYNTHETIC SCENARIO');
   });
   it('does not offer scans through missing native commands', () => {
     const html = renderToStaticMarkup(<ThreatProvider><ScanView /></ThreatProvider>);

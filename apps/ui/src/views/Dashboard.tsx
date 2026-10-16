@@ -1,5 +1,6 @@
 import {useDemoState} from '../demo-bridge';
 import { useThreat } from "../state";
+import Grainient from "../components/ui/Grainient";
 import Icon from "../components/Icon";
 
 /** GLM reference layout with connected demo state; preview remains honest when disconnected. */
@@ -31,6 +32,18 @@ export default function Dashboard({ onViewAll, onNavigate }: { onViewAll: () => 
     <div className="dashboard-layout">
       {/* ── HERO — grainient gradient; title block left, status pill right ── */}
       <section className="panel dashboard-hero">
+        <div style={{ position: "absolute", inset: 0, opacity: 0.9 }}>
+          <Grainient
+            color1={level === "danger" ? "#c2483c" : level === "warn" ? "#b3813a" : "#2f89e3"}
+            color2={level === "danger" ? "#3d0f0c" : "#16324F"}
+            color3="#0a0e1f"
+            timeSpeed={0.18}
+            warpStrength={1.2}
+            rotationAmount={420}
+            grainAmount={0.14}
+            grainAnimated
+          />
+        </div>
         <div className="hero-flex dashboard-hero-content">
           <div style={{ minWidth: 0 }}>
             <div
@@ -61,7 +74,7 @@ export default function Dashboard({ onViewAll, onNavigate }: { onViewAll: () => 
                   display: "inline-block",
                 }}
               />
-              {demo?'Local demo connected':'Preview · no agent connection'}
+              {demo?'Local demo runtime connected':'Preview · no agent connection'}
             </div>
             <h2 className="dashboard-title">
               SENTINEL
@@ -75,7 +88,7 @@ export default function Dashboard({ onViewAll, onNavigate }: { onViewAll: () => 
                 textShadow: "0 1px 8px rgba(10,14,31,0.8)",
               }}
             >
-              {demo?'Local checks · partial coverage':'No live protection is installed'}
+              {demo?'Local file checks · partial coverage · shared demo accounts':'No live protection is installed — learning and presentation preview'}
             </div>
           </div>
           <div className="protection-pill" style={{ flexShrink: 0, alignSelf: "flex-start" }}>
@@ -91,6 +104,24 @@ export default function Dashboard({ onViewAll, onNavigate }: { onViewAll: () => 
         <button type="button" className="btn ghost" disabled={!onNavigate} onClick={()=>onNavigate?.('password')}><Icon name="key" size={18}/>Passwords</button>
         <button type="button" className="btn ghost" disabled={!onNavigate} onClick={()=>onNavigate?.('watchtower')}><Icon name="wifi" size={18}/>Watchtower</button>
       </nav>
+      {/* ── STAT TILES — no backend in this preview, so honest em-dashes ── */}
+      <div className="stat-grid dashboard-stats">
+        <button type="button" className="stat" onClick={()=>onNavigate?.('scan')} disabled={!onNavigate}>
+          <div className="num">{demo?.scan?.checked??'—'}</div>
+          <div className="label">FILES INSPECTED</div>
+        </button>
+        <button type="button" className="stat" onClick={()=>onNavigate?.('scan')} disabled={!onNavigate}>
+          <div className="num">{snapshot?snapshot.reports.filter(r=>r.verdict==='suspicious'||r.verdict==='signature_match').length:'—'}</div>
+          <div className="label">REVIEW FINDINGS</div>
+        </button>
+        <button type="button" className="stat" onClick={()=>onNavigate?.('password')} disabled={!onNavigate}>
+          <div className="num">{demo?.accounts.length??'—'}</div>
+          <div className="label">DEMO ACCOUNTS</div>
+        </button>
+      </div>
+
+
+
       {/* ── MAIN GRID — wide activity feed left, scenario rail right ── */}
       <div className="console-grid">
         <section className="panel" style={{ display: "flex", flexDirection: "column" }}>
@@ -121,7 +152,7 @@ export default function Dashboard({ onViewAll, onNavigate }: { onViewAll: () => 
             ))}
             {feed.length === 0 && !demo?.events.length && (
               <div style={{ color: "var(--text-faint)" }}>
-                {demo ? 'No activity yet.' : 'Activity unavailable.'}
+                {demo ? 'No local session events yet. Scan a harmless sample or use the paired extension.' : '// live telemetry unavailable — choose a labeled scenario'}
               </div>
             )}
             {feed.slice(0, 30).map((l) => (
@@ -156,29 +187,11 @@ export default function Dashboard({ onViewAll, onNavigate }: { onViewAll: () => 
         </section>
 
         <div className="side-rail">
-      {/* ── STAT TILES — no backend in this preview, so honest em-dashes ── */}
-      <div className="stat-grid dashboard-stats">
-        <button type="button" className="stat" onClick={()=>onNavigate?.('scan')} disabled={!onNavigate}>
-          <div className="num">{demo?.scan?.checked??'—'}</div>
-          <div className="label">FILES INSPECTED</div>
-        </button>
-        <button type="button" className="stat" onClick={()=>onNavigate?.('scan')} disabled={!onNavigate}>
-          <div className="num">{snapshot?snapshot.reports.filter(r=>r.verdict==='suspicious'||r.verdict==='signature_match').length:'—'}</div>
-          <div className="label">REVIEW FINDINGS</div>
-        </button>
-        <button type="button" className="stat" onClick={()=>onNavigate?.('password')} disabled={!onNavigate}>
-          <div className="num">{demo?.accounts.length??'—'}</div>
-          <div className="label">DEMO ACCOUNTS</div>
-        </button>
-      </div>
-
-
-
-
           <section className="panel">
-            <h3 className="panel-title">ALERT PREVIEW</h3>
+            <h3 className="panel-title">ATTACK SIMULATION — SYNTHETIC SCENARIO</h3>
             <p style={{ color: "var(--text-dim)", fontSize: "0.8125rem", lineHeight: 1.6, margin: "0 0 14px" }}>
-              Demo only. No system changes.
+              Changes the console theme using invented evidence. No file, device
+              or system policy is touched.
             </p>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button className="btn danger" onClick={simulateAttack}>
@@ -191,24 +204,24 @@ export default function Dashboard({ onViewAll, onNavigate }: { onViewAll: () => 
             </div>
           </section>
 
-          <section className="panel dashboard-capability-status">
-            <h3 className="panel-title">STATUS</h3>
+          <section className="panel">
+            <h3 className="panel-title">CAPABILITY STATUS</h3>
             <div className="kv-row">
               <span className="kv-key">
-                File checks <span className="status-dot" style={{ display: "inline-block" }} />
+                Scan adapter <span className="status-dot" style={{ display: "inline-block" }} />
               </span>
               <span className="kv-val" style={{ color: "var(--warn)" }}>
                 {demo?'bounded demo':'unavailable'}
               </span>
             </div>
             <div className="kv-row">
-              <span className="kv-key">Accounts</span>
+              <span className="kv-key">Vault backend</span>
               <span className="kv-val" style={{ color: "var(--warn)" }}>
                 {demo?'shared demo':'unavailable'}
               </span>
             </div>
             <div className="kv-row" style={{ borderBottom: "none" }}>
-              <span className="kv-key">Lessons</span>
+              <span className="kv-key">Local lessons</span>
               <span className="kv-val" style={{ color: "var(--state)" }}>
                 available
               </span>

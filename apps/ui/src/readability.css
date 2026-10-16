@@ -16,14 +16,3 @@ button:focus-visible{outline:3px solid #9bddff;outline-offset:4px}
 :root{--text-dim:#a4b4d5;--text-faint:#8e9fc4}
 
 .scan-finding-summary{padding:16px 20px;margin:0 0 20px;border:1px solid #ef7180;border-radius:12px;background:linear-gradient(120deg,#631827e6,#33101ee6);color:#fff0f2;box-shadow:0 8px 24px #20030b33}.scan-finding-summary strong{display:block;font-family:var(--font-display);font-size:1.3rem}.scan-finding-summary p{margin:6px 0 0;color:#ffd8df}
-/* Compact Console rail: counters remain real navigation controls. */
-.dashboard-layout .console-grid{align-items:start}
-.dashboard-layout .side-rail{gap:16px;min-width:0}
-.dashboard-layout .side-rail .dashboard-stats{grid-template-columns:minmax(0,1fr);gap:8px}
-.dashboard-layout .side-rail .stat{display:flex;flex-direction:row-reverse;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;min-height:56px}
-.dashboard-layout .side-rail .stat .num{font-size:1.4rem;line-height:1.15;margin:0;flex:none}
-.dashboard-layout .side-rail .stat .label{font-size:.8rem;letter-spacing:.06em;margin:0}
-.dashboard-layout .side-rail .panel{padding:16px 18px}
-.dashboard-layout .side-rail .panel-title{font-size:1rem;margin-bottom:12px}
-.dashboard-layout .dashboard-capability-status .kv-row{padding:8px 0;gap:12px}
-.dashboard-layout .dashboard-capability-status .kv-key,.dashboard-layout .dashboard-capability-status .kv-val{font-size:.85rem;line-height:1.4}
