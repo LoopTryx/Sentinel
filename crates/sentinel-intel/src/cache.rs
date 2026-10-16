@@ -21,6 +21,8 @@ pub enum LookupVerdict {
     Listed,
     NotListed,
     Stale,
+    /// The clock precedes retrieval; freshness cannot be established.
+    ClockAnomaly,
     Unavailable,
     InvalidUrl,
 }
@@ -128,7 +130,9 @@ impl Cache {
                 expires_at: None,
             };
         };
-        let verdict = if now >= feed.expires_at {
+        let verdict = if now < feed.retrieved_at {
+            LookupVerdict::ClockAnomaly
+        } else if now >= feed.expires_at {
             LookupVerdict::Stale
         } else if feed.urls.binary_search(&normalized).is_ok() {
             LookupVerdict::Listed
