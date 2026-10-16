@@ -18,6 +18,7 @@ function Invoke-Check {
     if ($LASTEXITCODE -ne 0) { throw "$Name failed with exit code $LASTEXITCODE" }
 }
 
+Invoke-Check 'Windows PowerShell launcher identity' { & powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/tests/launcher-compat.ps1 }
 Invoke-Check 'Rust formatting' { & $cargo fmt --all -- --check }
 Invoke-Check 'Rust lint' { & $cargo clippy --workspace --all-targets -- -D warnings }
 Invoke-Check 'Rust tests and TS generation' { & $cargo test --workspace }
