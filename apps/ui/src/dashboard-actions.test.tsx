@@ -12,7 +12,6 @@ it('dashboard quick actions and capability cards navigate without starting privi
   resetConsole.mockClear();const reset=Array.from(host.querySelectorAll('button')).find(button=>button.textContent?.includes('RESET CONSOLE'));await act(()=>reset!.click());expect(resetConsole).toHaveBeenCalledOnce();
   const buttons=Array.from(host.querySelectorAll<HTMLButtonElement>('.dashboard-actions button'));
   for(const b of buttons)await act(()=>b.click());expect(navigate.mock.calls).toEqual([['scan'],['password'],['watchtower']]);
-  navigate.mockClear();const modules=Array.from(host.querySelectorAll<HTMLButtonElement>('.module-action'));
-  for(const b of modules)await act(()=>b.click());expect(navigate.mock.calls).toEqual([['scan'],['password'],['usb'],['watchtower']]);expect(modules.slice(-2).every(b=>b.disabled)).toBe(true);
+  expect(host.querySelector('.module-action')).toBeNull();expect(host.textContent).not.toContain('SHIELD MODULES');expect(host.textContent).not.toContain('Open USB Guard');
  }finally{await act(()=>root.unmount());host.remove();}
 });

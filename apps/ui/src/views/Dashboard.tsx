@@ -1,38 +1,9 @@
-import UsbCapabilityCard from '../features/usb/UsbCapabilityCard';
 import {useDemoState} from '../demo-bridge';
 import { useThreat } from "../state";
 import Grainient from "../components/ui/Grainient";
 import Icon from "../components/Icon";
 
 /** GLM reference layout with connected demo state; preview remains honest when disconnected. */
-
-/** Shield modules — honest statuses: local lessons and unavailable/planned runtime capabilities. */
-const SHIELD_MODULES: {
-  group: string;
-  modules: { name: string; desc: string; status: "LOCAL LESSON" | "UNAVAILABLE" | "PLANNED" | "BOUNDED DEMO" | "SHARED DEMO" }[];
-}[] = [
-  {
-    group: "CORE",
-    modules: [
-      { name: "Antivirus Engine", desc: "Console adapter unavailable · CLI preview only", status: "UNAVAILABLE" },
-      { name: "Password Lab", desc: "entropy analysis · crypto generator", status: "LOCAL LESSON" },
-    ],
-  },
-  {
-    group: "PERIMETER",
-    modules: [
-      { name: "USB Guard", desc: "manual inventory · HID prevention unavailable", status: "UNAVAILABLE" },
-      { name: "Watchtower", desc: "local text clues · no network monitoring", status: "LOCAL LESSON" },
-    ],
-  },
-  {
-    group: "GATEWAY",
-    modules: [
-      { name: "Web Shield", desc: "link & download inspection", status: "PLANNED" },
-      { name: "Browser Guard", desc: "mail / chat / QR protection", status: "PLANNED" },
-    ],
-  },
-];
 
 const statusLabel =
   ({
@@ -41,9 +12,9 @@ const statusLabel =
     danger: "Preview · scenario alert",
   } as Record<string, string>);
 
-export default function Dashboard({ onViewAll, onOpenUsb, onNavigate }: { onViewAll: () => void; onOpenUsb?:()=>void; onNavigate?:(view:"scan"|"password"|"watchtower"|"usb")=>void }) {
+export default function Dashboard({ onViewAll, onNavigate }: { onViewAll: () => void; onOpenUsb?:()=>void; onNavigate?:(view:"scan"|"password"|"watchtower"|"usb")=>void }) {
   const {state:demo}=useDemoState();
-  const modules=SHIELD_MODULES.map(g=>({...g,modules:g.modules.map(m=>demo&&m.name==='Antivirus Engine'?{...m,status:'BOUNDED DEMO',desc:'Rust byte inspection · real reports · partial coverage'}:demo&&m.name==='Password Lab'?{...m,name:'Passwords',status:'SHARED DEMO',desc:'Invented shared accounts · weakness/reuse audit · generated replacements'}:m)}));
+
   const { level, feed, setLevel, push, snapshot, resetConsole } = useThreat();
 
   function simulateAttack() {
@@ -149,7 +120,7 @@ export default function Dashboard({ onViewAll, onOpenUsb, onNavigate }: { onView
         </button>
       </div>
 
-      <UsbCapabilityCard connected={demo!==null} onOpen={onOpenUsb}/>
+
 
       {/* ── MAIN GRID — wide activity feed left, scenario rail right ── */}
       <div className="console-grid">
@@ -259,72 +230,6 @@ export default function Dashboard({ onViewAll, onOpenUsb, onNavigate }: { onView
         </div>
       </div>
 
-      {/* ── SHIELD MODULES — section head outside, grid inside ── */}
-      <div>
-        <div className="section-head" style={{ marginBottom: 12 }}>
-          <h3 className="panel-title" style={{ margin: 0, fontSize: "1.1875rem" }}>
-            SHIELD MODULES
-          </h3>
-        </div>
-        <section className="panel">
-          <div className="dashboard-modules">
-            {modules.map((g) => (
-              <div
-                key={g.group}
-                style={{
-                  border: "1px solid var(--grid-line)",
-                  borderRadius: "var(--radius-sm)",
-                  padding: "16px 18px",
-                  background: "rgba(11, 18, 48, 0.55)",
-                }}
-              >
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.75rem",
-                    letterSpacing: "0.18em",
-                    color: "var(--chrome-mid)",
-                    marginBottom: 12,
-                  }}
-                >
-                  {g.group}
-                </div>
-                {g.modules.map((m) => (
-                  <button type="button" className="module-action" key={m.name} disabled={!onNavigate||m.status==='PLANNED'} onClick={()=>onNavigate?.(m.name==='Antivirus Engine'?'scan':m.name==='USB Guard'?'usb':m.name==='Watchtower'?'watchtower':'password')}>
-                    <div className="dashboard-module-heading">
-                      <span
-                        style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: 99,
-                          flexShrink: 0,
-                          background: m.status === "LOCAL LESSON" ? "var(--safe)" : "var(--text-faint)",
-                          boxShadow: m.status === "LOCAL LESSON" ? "0 0 8px var(--safe)" : "none",
-                        }}
-                      />
-                      <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text)" }}>{m.name}</span>
-                      <span
-                        style={{
-                          marginLeft: "auto",
-                          fontFamily: "var(--font-mono)",
-                          fontSize: "0.75rem",
-                          letterSpacing: "0.1em",
-                          color: m.status === "LOCAL LESSON" ? "var(--safe)" : "var(--text-faint)",
-                        }}
-                      >
-                        {m.status}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-faint)", marginTop: 3, paddingLeft: 14 }}>
-                      {m.desc}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
     </div>
   );
 }

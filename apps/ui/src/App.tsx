@@ -9,7 +9,7 @@ import QuarantineView from "./views/QuarantineView";
 import ThreatLogView from "./views/ThreatLogView";
 import WatchtowerView from "./views/WatchtowerView";
 import UsbGuardView from "./features/usb/UsbGuardView";
-import Dither from "./components/ui/Dither";
+import GradientASCII from "./components/ui/GradientASCII";
 import Icon from "./components/Icon";
 import LiquidSidebar from "./components/LiquidSidebar";
 import "./theme.css";
@@ -43,19 +43,6 @@ const VIEW_TITLES: Record<ViewId, string> = {
   quarantine: "Quarantine",
   log: "Threat Log",
 };
-
-/** Dither wave colors follow the global threat state: azure when calm,
- *  soft coral when something is wrong. Azure = theme accent #2f89e3. */
-function ditherColors(level: string): {
-  wave: [number, number, number];
-  bg: [number, number, number];
-} {
-  if (level === "danger")
-    return { wave: [1.0, 0.54, 0.48], bg: [0.09, 0.03, 0.04] };
-  if (level === "warn")
-    return { wave: [1.0, 0.77, 0.42], bg: [0.09, 0.06, 0.02] };
-  return { wave: [0.184, 0.537, 0.89], bg: [0.02, 0.03, 0.1] };
-}
 
 /** MagicBento-style border glow for EVERY panel and stat box: a cyan light
  *  that slides along the nearest box edges as the cursor moves. Drives the
@@ -126,13 +113,12 @@ function Shell() {
         ? "Preview · scenario attention"
         : "Preview · agent unavailable";
 
-  const { wave, bg } = ditherColors(level);
+
 
   return (
     <div className={`shell${view === "password" ? " password-shell" : ""}${sidebarCollapsed?" sidebar-collapsed":""}`}>
       <div className="window-actions"><button aria-label="Minimize to tray" onClick={()=>void import('./demo-bridge').then(m=>m.demoCall('window.hide')).catch(()=>{})}>−</button><button aria-label="Close to tray" onClick={()=>void import('./demo-bridge').then(m=>m.demoCall('window.hide')).catch(()=>{})}>×</button></div>
-      {/* Living dither backdrop — spans the WHOLE app (sidebar included) and
-          recolors with the threat state. The sidebar's liquid glass blurs it. */}
+      {/* Owner-supplied ASCII backdrop; decoration never intercepts input. */}
       <div
         className="dither-bg"
         style={{
@@ -142,16 +128,10 @@ function Shell() {
           opacity: view === "password" ? 0.40 : 0.75,
         }}
       >
-        <Dither
-          waveColor={wave}
-          backgroundColor={bg}
-          palette={["#050a19", "#0c1730", level === "danger" ? "#a82138" : level === "warn" ? "#a87729" : "#245ba1", level === "danger" ? "#ed5264" : level === "warn" ? "#ffc46b" : "#4b9bea"]}
-          colorNum={4}
-          pixelSize={5}
-          dpr={1}
-          maxFps={24}
-          clickRipple={false}
-          enableMouseInteraction={false}
+        <GradientASCII
+          colors={["#9f1239","#f43f5e","#fda4af","#fff1f2"]}
+          shape="rise" characters=" =+xX0S8#@" cellSize={22} density={0.8}
+          dpr={1} maxFps={24} mouseInteraction={false} clickEffect="none"
         />
       </div>
 

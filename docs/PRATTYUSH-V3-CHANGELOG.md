@@ -82,3 +82,5 @@ Owner approved replacing native toolbar popup with a navigation-only panel injec
 16 October owner reference follow-up: remove global scan banner; compact Scan & Detect finding summary plus red threat theme. Reset console acknowledges displayed evidence without deleting reports and rearms on changed/new findings. More translucent blue/red glass and visible azure dither restored within existing performance limits. See evidence/glass-scan-followup-2026-10-16.md.
 
 16 October: owner-provided layered glass style adapted into the navigation sidebar with collapse/expand. Icon rail retains labeled page buttons and focus; expanded menu restores labels. Existing Sentinel icons/pages retained, local assets only. See evidence/liquid-sidebar-2026-10-16.md.
+
+16 October: owner-supplied GradientASCII backdrop (rose/rise/cell22/density.8) replaces the dither instance with bounded24fps/DPR1 and lifecycle/fallback safeguards. Console Shield Modules and USB summary removed; USB page retained. Sidebar scrollbar hidden, collapsed tail trimmed, expanded selection azure, collapsed icons hover/focus lift. Evidence: evidence/ascii-sidebar-2026-10-16.md.
