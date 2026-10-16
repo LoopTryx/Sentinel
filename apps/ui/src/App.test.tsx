@@ -16,6 +16,12 @@ describe('integrated console capability boundaries', () => {
     expect(html).not.toContain('signature engine online');
     expect(html).toContain('SYNTHETIC SCENARIO');
   });
+  it('places the small ribbon in scrolling content and omits decorative sidebar footer',()=>{
+    const html=renderToStaticMarkup(<App/>);
+    expect(html).toContain('font-size:22px');expect(html).toContain('stroke-width="38"');
+    expect(html).toContain('</footer></div>');expect(html).not.toContain('sidebar-footer');
+    expect(html).not.toContain('THINK');expect(html).not.toContain('Y2K CONSOLE BUILD');
+  });
   it('does not offer scans through missing native commands', () => {
     const html = renderToStaticMarkup(<ThreatProvider><ScanView /></ThreatProvider>);
     expect(html).toContain('unavailable');

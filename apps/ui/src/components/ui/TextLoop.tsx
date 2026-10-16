@@ -8,6 +8,7 @@ export type TextLoopDirection = 'forward' | 'reverse';
 
 export interface TextLoopProps {
   text?: string;
+  fitWidth?: boolean;
   shape?: TextLoopShape;
   path?: string;
   speed?: number;
@@ -153,6 +154,7 @@ const inkOn = (color: string): string => {
 
 const TextLoop = ({
   text = 'React ✦ Bits',
+  fitWidth = false,
   shape = 'wave',
   path,
   speed = 90,
@@ -192,6 +194,15 @@ const TextLoop = ({
   const progressRef = useRef(0);
 
   const [metrics, setMetrics] = useState<Metrics>({ length: 0, reps: 1, crossLength: 0, crossReps: 1 });
+  const [lineWidth,setLineWidth]=useState(VIEW_W);
+  const responsiveLine=fitWidth&&!path&&shape==='line'&&!cross;
+  useIsomorphicLayoutEffect(()=>{
+    const root=rootRef.current;if(!root||!responsiveLine)return;
+    const measure=()=>{const width=root.getBoundingClientRect().width;if(Number.isFinite(width)&&width>0)setLineWidth(Math.round(clamp(width,120,8192)));};
+    measure();const observer=typeof ResizeObserver!=='undefined'?new ResizeObserver(measure):null;
+    observer?.observe(root);return()=>observer?.disconnect();
+  },[responsiveLine]);
+
 
   const rawId = useId();
   const pathId = `text-loop-${rawId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
@@ -202,7 +213,7 @@ const TextLoop = ({
   const underId = `${pathId}-under`;
 
   const custom = Boolean(path);
-  const d = useMemo(() => path || buildPath(shape, curviness, ribbonWidth), [path, shape, curviness, ribbonWidth]);
+  const d = useMemo(() => path || (responsiveLine?`M -320 ${CY} L ${lineWidth+320} ${CY}`:buildPath(shape, curviness, ribbonWidth)), [path, shape, curviness, ribbonWidth, responsiveLine, lineWidth]);
   const crossD = useMemo(() => {
     if (!cross) return '';
     if (path) return path;
@@ -525,7 +536,7 @@ const TextLoop = ({
       <svg
         ref={svgRef}
         className="block w-full h-auto"
-        viewBox={!custom&&shape==='line'&&!cross?`0 ${CY-ribbonWidth/2-10} ${VIEW_W} ${ribbonWidth+20}`:`0 0 ${VIEW_W} ${VIEW_H}`}
+        viewBox={!custom&&shape==='line'&&!cross?`0 ${CY-ribbonWidth/2-10} ${responsiveLine?lineWidth:VIEW_W} ${ribbonWidth+20}`:`0 0 ${VIEW_W} ${VIEW_H}`}
         preserveAspectRatio={!custom&&shape==='line'&&!cross?"xMidYMid slice":"xMidYMid meet"}
         role="img"
         aria-label={text}
@@ -539,8 +550,8 @@ const TextLoop = ({
             </linearGradient>
           )}
           {fade.length > 0 && (
-            <mask id={maskId} maskUnits="userSpaceOnUse" x="0" y="0" width={VIEW_W} height={VIEW_H}>
-              <rect width={VIEW_W} height={VIEW_H} fill={`url(#${fadeId})`} />
+            <mask id={maskId} maskUnits="userSpaceOnUse" x="0" y="0" width={responsiveLine?lineWidth:VIEW_W} height={VIEW_H}>
+              <rect width={responsiveLine?lineWidth:VIEW_W} height={VIEW_H} fill={`url(#${fadeId})`} />
             </mask>
           )}
           {cross && ribbon && (

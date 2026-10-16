@@ -1,6 +1,6 @@
-.desktop-ribbon{position:relative;z-index:1;flex:none;min-width:0;max-width:1360px;width:calc(100% - 2 * var(--layout-inset,24px));align-self:center;margin:0 var(--layout-inset,24px) 16px;font-family:var(--font-display);overflow:hidden}
-.desktop-ribbon svg{width:100%;height:clamp(64px,7vw,96px);display:block}
-.desktop-ribbon [role=group]{touch-action:pan-y;user-select:none;border-radius:8px}
+/* Natural document footer: scrolls with the page, never covers its controls. */
+.content>.desktop-ribbon{position:relative;flex:none;min-width:0;max-width:none;width:calc(100% + 2 * var(--layout-inset,24px));align-self:auto;margin:auto calc(-1 * var(--layout-inset,24px)) calc(16px - var(--layout-inset,24px));font-family:var(--font-display);overflow:hidden}
+.desktop-ribbon svg{width:100%;height:58px;display:block}
+.desktop-ribbon [role=group]{touch-action:pan-y;user-select:none;border-radius:0}
 .desktop-ribbon [role=group]:focus-visible{outline:3px solid #9bddff;outline-offset:-3px}
-@media(max-height:550px){.desktop-ribbon{margin-bottom:12px}.desktop-ribbon svg{height:56px}}
 @media(forced-colors:active){.desktop-ribbon svg path{stroke:Canvas}.desktop-ribbon svg text{fill:CanvasText}}

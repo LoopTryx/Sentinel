@@ -179,16 +179,6 @@ function Shell() {
           </Fragment>
         ))}</nav>
 
-        <div className="sidebar-footer">
-          <div className="sidebar-footer-text" style={{ color: "rgba(232,241,255,0.55)" }}>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", letterSpacing: "0.18em" }}>
-              THINK · PROTECT · DEFEND
-            </div>
-            <div className="sidebar-footer-ver" style={{ marginTop: 4 }}>
-              v0.2 // Y2K CONSOLE BUILD
-            </div>
-          </div>
-        </div>
       </LiquidSidebar>
 
       <main className="main">
@@ -210,10 +200,11 @@ function Shell() {
           {view === "password" && <PasswordManagerView />}
           {view === "quarantine" && <QuarantineView />}
           {view === "log" && <ThreatLogView />}
-        </div>
         <footer className="desktop-ribbon">
-          <TextLoop text="Sentinel" shape="line" speed={135} direction="forward" separator="✦" curviness={90} tilt={0} fontSize={40} fontWeight={800} letterSpacing={1} uppercase ribbon ribbonColor="#414bff" ribbonWidth={76} edgeFade={0.1} cross={false} crossAngle={14} draggable scrollBoost={0} outline={false} pauseOnHover outlineWidth={1.5} color="#000000"/>
+          <TextLoop fitWidth text="Sentinel" shape="line" speed={135} direction="forward" separator="✦" curviness={90} tilt={0} fontSize={22} fontWeight={800} letterSpacing={1} uppercase ribbon ribbonColor="#414bff" ribbonWidth={38} edgeFade={0} cross={false} crossAngle={14} draggable scrollBoost={0} outline={false} pauseOnHover outlineWidth={1.5} color="#000000"/>
         </footer>
+        </div>
+
       </main>
     </div>
   );

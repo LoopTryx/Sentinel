@@ -30,3 +30,17 @@ it('ribbon pauses for hover/keyboard/visibility/offscreen/reduced motion, suppor
  }finally{await act(()=>root.unmount());host.remove();if(oldLength)proto.getTotalLength=oldLength;else delete proto.getTotalLength;if(oldText)proto.getComputedTextLength=oldText;else delete proto.getComputedTextLength;vi.restoreAllMocks();vi.unstubAllGlobals();}
  expect(animation.ticks.size).toBe(0);expect(release).toHaveBeenCalledWith(1);expect(animation.kill).toHaveBeenCalled();
 });
+
+it('fits line SVG to CSS width without scaling small type, updates on resize and releases observer',async()=>{
+ const proto=SVGElement.prototype as any,oldLength=proto.getTotalLength,oldText=proto.getComputedTextLength;let width=1000,resize=()=>{},disconnected=0;
+ proto.getTotalLength=()=>width+640;proto.getComputedTextLength=()=>120;
+ vi.spyOn(HTMLElement.prototype,'getBoundingClientRect').mockImplementation(()=>({width,height:58,left:0,top:0,right:width,bottom:58,x:0,y:0,toJSON(){}}));
+ vi.stubGlobal('ResizeObserver',class{constructor(cb:()=>void){resize=cb;}observe(){}disconnect(){disconnected++;}});
+ vi.stubGlobal('IntersectionObserver',class{observe(){}disconnect(){}});window.matchMedia=vi.fn().mockReturnValue({matches:true,addEventListener:vi.fn(),removeEventListener:vi.fn()});
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ try{await act(()=>root.render(<TextLoop fitWidth text="Sentinel" shape="line" fontSize={22} ribbonWidth={38}/>));
+  const svg=host.querySelector('svg')!;expect(svg.getAttribute('viewBox')).toBe('0 231 1000 58');expect(host.querySelector('text')?.style.fontSize).toBe('22px');
+  width=3000;await act(()=>resize());expect(svg.getAttribute('viewBox')).toBe('0 231 3000 58');expect(host.querySelector('text')?.style.fontSize).toBe('22px');
+ }finally{await act(()=>root.unmount());host.remove();if(oldLength)proto.getTotalLength=oldLength;else delete proto.getTotalLength;if(oldText)proto.getComputedTextLength=oldText;else delete proto.getComputedTextLength;vi.restoreAllMocks();vi.unstubAllGlobals();}
+ expect(disconnected).toBe(1);
+});
