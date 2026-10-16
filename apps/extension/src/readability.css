@@ -45,3 +45,10 @@ body{font-weight:500}p,li,label,input,textarea,output{font-weight:600}h1,h2,h3{f
 
 /* Secure full-tab controls keep their own navy surface; the injected panel has no canvas. */
 body.companion,html:has(body.companion),.popup-stage,.companion.dashboard,.companion.dashboard .popup-stage{background:#1b1e4a}
+
+/* Native Chrome popup: solid brand canvas, mascots overlap the inner card.
+   Chrome owns the rectangular outer window; CSS cannot reshape that window. */
+body.companion:not(.dashboard){width:520px;min-width:520px;height:600px;max-height:600px;background:#1b1e4a}
+body.companion:not(.dashboard) .popup-stage{height:600px;padding:68px 16px 92px;background:#1b1e4a}
+body.companion:not(.dashboard) .popup-card{height:438px;border:2px solid #7184b1;border-radius:22px}
+body.companion:not(.dashboard) .blue-ledge{width:108px;height:108px;right:20px;top:calc(100% - 14px)}

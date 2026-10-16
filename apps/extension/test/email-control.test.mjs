@@ -34,3 +34,32 @@ test('trusted-sender action opens only the fixed settings destination after prov
  assert.deepEqual(await h.call({kind:'email_open_settings'},content),{opened:true});assert.deepEqual(h.opened,['chrome-extension://unit/popup.html?view=settings#email-trust-form']);
  assert.ok((await h.call({kind:'email_open_settings',url:'https://attacker.test'},content)).error);assert.equal(h.opened.length,1);
 });
+
+test('direct trust saves only an observed sender in the same opted-in provider tab',async()=>{
+ const h=harness();h.grant();await h.call({kind:'email_toggle',provider:'gmail',enabled:true},popup);
+ const address='invented@example.test',message={kind:'email_trust_current',address};
+ assert.ok((await h.call(message,content)).error);
+ await h.call({kind:'email_context',address},content);
+ assert.ok((await h.call({...message,address:'other@example.test'},content)).error);
+ assert.ok((await h.call(message,{...content,tab:{id:4}})).error);
+ assert.ok((await h.call(message,{...content,documentId:'different-document'})).error);
+ assert.ok((await h.call({...message,body:'synthetic'},content)).error);
+ assert.equal(await h.call(message,{...content,frameId:1}),null);
+ assert.equal(await h.call(message,{...content,id:'foreign-extension'}),null);
+ assert.deepEqual(await h.call(message,content),{trusted:true});
+ assert.deepEqual(await h.call(message,content),{trusted:true});
+ assert.deepEqual((await h.call({kind:'email_senders'},popup)).trusted,[address]);
+ assert.equal(h.opened.length,0);
+ await h.call({kind:'email_toggle',provider:'gmail',enabled:false},popup);
+ assert.ok((await h.call(message,content)).error);
+ await h.call({kind:'email_toggle',provider:'gmail',enabled:true},popup);
+ assert.ok((await h.call(message,content)).error);
+});
+
+test('expired sender observations cannot authorize direct trust',async()=>{
+ const h=harness();h.grant();await h.call({kind:'email_toggle',provider:'gmail',enabled:true},popup);
+ const address='invented@example.test';await h.call({kind:'email_context',address},content);
+ const now=Date.now;Date.now=()=>now()+600001;
+ try{assert.ok((await h.call({kind:'email_trust_current',address},content)).error);}finally{Date.now=now;}
+ assert.deepEqual((await h.call({kind:'email_senders'},popup)).trusted,[]);
+});

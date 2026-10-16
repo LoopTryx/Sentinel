@@ -15,7 +15,7 @@ test('manifest requests only fixture-blocking capability', async () => {
   assert.deepEqual(manifest.optional_host_permissions,['http://127.0.0.1/*','http://*/*','https://*/*']);
   assert.equal(manifest.background.service_worker, 'src/service-worker.js');
   assert.equal(manifest.background.type, 'module');
-  assert.equal(manifest.action.default_popup, undefined); // Toolbar mounts the navigation-only page panel.
+  assert.equal(manifest.action.default_popup, 'popup.html'); // Native toolbar popup, including on restricted pages.
 });
 
 test('enabled packaged rule blocks only the synthetic fixture host', async () => {

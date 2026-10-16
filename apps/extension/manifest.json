@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Sentinel Browser Companion",
-  "version": "0.2.13",
+  "version": "0.2.14",
   "optional_permissions": [
     "scripting"
   ],
@@ -25,7 +25,8 @@
     "type": "module"
   },
   "action": {
-    "default_title": "Sentinel Browser Companion"
+    "default_title": "Sentinel Browser Companion",
+    "default_popup": "popup.html"
   },
   "declarative_net_request": {
     "rule_resources": [

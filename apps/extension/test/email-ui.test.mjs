@@ -76,3 +76,15 @@ test('email buttons require real acknowledgements, display failure/retry and nev
  trust.click();await tick();assert.match(shadow.textContent,/Sender settings opened/);assert.equal(trust.disabled,false);
  }finally{cleanup();dom.window.close();}
 });
+
+test('trust-this-sender requires persistence acknowledgement and allows retry without opening settings',async()=>{
+ const dom=new JSDOM('<article></article>'),root=dom.window.document.querySelector('article');let shadow,calls=0;
+ const attach=dom.window.Element.prototype.attachShadow;dom.window.Element.prototype.attachShadow=function(opts){shadow=attach.call(this,opts);return shadow;};
+ const cleanup=showEmailWarning(root,{tier:'Likely Scam',reasons:[]},{onTrustSender:async()=>{calls++;return calls===1?{error:'unavailable'}:{trusted:true};}});
+ const tick=()=>new Promise(resolve=>setImmediate(resolve));
+ try{const trust=[...shadow.querySelectorAll('button')].find(button=>button.textContent==='Trust this sender');
+ trust.click();await tick();assert.equal(trust.disabled,false);assert.match(shadow.textContent,/Could not trust sender/);
+ trust.click();await tick();assert.equal(trust.textContent,'Sender trusted');assert.equal(trust.disabled,true);assert.match(shadow.textContent,/Risky requests can still warn/);
+ trust.click();assert.equal(calls,2);assert.ok(root.hasAttribute('data-sentinel-email-frame'));
+ }finally{cleanup();dom.window.close();}
+});
