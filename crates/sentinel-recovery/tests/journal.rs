@@ -11,6 +11,36 @@ fn path(name: &str) -> PathBuf {
 }
 
 #[test]
+fn competing_writer_cannot_overwrite_acknowledged_lease() {
+    let path = path("exclusive-writer");
+    let _ = std::fs::remove_file(&path);
+    let mut first = Journal::open(&path).unwrap();
+    assert_eq!(Journal::open(&path).err(), Some(JournalError::Busy));
+    first
+        .begin(Lease::new("a", "fixture-a.txt", "before-a", 1))
+        .unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_sentinel-recovery"))
+        .args([
+            "--fixture-recover",
+            path.to_str().unwrap(),
+            path.parent().unwrap().to_str().unwrap(),
+            "0",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success(), "child acquired held journal");
+    drop(first);
+    let mut second = Journal::open(&path).unwrap();
+    assert_eq!(second.active_count(), 1);
+    second
+        .begin(Lease::new("b", "fixture-b.txt", "before-b", 1))
+        .unwrap();
+    drop(second);
+    assert_eq!(Journal::open(&path).unwrap().active_count(), 2);
+    std::fs::remove_file(path).unwrap();
+}
+
+#[test]
 fn expired_lease_is_replayed_after_process_restart() {
     let path = path("lease-replay");
     let _ = std::fs::remove_file(&path);
