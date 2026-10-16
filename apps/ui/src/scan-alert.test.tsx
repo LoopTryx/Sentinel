@@ -24,3 +24,19 @@ it('keeps native findings red outside scan view, through preview resets, failure
   response={snapshot:{...snapshot('suspicious','third'),reports:[{verdict:'suspicious'}]}};await tick();expect(host.textContent).toContain('Invalid inspection evidence');expect(host.textContent).not.toContain('third');
  }finally{await act(()=>root.unmount());host.remove();vi.useRealTimers();}
 });
+
+it('Reset console acknowledges the displayed alert while retaining reports; changed or new findings rearm red',async()=>{
+ vi.useFakeTimers();let response:any={snapshot:snapshot('suspicious')};
+ vi.mocked(demoCall).mockImplementation(async()=>response);
+ function Probe(){const t=useThreat();return <><output>{t.level}|{t.snapshot?.jobRef}|{t.snapshot?.reports[0]?.verdict}</output><button onClick={t.resetConsole}>Reset console</button></>;}
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ const tick=()=>act(async()=>{await vi.advanceTimersByTimeAsync(900);});
+ try{
+  await act(()=>root.render(<ThreatProvider><Probe/></ThreatProvider>));expect(document.body.dataset.threat).toBe('danger');
+  await act(()=>host.querySelector('button')!.click());expect(document.body.dataset.threat).toBe('preview');expect(host.textContent).toContain('first|suspicious');
+  await tick();expect(document.body.dataset.threat).toBe('preview');expect(host.textContent).toContain('first|suspicious');
+  response={snapshot:snapshot('signature_match')};await tick();expect(document.body.dataset.threat).toBe('danger');
+  await act(()=>host.querySelector('button')!.click());await tick();expect(document.body.dataset.threat).toBe('preview');
+  response={snapshot:snapshot('suspicious','new-job')};await tick();expect(document.body.dataset.threat).toBe('danger');
+ }finally{await act(()=>root.unmount());host.remove();vi.useRealTimers();}
+});

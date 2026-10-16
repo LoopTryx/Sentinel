@@ -44,7 +44,7 @@ const statusLabel =
 export default function Dashboard({ onViewAll, onOpenUsb, onNavigate }: { onViewAll: () => void; onOpenUsb?:()=>void; onNavigate?:(view:"scan"|"password"|"watchtower"|"usb")=>void }) {
   const {state:demo}=useDemoState();
   const modules=SHIELD_MODULES.map(g=>({...g,modules:g.modules.map(m=>demo&&m.name==='Antivirus Engine'?{...m,status:'BOUNDED DEMO',desc:'Rust byte inspection · real reports · partial coverage'}:demo&&m.name==='Password Lab'?{...m,name:'Passwords',status:'SHARED DEMO',desc:'Invented shared accounts · weakness/reuse audit · generated replacements'}:m)}));
-  const { level, feed, setLevel, push, snapshot } = useThreat();
+  const { level, feed, setLevel, push, snapshot, resetConsole } = useThreat();
 
   function simulateAttack() {
     setLevel("danger");
@@ -55,9 +55,6 @@ export default function Dashboard({ onViewAll, onOpenUsb, onNavigate }: { onView
       detail: null,
       ts: new Date().toLocaleTimeString(),
     });
-  }
-  function resetConsole() {
-    setLevel("preview");
   }
 
   return (

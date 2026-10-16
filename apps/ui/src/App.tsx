@@ -137,13 +137,13 @@ function Shell() {
           position: "absolute",
           inset: 0,
           zIndex: 0,
-          opacity: view === "password" ? 0.12 : 0.45,
+          opacity: view === "password" ? 0.40 : 0.75,
         }}
       >
         <Dither
           waveColor={wave}
           backgroundColor={bg}
-          palette={["#050a19", "#0c1730", level === "danger" ? "#71322e" : level === "warn" ? "#765526" : "#163e6d", level === "danger" ? "#ff8a7a" : level === "warn" ? "#ffc46b" : "#2f89e3"]}
+          palette={["#050a19", "#0c1730", level === "danger" ? "#a82138" : level === "warn" ? "#a87729" : "#245ba1", level === "danger" ? "#ed5264" : level === "warn" ? "#ffc46b" : "#4b9bea"]}
           colorNum={4}
           pixelSize={5}
           dpr={1}
@@ -213,7 +213,7 @@ function Shell() {
             <span className="led" /> {statusLabel}
           </div>
         </header>
-        {scanAlert && <section className="scan-global-alert" role="alert"><div><strong>Scan finding needs review</strong><p>Partial coverage · files were not quarantined.</p></div><button className="btn" onClick={()=>{setView("scan");const content=document.querySelector(".content");if(content)content.scrollTop=0;}}>Review scan</button></section>}
+
         <div
           className="content"
           style={{ position: "relative", zIndex: 1, background: "transparent" }}

@@ -1,9 +1,5 @@
 html{font-size:18px}body{font-family:Inter,system-ui,sans-serif;font-size:1rem;line-height:1.6}
 :root{--font-display:"Cabinet Grotesk",Inter,system-ui,sans-serif}h1,h2,h3,.panel-title{font-family:var(--font-display);line-height:1.25}button,input,select,textarea{font-family:inherit}
-.scan-global-alert{flex:none;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 24px;background:#741c2a;color:#fff0ed;border-bottom:2px solid #ff8f89;position:relative;z-index:3}
-.scan-global-alert strong{font-family:var(--font-display);font-size:1.2rem}.scan-global-alert p{margin:4px 0 0}.scan-global-alert button{flex:none}
-@media(max-width:700px){.scan-global-alert{align-items:flex-start;flex-direction:column;padding:16px}}
-
 :root{--selection-bg:#9bddff;--selection-ink:#1b1e4a}
 body,.main,.content{-webkit-user-select:text;user-select:text;font-weight:500}
 ::selection{background:var(--selection-bg);color:var(--selection-ink);text-shadow:none}
@@ -18,3 +14,5 @@ button:focus-visible{outline:3px solid #9bddff;outline-offset:4px}
 .module-action:disabled{cursor:default;opacity:1}
 @media(prefers-reduced-motion:reduce){.btn,.nav-btn,button.stat,.module-action{transition:none!important;transform:none!important}}
 :root{--text-dim:#a4b4d5;--text-faint:#8e9fc4}
+
+.scan-finding-summary{padding:16px 20px;margin:0 0 20px;border:1px solid #ef7180;border-radius:12px;background:linear-gradient(120deg,#631827e6,#33101ee6);color:#fff0f2;box-shadow:0 8px 24px #20030b33}.scan-finding-summary strong{display:block;font-family:var(--font-display);font-size:1.3rem}.scan-finding-summary p{margin:6px 0 0;color:#ffd8df}
