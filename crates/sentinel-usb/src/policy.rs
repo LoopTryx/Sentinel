@@ -17,12 +17,14 @@ const MAX_ID: usize = 200;
 const MAGIC: &[u8; 8] = b"SNTINP02";
 const LEGACY_MAGIC: &[u8; 8] = b"SNTINP01";
 const USB_MAGIC: &[u8; 8] = b"SNTINP03";
+const EXACT_USB_MAGIC: &[u8; 8] = b"SNTINP04";
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Scope {
     KeyboardMouse,
     LegacyAllHid,
     UsbHid,
+    ExactUsbInstances,
 }
 
 /// Trusted native enumeration/approval supplies exact instance IDs, never a
@@ -43,6 +45,20 @@ impl InputPolicy {
     pub fn usb_hid(ids: &[&str]) -> Result<Self, Error> {
         let mut policy = Self::new(ids)?;
         policy.scope = Scope::UsbHid;
+        Ok(policy)
+    }
+    /// Exact deny subjects only; this does not establish external-device identity
+    /// or authorize mutation. Native enrollment must reject protected inputs.
+    pub fn blocked_usb_instances(ids: &[&str]) -> Result<Self, Error> {
+        let mut policy = Self::new(ids)?;
+        if policy.approved.iter().any(|id| {
+            !id.as_bytes()
+                .get(..8)
+                .is_some_and(|prefix| prefix.eq_ignore_ascii_case(b"USB\\VID_"))
+        }) {
+            return Err(Error::Invalid);
+        }
+        policy.scope = Scope::ExactUsbInstances;
         Ok(policy)
     }
     pub fn new(ids: &[&str]) -> Result<Self, Error> {
@@ -80,6 +96,7 @@ impl InputPolicy {
             Scope::KeyboardMouse => MAGIC,
             Scope::LegacyAllHid => LEGACY_MAGIC,
             Scope::UsbHid => USB_MAGIC,
+            Scope::ExactUsbInstances => EXACT_USB_MAGIC,
         });
         out[8] = self.approved.len() as u8;
         let mut offset = 9;
@@ -93,7 +110,10 @@ impl InputPolicy {
     }
     fn decode(bytes: &[u8]) -> Result<Self, Error> {
         if !(9..=MAX_ENCODED).contains(&bytes.len())
-            || (&bytes[..8] != MAGIC && &bytes[..8] != LEGACY_MAGIC && &bytes[..8] != USB_MAGIC)
+            || (&bytes[..8] != MAGIC
+                && &bytes[..8] != LEGACY_MAGIC
+                && &bytes[..8] != USB_MAGIC
+                && &bytes[..8] != EXACT_USB_MAGIC)
             || !(1..=MAX_APPROVALS as u8).contains(&bytes[8])
         {
             return Err(Error::Corrupt);
@@ -110,6 +130,9 @@ impl InputPolicy {
         if offset != bytes.len() {
             return Err(Error::Corrupt);
         }
+        if &bytes[..8] == EXACT_USB_MAGIC {
+            return Self::blocked_usb_instances(&ids).map_err(|_| Error::Corrupt);
+        }
         let mut policy = Self::new(&ids).map_err(|_| Error::Corrupt)?;
         if &bytes[..8] == LEGACY_MAGIC {
             policy.scope = Scope::LegacyAllHid;
@@ -120,6 +143,20 @@ impl InputPolicy {
     }
     fn entries(&self) -> Vec<Entry> {
         let mut entries = Vec::with_capacity(8 + self.approved.len());
+        if self.scope == Scope::ExactUsbInstances {
+            for (i, id) in self.approved.iter().enumerate() {
+                entries.push(Entry::text("DenyInstanceIDs", &(i + 1).to_string(), id));
+            }
+            for name in ["DenyInstanceIDsRetroactive", "DenyInstanceIDs"] {
+                entries.push(Entry {
+                    key: String::new(),
+                    name: name.to_owned(),
+                    kind: 4,
+                    data: 1u32.to_le_bytes().to_vec(),
+                });
+            }
+            return entries;
+        }
         // Prepare exceptions before enabling the deny switch; reverse-order
         // recovery removes the deny switch before removing input exceptions.
         for (i, id) in self.approved.iter().enumerate() {
@@ -133,7 +170,7 @@ impl InputPolicy {
         let classes = match self.scope {
             Scope::LegacyAllHid => &classes[..],
             Scope::KeyboardMouse => &classes[1..],
-            Scope::UsbHid => &classes[0..0],
+            Scope::UsbHid | Scope::ExactUsbInstances => &classes[0..0],
         };
         for (i, class) in classes.iter().enumerate() {
             entries.push(Entry::text(

@@ -628,3 +628,65 @@ fn malformed_record_and_changed_baseline_refuse_before_mutation() {
     assert_eq!(fixture.0.borrow().writes, 0);
     assert!(fixture.0.borrow().removals.is_empty());
 }
+
+#[test]
+fn exact_usb_block_record_never_compiles_a_class_deny_or_implicit_allow() {
+    let target = "USB\\VID_0001&PID_0001&MI_00\\SYNTHETIC";
+    let fixture = Fixture::default();
+    let mut backend = PolicyBackend::new(
+        fixture,
+        InputPolicy::blocked_usb_instances(&[target]).unwrap(),
+    );
+    let mut bytes = [0; 4072];
+    let length = backend.capture_into(&mut bytes).unwrap();
+    assert_eq!(&bytes[..8], b"SNTINP04");
+    let entries = entries_from_record(&bytes[..length]).unwrap();
+    assert_eq!(entries.len(), 3);
+    assert!(
+        entries
+            .iter()
+            .all(|e| e.key == "DenyInstanceIDs" || e.key.is_empty())
+    );
+    assert!(entries.iter().all(|e| !e.name.contains("Classes")
+        && !e.name.contains("DeviceIDs")
+        && !e.name.contains("Allow")));
+    assert_eq!(
+        entries
+            .iter()
+            .filter(|e| e.key == "DenyInstanceIDs")
+            .count(),
+        1
+    );
+    assert!(InputPolicy::blocked_usb_instances(&["USB\\ROOT_HUB30\\TEST"]).is_err());
+    assert!(InputPolicy::blocked_usb_instances(&[target, target]).is_err());
+    assert!(InputPolicy::blocked_usb_instances(&["USB\\VID_0001&PID_0001\\*"]).is_err());
+}
+
+#[test]
+fn exact_instance_partial_updates_recover_without_touching_another_target() {
+    for fail_after in [false, true] {
+        for fail_at in 0..4 {
+            let fixture = Fixture::default();
+            fixture.0.borrow_mut().fail_at = Some(fail_at);
+            fixture.0.borrow_mut().fail_after = fail_after;
+            let mut engine = Recovery::new(
+                fixture.clone(),
+                PolicyBackend::new(
+                    fixture.clone(),
+                    InputPolicy::blocked_usb_instances(&[
+                        "USB\\VID_0001&PID_0001&MI_00\\SYNTHETIC",
+                    ])
+                    .unwrap(),
+                ),
+            );
+            engine.recover_pending().unwrap();
+            let _ = engine.arm_apply(100, 30);
+            drop(engine);
+            fixture.0.borrow_mut().fail_at = None;
+            let mut restarted = recovery(&fixture);
+            restarted.recover_pending().unwrap();
+            assert!(fixture.0.borrow().entries.is_empty());
+            assert!(fixture.0.borrow().journal.is_none());
+        }
+    }
+}
