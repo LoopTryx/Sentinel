@@ -11,3 +11,7 @@ shadcn skill read and pnpm dlx shadcn@latest info --json/docs button consulted. 
 Files: apps/ui/src/App.tsx; views/Dashboard.tsx; components/ui/GradientASCII.tsx; components/liquid-sidebar.css; dashboard-actions.test.tsx; gradient-ascii-lifecycle.test.tsx. Focused3files/4tests PASS, including StrictMode cleanup, draw cap, pixel cap, visibility/offscreen/reduced-motion/context-loss/fallback and remaining dashboard navigation.
 
 Final verification: tools/verify.ps1 PASS (21 UI files/45tests, TypeScript/native checks, production UI build and extension smoke). Focused StrictMode renderer rerun2tests PASS. git diff --check PASS. Built UI includes final renderer cleanup. No installed hardware/visual acceptance claimed.
+
+Owner preset amendment: blue horizon, colors[#1e3fd8,#f6f8ff,#a5d8ff,#38bdf8],cell18,density.8,characters unchanged. New attached source matches previous supplied renderer; performance/lifecycle adaptations retained. Static no-WebGL fallback also blue. This supersedes the earlier rose/rise preset only; runtime threat states are still driven by scan evidence.
+
+Blue preset verification: full tools/verify.ps1 PASS,45 UI tests/native/typecheck/build/extension smoke; diff check PASS. No new implementation-mirroring tests added for the preset-only change. Installed visual acceptance remains pending.

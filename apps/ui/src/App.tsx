@@ -129,8 +129,8 @@ function Shell() {
         }}
       >
         <GradientASCII
-          colors={["#9f1239","#f43f5e","#fda4af","#fff1f2"]}
-          shape="rise" characters=" =+xX0S8#@" cellSize={22} density={0.8}
+          colors={["#1e3fd8","#f6f8ff","#a5d8ff","#38bdf8"]}
+          shape="horizon" characters=" =+xX0S8#@" cellSize={18} density={0.8}
           dpr={1} maxFps={24} mouseInteraction={false} clickEffect="none"
         />
       </div>

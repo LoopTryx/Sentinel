@@ -925,7 +925,7 @@ const GradientASCII = ({
     <div
       ref={containerRef}
       className={['relative h-full w-full overflow-hidden', className].filter(Boolean).join(' ')}
-      style={{background:'radial-gradient(ellipse at 50% 100%, #9f1239 0%, #260d22 48%, #05081a 80%)',...style}}
+      style={{background:'radial-gradient(ellipse at 50% 100%, #1e3fd8 0%, #101c49 48%, #05081a 80%)',...style}}
       {...rest}
     >
       <canvas ref={canvasRef} className="absolute inset-0 block h-full w-full" aria-hidden="true" />
