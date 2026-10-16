@@ -11,6 +11,7 @@ import WatchtowerView from "./views/WatchtowerView";
 import UsbGuardView from "./features/usb/UsbGuardView";
 import Dither from "./components/ui/Dither";
 import Icon from "./components/Icon";
+import LiquidSidebar from "./components/LiquidSidebar";
 import "./theme.css";
 import "./readability.css";
 
@@ -113,6 +114,7 @@ function useBoxGlow() {
 
 function Shell() {
   const {state:demo}=useDemoState();
+  const [sidebarCollapsed,setSidebarCollapsed]=useState(false);
   const [view, setView] = useState<ViewId>("dashboard");
   const { level, scanAlert } = useThreat();
   useBoxGlow();
@@ -127,7 +129,7 @@ function Shell() {
   const { wave, bg } = ditherColors(level);
 
   return (
-    <div className={`shell${view === "password" ? " password-shell" : ""}`}>
+    <div className={`shell${view === "password" ? " password-shell" : ""}${sidebarCollapsed?" sidebar-collapsed":""}`}>
       <div className="window-actions"><button aria-label="Minimize to tray" onClick={()=>void import('./demo-bridge').then(m=>m.demoCall('window.hide')).catch(()=>{})}>−</button><button aria-label="Close to tray" onClick={()=>void import('./demo-bridge').then(m=>m.demoCall('window.hide')).catch(()=>{})}>×</button></div>
       {/* Living dither backdrop — spans the WHOLE app (sidebar included) and
           recolors with the threat state. The sidebar's liquid glass blurs it. */}
@@ -153,7 +155,7 @@ function Shell() {
         />
       </div>
 
-      <aside className="sidebar">
+      <LiquidSidebar collapsed={sidebarCollapsed} onToggle={()=>setSidebarCollapsed(value=>!value)}>
         <div className="brand">
           <div className="brand-mark">
             <Icon name="shield" size={18} />
@@ -169,6 +171,7 @@ function Shell() {
           {n.id === "quarantine" && <div className="nav-label">System</div>}
           <button
             key={n.id}
+            aria-label={n.label} title={n.label}
             aria-current={view === n.id ? "page" : undefined} className={`nav-btn${view === n.id ? " active" : ""}`}
             onClick={() => setView(n.id)}
           >
@@ -204,7 +207,7 @@ function Shell() {
             </div>
           </div>
         </div>
-      </aside>
+      </LiquidSidebar>
 
       <main className="main">
         <header className="topbar" onMouseDown={event => { if(canDragWindow(event.target,event.button)){ event.preventDefault(); void demoCall('window.drag').catch(()=>{}); } }} style={{ position: "relative", zIndex: 2 }}>

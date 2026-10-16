@@ -80,3 +80,5 @@ Owner approved replacing native toolbar popup with a navigation-only panel injec
 16 October: existing desktop info panels receive one shared navy/black glass style: static sheen, diffuse blue glow, bounded outer blur, tinted nested boxes, readable fallback and keyboard/reduced-motion states. Layout/content/handlers and extension unchanged. Tuning tokens and acceptance limits: evidence/desktop-panel-glass-2026-10-16.md.
 
 16 October owner reference follow-up: remove global scan banner; compact Scan & Detect finding summary plus red threat theme. Reset console acknowledges displayed evidence without deleting reports and rearms on changed/new findings. More translucent blue/red glass and visible azure dither restored within existing performance limits. See evidence/glass-scan-followup-2026-10-16.md.
+
+16 October: owner-provided layered glass style adapted into the navigation sidebar with collapse/expand. Icon rail retains labeled page buttons and focus; expanded menu restores labels. Existing Sentinel icons/pages retained, local assets only. See evidence/liquid-sidebar-2026-10-16.md.

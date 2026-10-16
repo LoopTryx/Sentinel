@@ -1,0 +1,31 @@
+/* The supplied sample's separate frost, tint, reflection and shine layers.
+   Keep effects local to the sidebar; never filter text, animate blur or resize icons. */
+.shell.sidebar-collapsed{grid-template-columns:84px minmax(0,1fr)}
+#root .liquid-sidebar{display:flex;flex-direction:column;position:relative;margin:12px 0 12px 12px;min-height:0;padding:14px 10px;gap:12px;border:1px solid #c2dcf04d;border-radius:26px;overflow:hidden;background:#101c34;backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:0 12px 32px #02061445,inset 0 1px 0 #e6f4ff44}
+#root .liquid-sidebar::before,#root .liquid-sidebar::after{content:none;animation:none}
+.liquid-sidebar-optics{position:absolute!important;inset:0;z-index:0!important;pointer-events:none;overflow:hidden;border-radius:inherit}
+.liquid-sidebar-optics>div{position:absolute;inset:0;border-radius:inherit}
+.liquid-sidebar-tint{background:linear-gradient(145deg,#a9d0f02e,#102343ad 45%,#060c1cbd)}
+.liquid-sidebar-reflection{box-shadow:inset 1px 1px 1px #ebf7ff88,inset -1px -1px 1px #b8ddff38,inset 0 0 24px #b8ddff12}
+.liquid-sidebar-shine{inset:0 20px auto!important;height:1px;background:linear-gradient(90deg,transparent,#e7f6ffe0,transparent)}
+@supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+ #root .liquid-sidebar{background:transparent}
+ .liquid-sidebar-frost{backdrop-filter:blur(12px) saturate(120%);-webkit-backdrop-filter:blur(12px) saturate(120%)}
+}
+.liquid-sidebar-content{position:relative;z-index:1;display:flex;flex-direction:column;gap:4px;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-gutter:stable}
+.sidebar-toggle{position:relative;z-index:1;flex:none;align-self:flex-end;display:grid;place-items:center;width:44px;height:44px;border:1px solid #b5d4f245;border-radius:14px;background:#112541c7;color:#dbedff;cursor:pointer;transition:background-color 240ms ease,border-color 240ms ease}
+.sidebar-toggle:hover{background:#244367;border-color:#b5d4f280}.sidebar-toggle:active{background:#0b172c}.sidebar-toggle:focus-visible{outline:3px solid #9bddff;outline-offset:2px}
+#root .liquid-sidebar .nav-btn{background:#07132680;color:#e3efff;min-height:46px;border-radius:14px;text-shadow:0 1px 2px #0008;transition:background-color 240ms ease,box-shadow 240ms ease}
+#root .liquid-sidebar .nav-btn:hover{background:#294563b8}#root .liquid-sidebar .nav-btn.active{background:linear-gradient(var(--state-dim),var(--state-dim)),#0b1930c7;box-shadow:inset 0 1px 0 #e3f1ff33;border:1px solid var(--state);color:#f1f7ff}
+#root .liquid-sidebar .nav-btn:focus-visible{outline:3px solid #9bddff;outline-offset:-3px}
+#root .liquid-sidebar[data-collapsed=true] .nav-label,#root .liquid-sidebar[data-collapsed=true] .brand,#root .liquid-sidebar[data-collapsed=true] .sidebar-footer{display:none}
+#root .liquid-sidebar[data-collapsed=true] .nav-btn{font-size:0;gap:0;padding:0;justify-content:center}
+#root .liquid-sidebar[data-collapsed=true] .nav-btn>span{display:none}
+#root .liquid-sidebar[data-collapsed=true] .sidebar-toggle{align-self:center}
+#root .liquid-sidebar[data-collapsed=true] .liquid-sidebar-content{scrollbar-gutter:auto}
+@media(max-width:700px){#root .shell{grid-template-columns:200px minmax(0,1fr)}#root .shell.sidebar-collapsed{grid-template-columns:76px minmax(0,1fr)}#root .liquid-sidebar{margin:8px 0 8px 8px;padding:12px 8px;border-radius:22px}}
+html[data-glass-effects=off] #root .liquid-sidebar{background:#101c34}html[data-glass-effects=off] .liquid-sidebar-frost{backdrop-filter:none;-webkit-backdrop-filter:none}
+@media(prefers-reduced-transparency:reduce){#root .liquid-sidebar{background:#101c34}.liquid-sidebar-frost{backdrop-filter:none;-webkit-backdrop-filter:none}}
+@media(prefers-reduced-motion:reduce){.sidebar-toggle,#root .liquid-sidebar .nav-btn{transition:none}}
+@media(forced-colors:active){#root .liquid-sidebar{background:Canvas;border-color:CanvasText;box-shadow:none}.liquid-sidebar-optics{display:none}.sidebar-toggle,#root .liquid-sidebar .nav-btn{background:Canvas;color:ButtonText;border-color:ButtonText;text-shadow:none}#root .liquid-sidebar .nav-btn.active{border-color:Highlight;color:Highlight;box-shadow:none}}
+#root .liquid-sidebar .brand-name{letter-spacing:1.8px;font-size:.95rem}
