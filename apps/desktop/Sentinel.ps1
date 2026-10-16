@@ -188,9 +188,12 @@ $cancelButton.Add_Click({
   } catch { $scanResult.Text = 'Could not stop the scanner. Waiting for the bounded timeout.' }
 })
 $window.Add_Closed({
-  $timer.Stop()
-  Close-SentinelProcessJob $script:scanJob
-  $script:scanJob = $null
+  try {
+    $timer.Stop()
+    Close-SentinelProcessJob $script:scanJob
+  } catch {
+    # Close must not leak an exception through WPF shutdown.
+  } finally { $script:scanJob = $null }
 })
 if ($Smoke) {
   $handle = (New-Object System.Windows.Interop.WindowInteropHelper($window)).EnsureHandle()

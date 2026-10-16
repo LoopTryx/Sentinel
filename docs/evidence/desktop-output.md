@@ -1,0 +1,11 @@
+# Desktop output and shutdown — #7
+
+2 October 2026. The transitional preview now captures stdout and stderr concurrently with fixed byte caps (1 MiB and 64 KiB). A bounded byte buffer plus strict UTF-8 conversion replaces unbounded ReadToEndAsync strings. Polling observes capture failures and kills the direct child before accepting any result. The job deadline covers process exit and incomplete drains; a stalled drain cannot leave the UI running indefinitely.
+
+Close is idempotent and exception-safe. It kills a still-running direct child, waits for exit and drains within a shared one-second budget, records failed cleanup/incomplete drains, and disposes in finally. The WPF Closed handler has its own exception boundary. Failed cleanup is reported as Failed rather than a successful cancellation; raw diagnostics remain outside the UI. This does not establish descendant containment: a descendant retaining pipe handles may leave an outstanding bounded capture task after close. Windows Job Object/restricted-worker ownership must close that remaining gate.
+
+Actual red/green: the output tests first failed because excess stdout completed successfully. After implementation, tests pass for real benign oversized stdout, oversized stderr, endless stdout, direct-child termination on breach, bounded close of a real sleeping process and repeated close. Controlled failure doubles additionally check kill exception/disposal and an incomplete drain without claiming those are OS containment tests. Existing real CLI file/folder jobs and native smoke pass. Full tools/verify.ps1 passes.
+
+Reproduce: powershell.exe -NoProfile -ExecutionPolicy Bypass -File apps/desktop/tests/output.ps1, then existing jobs.ps1/smoke.ps1 and tools/verify.ps1. Bypass is process-local and changes no machine policy. No E: access, malware files, Defender changes or USB/HID policy tests.
+
+Related independent work: #17 fixes the Rust worker collector; #18 preserves/improves report validation. This branch starts from main and changes distinct portions of ScanJob.ps1/Sentinel.ps1; coordinator should integrate and verify all three together. GLM review requested for the shutdown handler only. #7 remains open for resource/token/network/handle controls, descendant cleanup and live job dispatch. No installed protection or sandbox claim.
