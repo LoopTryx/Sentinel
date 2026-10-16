@@ -1,0 +1,13 @@
+# Desktop info-panel glass styling — 16 October 2026
+
+Presentation-only change on prattyush-changes-for-v3 / PR75. apps/ui/src/desktop-glass.css reuses the existing shared .panel box and compact .stat variant; no JSX components, layout dimensions, spacing, content, routing or handlers changed. Existing per-page spacing and severity text remain authoritative.
+
+Tokens live together at :root: --glass-blur (10px), --glass-opacity (.94), --glass-deep-opacity (.96), --glass-glow-opacity (.07), --glass-border, --glass-highlight, --glass-radius (existing layout radius), --glass-shadow and --glass-elevated-shadow. Lower opacity increases transparency; keep contrast in mind. Gentle blue glow uses a static diffuse box shadow. High opacity deliberately preserves readability over moving/light backgrounds.
+
+Only first three direct content panels, dashboard hero, first two password workspace panels or first two USB panels use backdrop blur. Stats and nested boxes use the same tint without extra blur. No blur/shadow loops or blur-radius animation. The existing sweeping rim and cursor glow are replaced by a static one-pixel sheen. Interactive boxes retain keyboard focus and get a short lift/press response; informational boxes do not pretend to be clickable. Appearance/hover transitions are 240ms and honor reduced motion. Borders are CSS pixels for HiDPI; no width/padding/grid rules were changed.
+
+Solid gradient is the default; @supports enables translucent fills/limited blur. Reduced transparency and forced-colors modes remove blur. Set document.documentElement.dataset.glassEffects='off' for the explicit software-rendering/GPU-off fallback. CSS cannot reliably detect disabled GPU acceleration automatically; host integration of this opt-out remains separate. Native backdrop flag keeps a dark tinted base without extra sidebar/topbar blur.
+
+Contrast calculation: composited lightest fill stop (20,37,66 at .94 alpha) over pure white, comparing existing #eef4ff/#a4b4d5/#8e9fc4 gives 11.64:1 / 6.16:1 / 4.84:1 respectively. These normal text tokens exceed 4.5:1 at rest; this is not a full rendered-screen contrast audit of every severity badge. No real browser/HiDPI/resize visual acceptance claimed because earlier browser URL policy denied access; that block was respected. Small/maximized/HiDPI manual appearance checks remain outstanding.
+
+Validation: tools/verify.ps1 PASS (native checks, TypeScript/UI tests, desktop production build and extension harness smoke). git diff --check passed. No extra tests added for this reversible CSS-only treatment. Visual window-size/HiDPI acceptance remains manual.

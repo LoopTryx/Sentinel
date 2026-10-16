@@ -1,33 +1,88 @@
-/* GLM's layout, typography and state colors stay authoritative.
-   This opt-in desktop layer lets the native Windows backdrop show through. */
-html[data-desktop="glass"],
-html[data-desktop="glass"] body,
-html[data-desktop="glass"] #root { background: transparent; }
-
-html[data-desktop="glass"] .shell {
-  background: linear-gradient(135deg, rgba(8, 15, 35, .32), rgba(8, 18, 40, .18));
+/* Shared desktop box primitive: .panel (and its compact .stat variant).
+   Cosmetic only: never changes dimensions, padding, content or event handlers. */
+:root {
+  --glass-blur: 10px;
+  --glass-opacity: .94;
+  --glass-deep-opacity: .96;
+  --glass-fill: linear-gradient(145deg, rgba(20, 37, 66, var(--glass-opacity)), rgba(5, 12, 25, var(--glass-deep-opacity)));
+  --glass-solid: linear-gradient(145deg, #142542, #050c19);
+  --glass-border: rgba(172, 202, 235, .24);
+  --glass-highlight: rgba(220, 235, 252, .13);
+  --glass-glow-opacity: .07;
+  --glass-glow: rgba(53, 103, 164, var(--glass-glow-opacity));
+  --glass-radius: var(--layout-radius, var(--radius, 16px));
+  --glass-shadow: 0 10px 30px rgba(0, 4, 12, .25), 0 0 28px var(--glass-glow);
+  --glass-elevated-shadow: 0 16px 38px rgba(0, 4, 12, .32), 0 0 36px var(--glass-glow);
+  --glass-ease: cubic-bezier(.2, .65, .3, 1);
 }
-html[data-desktop="glass"] .sidebar {
-  background: linear-gradient(180deg, rgba(24, 33, 73, .48), rgba(12, 17, 41, .36));
-  border-right-color: rgba(205, 228, 255, .17);
-  backdrop-filter: blur(24px) saturate(135%);
-  box-shadow: 8px 0 32px rgba(5, 8, 26, .18);
+/* Specificity beats per-page fills, without touching their spacing or geometry. */
+#root :is(.panel, .stat) {
+  background: var(--glass-solid);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--glass-radius);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  animation: glass-appear 240ms var(--glass-ease);
+  transition: border-color 240ms var(--glass-ease), box-shadow 240ms var(--glass-ease), transform 240ms var(--glass-ease);
 }
-html[data-desktop="glass"] .topbar {
-  background: rgba(7, 11, 30, .20);
-  backdrop-filter: blur(18px);
+@keyframes glass-appear { from { opacity: .85; } to { opacity: 1; } }
+/* Replace continuous sweep/cursor glow with a static, one-pixel glass rim. */
+#root :is(.panel, .stat)::before {
+  content: "";
+  position: absolute;
+  inset: 0 12px auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(202, 224, 250, .30), transparent);
+  animation: none;
+  opacity: 1;
+  pointer-events: none;
 }
-html[data-desktop="glass"] .panel,
-html[data-desktop="glass"] .stat {
-  background: linear-gradient(145deg, rgba(23, 39, 74, .47), rgba(7, 15, 38, .33));
-  border-color: rgba(178, 210, 255, .22);
-  backdrop-filter: blur(20px) saturate(130%);
-  box-shadow: inset 0 1px 0 rgba(224, 240, 255, .07), 0 12px 28px rgba(3, 8, 23, .12);
+#root :is(.panel, .stat)::after { content: none; }
+#root :is(.dashboard-hero, .pm-detail) { box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-elevated-shadow); }
+/* All boxes share the tint, but only a bounded set of outer surfaces gets blur.
+   Stats, nested boxes and long lists never add another filtered layer. */
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  #root :is(.panel, .stat) { background: var(--glass-fill); }
+  #root :is(.content > .panel:nth-of-type(-n+3), .dashboard-hero, .pm-workspace > .panel:nth-of-type(-n+2), .usb-guard > .panel:nth-of-type(-n+2)) {
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+  }
+  #root .panel :is(.panel, .stat) { backdrop-filter: none; -webkit-backdrop-filter: none; }
 }
+/* Do not make informational sections look clickable. Existing buttons/links only. */
+@media (hover: hover) {
+  #root :is(button, a):is(.panel, .stat):not(:disabled):not([aria-disabled="true"]):hover {
+    border-color: rgba(172, 202, 235, .48);
+    box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-elevated-shadow);
+    transform: translateY(-2px);
+  }
+}
+#root :is(.panel, .stat):focus-within { border-color: rgba(172, 202, 235, .48); }
+#root :is(button, a):is(.panel, .stat):focus-visible { outline: 3px solid #9bddff; outline-offset: 4px; }
+#root :is(button, a):is(.panel, .stat):not(:disabled):not([aria-disabled="true"]):active { transform: translateY(0); box-shadow: inset 0 1px 0 var(--glass-highlight), 0 4px 16px rgba(0, 4, 12, .25); }
+/* Native backdrop remains opt-in and does not grant capabilities. No shell blur. */
+html[data-desktop="glass"], html[data-desktop="glass"] body, html[data-desktop="glass"] #root { background: transparent; }
+html[data-desktop="glass"] .shell { background: linear-gradient(135deg, rgba(5, 10, 22, .90), rgba(8, 19, 38, .94)); }
+html[data-desktop="glass"] .sidebar { background: linear-gradient(180deg, #121d36f5, #080e1df5); backdrop-filter: none; }
+html[data-desktop="glass"] .topbar { background: #080e1deb; backdrop-filter: none; }
 html[data-desktop="glass"] .dither-bg { opacity: .14 !important; }
+/* Native hosts may opt out when GPU acceleration is disabled. CSS cannot reliably
+   detect GPU acceleration; this explicit switch also works in the browser. */
+html[data-glass-effects="off"] #root :is(.panel, .stat) {
+  background: var(--glass-solid); backdrop-filter: none; -webkit-backdrop-filter: none;
+}
 @media (prefers-reduced-transparency: reduce) {
-  html[data-desktop="glass"] .shell { background: #070b1e; }
-  html[data-desktop="glass"] .sidebar { background: #101736; }
-  html[data-desktop="glass"] .panel,
-  html[data-desktop="glass"] .stat { background: #0b1230; }
+  #root :is(.panel, .stat) { background: var(--glass-solid); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  html[data-desktop="glass"] .shell { background: #070c19; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #root :is(.panel, .stat) { transition: none; animation: none; }
+  #root :is(button, a):is(.panel, .stat):not(:disabled):hover,
+  #root :is(button, a):is(.panel, .stat):not(:disabled):active { transform: none; }
+}
+@media (forced-colors: active) {
+  #root :is(.panel, .stat) { background: Canvas; color: CanvasText; border-color: CanvasText; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  #root :is(.panel, .stat)::before { content: none; }
+  #root :is(button, a):is(.panel, .stat):focus-visible { outline-color: Highlight; }
 }
