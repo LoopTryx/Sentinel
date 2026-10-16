@@ -111,21 +111,6 @@ body[data-threat="warn"] { --wash-a: rgba(255,196,107,0.08); --wash-b: rgba(255,
 body[data-threat="danger"] { --wash-a: rgba(255,138,122,0.11); --wash-b: rgba(255,138,122,0.07); }
 body[data-threat="preview"]::before, body[data-threat="warn"]::before, body[data-threat="danger"]::before { opacity: 1; }
 
-/* CRT scanline texture over everything, very subtle */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent 0px,
-    transparent 3px,
-    rgba(255, 255, 255, 0.012) 3px,
-    rgba(255, 255, 255, 0.012) 4px
-  );
-  z-index: 999;
-}
 
 /* ---- layout shell ---- */
 .shell {
@@ -313,16 +298,12 @@ body::after {
 
 /* ---- main area ---- */
 .main {
-  /* anchors its own grid overlay + sits above the app-wide dither backdrop */
+  /* sits above the app-wide dither backdrop */
   position: relative;
   z-index: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background-image:
-    linear-gradient(var(--grid-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-  background-size: 44px 44px;
 }
 
 /* the living backdrop is decoration only — it must never catch clicks
@@ -772,3 +753,60 @@ body[data-threat="danger"] .led { animation-duration: 0.7s; }
 .console-grid { grid-template-columns:minmax(0,1.7fr) minmax(0,1fr); }
 .stat-grid { max-width:1000px; }
 @media(max-width:1100px) { .console-grid { grid-template-columns:1fr; } }
+
+/* Console spacing: shared insets, natural wrapping and predictable card edges. */
+:root {
+  --layout-gap: 24px;
+  --layout-inset: clamp(16px, 2.5vw, 32px);
+  --layout-radius: 16px;
+}
+.topbar { padding: 16px var(--layout-inset); gap: 16px; min-height: 76px; }
+.content { padding: var(--layout-inset); gap: var(--layout-gap); scrollbar-gutter: stable; }
+.sidebar { overflow-y: auto; scrollbar-gutter: stable; }
+.sidebar .nav-btn { min-height: 44px; flex-shrink: 0; }
+.dashboard-layout { display: grid; gap: var(--layout-gap); width: 100%; max-width: 1360px; margin-inline: auto; }
+.dashboard-layout > *, .dashboard-layout .console-grid > *, .dashboard-modules > * { min-width: 0; }
+.dashboard-layout .panel, .dashboard-layout .stat { margin: 0; padding: 24px; border-radius: var(--layout-radius); }
+.dashboard-layout .dashboard-hero { padding: 0; }
+.dashboard-hero-content { position: relative; z-index: 1; padding: clamp(24px, 3vw, 40px); flex-wrap: wrap; }
+.dashboard-hero-content > :first-child { flex: 1 1 360px; }
+.dashboard-title { font: 700 clamp(30px, 3.5vw, 44px)/1.15 var(--font-display); letter-spacing: .02em; margin: 20px 0 12px; color: var(--text); }
+.dashboard-hero .protection-pill { max-width: 100%; white-space: normal; line-height: 1.5; }
+.dashboard-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: none; gap: 16px; }
+.dashboard-stats .stat { display: grid; gap: 8px; }
+.dashboard-stats .label { margin: 0; line-height: 1.5; }
+.dashboard-layout .console-grid { gap: var(--layout-gap); align-items: stretch; }
+.dashboard-layout .side-rail { gap: var(--layout-gap); }
+.dashboard-layout .section-head { gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.dashboard-layout .section-link { min-height: 44px; padding: 8px 12px; }
+.dashboard-layout .panel-title { line-height: 1.4; }
+.dashboard-layout .btn { min-height: 44px; }
+.dashboard-layout .kv-row { flex-wrap: wrap; gap: 8px 16px; padding-block: 16px; }
+.dashboard-layout .usb-summary-grid { gap: 20px 24px; margin: 24px 0; }
+.dashboard-layout .usb-summary-grid dd { line-height: 1.5; }
+.dashboard-layout .usb-summary p { margin-bottom: 0; max-width: 76ch; }
+.dashboard-modules { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px; }
+.dashboard-module-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.dashboard-module-heading > :last-child { margin-left: 0 !important; font-size: 11px !important; line-height: 1.5; }
+@media (max-width: 900px) {
+  .dashboard-hero-content > :first-child { flex-basis: auto; }
+  .dashboard-layout .console-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .dashboard-stats { grid-template-columns: minmax(0, 1fr); }
+  .dashboard-layout .panel, .dashboard-layout .stat { padding: 20px; }
+  .dashboard-layout .dashboard-hero { padding: 0; }
+  .dashboard-layout .usb-toolbar .btn { width: 100%; }
+  .dashboard-layout .usb-summary-grid { grid-template-columns: minmax(0, 1fr); }
+  .dashboard-hero .sticker-chip { max-width: 100%; font-size: 11px !important; }
+}
+/* Keep small status text legible over the animated hero and glass cards. */
+.dashboard-hero .protection-pill { background: #08162deb; }
+.dashboard-stats .label { color: #b2c2dc; opacity: 1; line-height: 1.5; }
+body{-webkit-user-select:none;user-select:none}input,textarea,[contenteditable=true]{-webkit-user-select:text;user-select:text}img,a{-webkit-user-drag:none}
+.window-actions{position:fixed;top:8px;right:10px;z-index:1000;display:flex;gap:4px}.window-actions button{width:32px;height:28px;color:var(--chrome-hi);background:#0b172b99;border:1px solid #47618366;border-radius:6px;font-size:19px;cursor:pointer}.window-actions button:hover{background:#315578}.topbar{padding-right:90px!important}
+/* Soft panel depth without the previous bright edge ring. */
+.sidebar::after { display: none; }
+.sidebar { box-shadow: 8px 0 28px rgba(3, 7, 18, 0.28); }
+/* Compact controls keep the glass panels visually distinct. */
+.nav-btn,.btn,.window-actions button{border-radius:6px}

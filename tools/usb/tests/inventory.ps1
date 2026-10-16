@@ -26,6 +26,12 @@ $cycle=ConvertTo-SentinelUsbSnapshot -Rows @([pscustomobject]@{Id='HID\loop';Par
 Assert ($cycle.state -eq 'partial') 'Parent cycle must not prove USB ancestry.'
 Assert (($snapshot.PSObject.Properties.Name -join ',') -notmatch 'blocked|approved|safe') 'Inventory must carry no action authority.'
 Write-Output 'USB inventory regressions PASS: composite, Bluetooth, redaction, unresolved, empty, bounds, cycle, no authority.'
+$rows[0] | Add-Member -NotePropertyName DisplayName -NotePropertyValue 'Example USB board'
+$named=ConvertTo-SentinelUsbSnapshot -Rows $rows -ObservedAt $at
+Assert ($named.devices[0].name -eq 'Example USB board') 'Reported USB parent name should be displayed.'
+$rows[0].DisplayName='USB Input Device'
+$generic=ConvertTo-SentinelUsbSnapshot -Rows $rows -ObservedAt $at
+Assert (-not $generic.devices[0].PSObject.Properties['name']) 'Generic descriptors should remain unnamed.'
 
 $wild=ConvertTo-SentinelUsbSnapshot -Rows @([pscustomobject]@{Id='USB\*';Parent='';Container='';Class='USB'}) -ObservedAt $at
 Assert ($wild.state -eq 'partial' -and $wild.devices.Count -eq 0) 'Wildcard identifiers must not reach device queries or reports.'

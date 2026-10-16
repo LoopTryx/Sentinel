@@ -10,8 +10,8 @@ test('manifest requests only fixture-blocking capability', async () => {
   const manifest = await json('manifest.json');
   assert.equal(manifest.manifest_version, 3);
   assert.equal(manifest.name, 'Sentinel Browser Companion');
-  assert.deepEqual(manifest.permissions, ['declarativeNetRequest', 'storage', 'activeTab']);
-  assert.equal(manifest.host_permissions, undefined);
+  assert.deepEqual(manifest.permissions, ['declarativeNetRequest', 'storage', 'nativeMessaging', 'activeTab']);
+  assert.deepEqual(manifest.host_permissions, ['http://127.0.0.1/*']);
   assert.deepEqual(manifest.optional_host_permissions,['http://127.0.0.1/*','http://*/*','https://*/*']);
   assert.equal(manifest.background.service_worker, 'src/service-worker.js');
   assert.equal(manifest.background.type, 'module');
@@ -50,8 +50,10 @@ test('popup renders truthful states and a fixture-only toggle', async () => {
   assert.match(html, /id="harness-status"/);
   assert.match(html, /id="fixture-toggle"/);
   assert.match(html, /blocked\.sentinel\.invalid/);
-  assert.match(html, /In-memory storage resets/);
-  assert.match(html, /No download monitoring or real vault yet/);
+  assert.match(html, /Session accounts reset when the console closes/);
+  assert.match(html, /Persistent encrypted storage, import, account editing and autofill are unavailable/);
+  assert.match(html, /id="check-accounts"/);
+  assert.doesNotMatch(html, /id="demo-lock"|id="generate-password"/);
 
   const script = await read('src/popup.js');
   assert.match(script, /statusLines/);

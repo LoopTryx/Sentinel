@@ -11,8 +11,10 @@ import "./fonts.css";
 import "./tailwind.css";
 import "./desktop-glass.css";
 import { configureDesktopPresentation } from "./desktop-presentation";
+import {installDesktopInteractions} from './desktop-interactions';
 
 configureDesktopPresentation(window.location.search, document.documentElement);
+installDesktopInteractions(document);
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

@@ -1,13 +1,29 @@
 // @vitest-environment jsdom
-import {act} from 'react';import {createRoot} from 'react-dom/client';import {afterEach,beforeEach,expect,it,vi} from 'vitest';import UsbGuardView from './UsbGuardView';
-const bridge=vi.hoisted(()=>({state:null as unknown,error:'',call:vi.fn()}));vi.mock('../../demo-bridge',()=>({useDemoState:()=>({state:bridge.state,error:bridge.error}),demoCall:bridge.call}));
-(globalThis as Record<string,unknown>).IS_REACT_ACT_ENVIRONMENT=true;
-let root:ReturnType<typeof createRoot>;beforeEach(()=>{bridge.state=null;bridge.error='';bridge.call.mockReset();bridge.call.mockResolvedValue({});});afterEach(async()=>{if(root)await act(()=>root.unmount());document.body.innerHTML='';});
-async function mount(){const host=document.createElement('div');document.body.append(host);root=createRoot(host);await act(()=>root.render(<UsbGuardView/>));return host;}
-const button=(host:HTMLElement,label:string)=>Array.from(host.querySelectorAll('button')).find(b=>b.textContent===label)!;
-it('shows only the two requested sections without inventing attack history or protection',async()=>{const host=await mount();expect(Array.from(host.querySelectorAll('h3')).map(x=>x.textContent)).toEqual(['Recent attacks','USB file / folder checker']);expect(host.textContent).toContain('Feed unavailable');expect(host.textContent).toContain('HID blocking unavailable');expect(button(host,'Choose file').disabled).toBe(true);expect(button(host,'Choose folder').disabled).toBe(true);expect(host.textContent).not.toContain('Why a virtual test');expect(host.querySelector('input[type=file]')).toBeNull();});
-it('uses existing native file and folder selection without sending paths or device IDs',async()=>{bridge.state={scan:null};const host=await mount();await act(()=>button(host,'Choose file').click());expect(bridge.call).toHaveBeenLastCalledWith('scan.select',{kind:'file'});await act(()=>button(host,'Choose folder').click());expect(bridge.call).toHaveBeenLastCalledWith('scan.select',{kind:'folder'});});
-it('preserves shared running-job scope and cancellation',async()=>{bridge.state={scan:{status:'running',coverage:'partial',engine:'Existing engine',checked:1,skipped:2,errors:0,bytes:10,visited:3,findings:[],files:[]}};const host=await mount();expect(host.textContent).toContain('Shared desktop scan');expect(host.textContent).toContain('partial coverage');expect(button(host,'Choose folder').disabled).toBe(true);await act(()=>button(host,'Cancel inspection').click());expect(bridge.call).toHaveBeenCalledWith('cancel');});
-it('keeps selector failures visible',async()=>{bridge.state={scan:null};bridge.call.mockRejectedValue(new Error('Selection unavailable'));const host=await mount();await act(()=>button(host,'Choose folder').click());expect(host.querySelector('[role=status]')?.textContent).toBe('Selection unavailable');});
-it('reports picker cancellation rather than starting another scan',async()=>{bridge.state={scan:null};bridge.call.mockResolvedValue({cancelled:true});const host=await mount();await act(()=>button(host,'Choose file').click());expect(host.textContent).toContain('Selection cancelled.');expect(bridge.call).toHaveBeenCalledTimes(1);});
-it('does not relabel shared scan findings as USB attacks',async()=>{bridge.state={scan:{status:'partial',coverage:'partial',engine:'Existing engine',checked:1,skipped:1,errors:0,bytes:10,visited:2,findings:[{kind:'synthetic_test',name:'Harmless marker',reason:'Test bytes'}],files:[]},events:[{source:'browser',kind:'blocked',codes:[]}]};const host=await mount();expect(host.textContent).toContain('Incomplete check');expect(host.textContent).toContain('Test finding');expect(host.querySelector('.usb-recent')?.textContent).not.toContain('Harmless marker');expect(host.querySelector('.usb-recent')?.textContent).toContain('No USB attack history available.');});
+import {act} from 'react';
+import {createRoot} from 'react-dom/client';
+import {expect,it,vi} from 'vitest';
+import UsbGuardView from './UsbGuardView';
+import {demoCall,useDemoState} from '../../demo-bridge';
+vi.mock('../../demo-bridge',()=>({demoCall:vi.fn(),useDemoState:vi.fn()}));
+vi.mock('./UsbActivityPanel',()=>({default:()=>null}));
+(globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;
+it('shows every HID group including unnamed and unresolved groups without inventing a hold',async()=>{
+ vi.mocked(useDemoState).mockReturnValue({state:{} as any,error:''});
+ vi.mocked(demoCall).mockResolvedValue({schemaVersion:1,mode:'observation_only',state:'partial',observedAt:new Date().toISOString(),omitted:0,devices:[
+  {ref:'device-1',usbEvidence:'os_reported',interfaces:['hid_keyboard','storage'],name:'Example board'},
+  {ref:'device-2',usbEvidence:'os_reported',interfaces:['hid_mouse']},
+  {ref:'device-3',usbEvidence:'unresolved',interfaces:['hid_keyboard']}
+ ]});
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ try{await act(async()=>{root.render(<UsbGuardView/>);await Promise.resolve();});expect(host.querySelectorAll('[data-usb-device]')).toHaveLength(3);expect(host.textContent).toContain('HID keyboard');expect(host.textContent).toContain('HID mouse');expect(host.textContent).toContain('USB ancestry unknown');expect(host.textContent).toContain('Input quarantine');expect(host.textContent).toContain('Unavailable');expect(host.textContent).not.toContain('Unnamed input/storage interfaces');expect(host.textContent).not.toContain('Held');
+ await act(()=>{vi.mocked(useDemoState).mockReturnValue({state:null,error:''});root.render(<UsbGuardView/>);});expect(host.querySelectorAll('[data-usb-device]')).toHaveLength(0);
+ }finally{await act(()=>root.unmount());host.remove();}
+});
+it('keeps the latest inventory when manual and automatic refreshes finish out of order',async()=>{
+ vi.useFakeTimers();vi.mocked(useDemoState).mockReturnValue({state:{} as any,error:''});
+ const snapshot=(name:string)=>({schemaVersion:1,mode:'observation_only',state:'observed',observedAt:new Date().toISOString(),omitted:0,devices:[{ref:'device-1',usbEvidence:'os_reported',interfaces:['hid_keyboard'],name}]});
+ let old!:(v:unknown)=>void,newer!:(v:unknown)=>void;
+ vi.mocked(demoCall).mockResolvedValueOnce(snapshot('First')).mockImplementationOnce(()=>new Promise(resolve=>{old=resolve;})).mockImplementationOnce(()=>new Promise(resolve=>{newer=resolve;}));
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ try{await act(async()=>{root.render(<UsbGuardView/>);await Promise.resolve();});await act(()=>host.querySelector('button')!.click());await act(async()=>{vi.advanceTimersByTime(5000);await Promise.resolve();});await act(async()=>newer(snapshot('Newest')));await act(async()=>old(snapshot('Outdated')));expect(host.textContent).toContain('Newest');expect(host.textContent).not.toContain('Outdated');}finally{await act(()=>root.unmount());host.remove();vi.useRealTimers();}
+});

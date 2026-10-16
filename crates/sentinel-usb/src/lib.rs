@@ -5,6 +5,8 @@
 //! Correlation IDs and the `authorized` input are NOT an IPC authorization scheme.
 //! The adapter must derive authorization, clock, fresh random run nonce and scan
 //! result from trusted state; never accept these assertions from a browser.
+pub mod containment;
+pub mod journal;
 pub mod policy;
 pub mod recovery;
 

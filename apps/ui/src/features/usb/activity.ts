@@ -1,0 +1,11 @@
+import type {UsbActivitySnapshot} from '@sentinel/contracts/generated/UsbActivitySnapshot';
+const object=(value:unknown):value is Record<string,unknown>=>!!value&&typeof value==='object'&&!Array.isArray(value);
+const exact=(value:Record<string,unknown>,keys:string[])=>Object.keys(value).length===keys.length&&keys.every(key=>Object.hasOwn(value,key));
+const integer=(value:unknown,max:number)=>Number.isInteger(value)&&Number(value)>=0&&Number(value)<=max;
+export function parseUsbActivity(value:unknown):UsbActivitySnapshot|null{
+ if(!object(value)||!exact(value,['schemaVersion','mode','state','holdSupported','internalExclusionVerified','ignoredNonUsbInterfaces','omitted','devices'])||value.schemaVersion!==1||value.mode!=='observation_only'||!['observing','partial','unavailable'].includes(String(value.state))||value.holdSupported!==false||value.internalExclusionVerified!==false||!integer(value.ignoredNonUsbInterfaces,64)||!integer(value.omitted,65535)||!Array.isArray(value.devices)||value.devices.length>64)return null;
+ const refs=new Set<string>();for(const device of value.devices){if(!object(device)||!exact(device,['reference','kind','groupReference','placement','trusted','held','elapsedSeconds','initialObservationComplete','eventCount','launcherShortcuts','assessment'])||typeof device.reference!=='string'||!/^input-[1-9]\d{0,9}$/.test(device.reference)||refs.has(device.reference)||!['keyboard','mouse'].includes(String(device.kind))||!['unverified','usb_placement_unverified'].includes(String(device.placement))||device.trusted!==false||device.held!==false||!integer(device.elapsedSeconds,86400)||!integer(device.eventCount,1000000)||!integer(device.launcherShortcuts,1000000)||device.initialObservationComplete!==(Number(device.elapsedSeconds)>=60)||!['review','undetermined'].includes(String(device.assessment)))return null;
+ if(device.groupReference!==null&&(typeof device.groupReference!=='string'||!/^usb-group-[1-9]\d{0,9}$/.test(device.groupReference)||device.placement!=='usb_placement_unverified'))return null;
+ if(Number(device.launcherShortcuts)>Number(device.eventCount)||device.assessment!==(Number(device.launcherShortcuts)>0?'review':'undetermined'))return null;refs.add(device.reference);}
+ if(value.state==='observing'&&Number(value.omitted)>0)return null;return value as unknown as UsbActivitySnapshot;
+}

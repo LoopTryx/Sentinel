@@ -33,11 +33,16 @@ function ConvertTo-SentinelUsbSnapshot {
         if(-not $validContainer){$partial=$true}
         if(-not $groups.Contains($groupKey)){
             if($groups.Count -ge 64){$omitted=[Math]::Min(512,$omitted+1);$partial=$true;continue}
-            $groups[$groupKey]=[pscustomobject]@{ref=('device-'+($groups.Count+1));usbEvidence=$evidence;interfaces=[Collections.Generic.HashSet[string]]::new()}
+            $groups[$groupKey]=[pscustomobject]@{ref=('device-'+($groups.Count+1));usbEvidence=$evidence;interfaces=[Collections.Generic.HashSet[string]]::new();name=''}
         }
+        $name=[string]$row.DisplayName
+        if($map.ContainsKey($cursor) -and $map[$cursor].DisplayName){$name=[string]$map[$cursor].DisplayName}
+        $name=($name -replace '[^\x20-\x7E]','').Trim()
+        if($name.Length -gt 80){$name=$name.Substring(0,80)}
+        if($name -and $name -notmatch '^(HID[- ]|USB Input Device|USB Composite Device|USB Mass Storage Device|USB Root Hub|Generic USB)'){$groups[$groupKey].name=$name}
         [void]$groups[$groupKey].interfaces.Add($kind)
     }
-    $devices=@($groups.Values|ForEach-Object{[pscustomobject]@{ref=$_.ref;usbEvidence=$_.usbEvidence;interfaces=@($_.interfaces|Sort-Object)}})
+    $devices=@($groups.Values|ForEach-Object{$item=[ordered]@{ref=$_.ref;usbEvidence=$_.usbEvidence;interfaces=@($_.interfaces|Sort-Object)};if($_.name){$item['name']=$_.name};[pscustomobject]$item})
     [pscustomobject]@{schemaVersion=1;mode='observation_only';state=$(if($partial -or $omitted -gt 0){'partial'}else{'observed'});observedAt=$ObservedAt.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ');omitted=$omitted;devices=$devices}
 }
 function Get-SentinelUsbSnapshot {
@@ -47,7 +52,7 @@ function Get-SentinelUsbSnapshot {
         $nodes=@(Get-PnpDevice -PresentOnly -ErrorAction Stop|Select-Object -First 513)
         if($nodes.Count -gt 512){$nodes=@($nodes|Select-Object -First 512);$partial=$true;$omitted=1}
         $rows=@{};foreach($node in $nodes){$id=[string]$node.InstanceId;if($id.Length -le 512 -and $id -and $id -notmatch '[*?\[\]]'){$rows[$id]=[pscustomobject]@{Id=$id;Class=[string]$node.Class;Parent='';Container=''}}else{$partial=$true}}
-        $candidates=@($rows.Values|Where-Object{$_.Id -match '^(USB|USBSTOR|HID)\\' -or $_.Class -in @('Keyboard','Mouse','HIDClass')}|Select-Object -First 129)
+        $candidates=@($rows.Values|Where-Object{$_.Id -match '^(USB|USBSTOR|HID)\\' -or $_.Class -in @('Keyboard','Mouse','HIDClass')}|Sort-Object @{Expression={switch($_.Class){'DiskDrive'{0}'Keyboard'{1}'HIDClass'{2}'Mouse'{3}default{4}}}}|Select-Object -First 129)
         if($candidates.Count -gt 128){$partial=$true;$omitted++;$candidates=@($candidates|Select-Object -First 128)}
         $queried=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase);$queries=0
         foreach($candidate in $candidates){
@@ -62,7 +67,13 @@ function Get-SentinelUsbSnapshot {
                         if($rows.Count -ge 512){$partial=$true;break}
                         $rows[$cursor]=[pscustomobject]@{Id=$cursor;Class='';Parent='';Container=''}
                     }
-                    foreach($property in $properties){if([string]$property.InstanceId -ne $cursor){$partial=$true;continue};if($property.KeyName -eq 'DEVPKEY_Device_Parent'){$rows[$cursor].Parent=[string]$property.Data}elseif($property.KeyName -eq 'DEVPKEY_Device_ContainerId'){$rows[$cursor].Container=[string]$property.Data}}
+                    foreach($property in $properties){if([string]$property.InstanceId -ne $cursor){$partial=$true;continue};if($property.KeyName -eq 'DEVPKEY_Device_Parent'){$rows[$cursor].Parent=[string]$property.Data}elseif($property.KeyName -eq 'DEVPKEY_Device_ContainerId'){$rows[$cursor].Container=[string]$property.Data}elseif($property.KeyName -eq 'DEVPKEY_Device_BusReportedDeviceDesc'){if($rows[$cursor].PSObject.Properties['DisplayName']){$rows[$cursor].DisplayName=[string]$property.Data}else{$rows[$cursor]|Add-Member -NotePropertyName DisplayName -NotePropertyValue ([string]$property.Data)}}}
+                    # Optional names must not invalidate ancestry on nodes lacking this property.
+                    if($cursor -match '^USB\\VID_' -and $queries -lt 256 -and $watch.ElapsedMilliseconds -lt 8000){
+                        $queries++
+                        $reported=Get-PnpDeviceProperty -InstanceId $cursor -KeyName 'DEVPKEY_Device_BusReportedDeviceDesc' -ErrorAction SilentlyContinue
+                        if($reported -and [string]$reported.InstanceId -eq $cursor -and $reported.Data){$rows[$cursor]|Add-Member -NotePropertyName DisplayName -NotePropertyValue ([string]$reported.Data) -Force}
+                    }
                     $cursor=$rows[$cursor].Parent
                 }catch{$partial=$true;break}
             }

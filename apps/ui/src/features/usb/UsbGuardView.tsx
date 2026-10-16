@@ -1,30 +1,41 @@
-import {useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {demoCall,useDemoState} from '../../demo-bridge';
+import {useAutoRefresh} from '../../use-auto-refresh';
+import {parseUsbInventory,type UsbInventory,type UsbInterface} from './inventory';
 import './usb-guard.css';
+import UsbActivityPanel from './UsbActivityPanel';
+const labels:Record<UsbInterface,string>={hid_keyboard:'HID keyboard',hid_mouse:'HID mouse',hid_other:'Other HID',storage:'Storage',network:'Network',other:'Other interface'};
+function fallbackName(interfaces:UsbInterface[]){
+ const input=interfaces.includes('hid_keyboard')&&interfaces.includes('hid_mouse')?'Keyboard + mouse':interfaces.includes('hid_keyboard')?'Keyboard':interfaces.includes('hid_mouse')?'Mouse':interfaces.includes('hid_other')?'HID device':'';
+ return input?(interfaces.includes('storage')?input+' with storage':input):interfaces.includes('storage')?'USB storage':'USB interface';
+}
 export default function UsbGuardView(){
- const {state,error}=useDemoState();const [busy,setBusy]=useState(false);const [notice,setNotice]=useState('');
- const scan=state?.scan;const running=scan?.status==='running';
- async function choose(kind:'file'|'folder'){
-  setBusy(true);setNotice('');
-  try{const result=await demoCall('scan.select',{kind});if(result.cancelled)setNotice('Selection cancelled.');}
-  catch(e){setNotice(e instanceof Error?e.message:'Checker unavailable.');}finally{setBusy(false);}
- }
- async function cancel(){try{await demoCall('cancel');}catch(e){setNotice(e instanceof Error?e.message:'Cancel unavailable.');}}
+ const {state}=useDemoState();
+ const [inventory,setInventory]=useState<UsbInventory|null>(null);
+ const [observing,setObserving]=useState(false),[notice,setNotice]=useState('');
+ const epoch=useRef(0),sequence=useRef(0),active=useRef(!!state);active.current=!!state;
+ useEffect(()=>{epoch.current++;setInventory(null);setObserving(false);return()=>{epoch.current++;};},[!!state]);
+ async function observe(){const generation=epoch.current,request=++sequence.current;setObserving(true);setNotice('');try{const parsed=parseUsbInventory(JSON.stringify(await demoCall('usb.observe')));if(!parsed)throw Error();if(active.current&&generation===epoch.current&&request===sequence.current)setInventory(parsed);}catch{if(active.current&&generation===epoch.current&&request===sequence.current){setInventory(null);setNotice('Device inventory unavailable.');}}finally{if(generation===epoch.current&&request===sequence.current)setObserving(false);}}
+ useAutoRefresh(observe,5000,!!state);
+ const snapshot=state?inventory:null;
+ const useful=snapshot?.devices.filter(d=>d.interfaces.some(i=>i==='storage'||i.startsWith('hid_')))??[];
+ const other=snapshot?.devices.filter(d=>!useful.includes(d))??[];
  return <section className="usb-guard usb-minimal" aria-labelledby="usb-heading">
-  <div className="usb-page-heading"><h2 id="usb-heading">USB Guard</h2><span className="usb-mode">File checks only · HID blocking unavailable</span></div>
-  <section className="panel usb-recent" aria-labelledby="usb-recent-heading"><div className="usb-toolbar"><h3 id="usb-recent-heading">Recent attacks</h3><span className="usb-chip">Feed unavailable</span></div><div className="usb-empty"><span aria-hidden="true">—</span><p>No USB attack history available.</p></div></section>
-  <section className="panel usb-checker" aria-labelledby="usb-checker-heading"><div className="usb-toolbar"><h3 id="usb-checker-heading">USB file / folder checker</h3><span className="usb-chip">{state?'Connected':'Desktop disconnected'}</span></div>
-   <p className="usb-check-note">Select a file or folder from your USB. Checks have partial coverage.</p>
-   <div className="usb-check-actions"><button className="btn" disabled={!state||busy||running} onClick={()=>void choose('file')}>Choose file</button><button className="btn ghost" disabled={!state||busy||running} onClick={()=>void choose('folder')}>Choose folder</button>{running&&<button className="btn ghost" onClick={()=>void cancel()}>Cancel inspection</button>}</div>
-   {(notice||error)&&<p role="status">{notice||error}</p>}
-   {!state&&<p className="usb-check-note">Connect the desktop app to check files.</p>}
-   {scan&&<div className="usb-check-result" aria-live="polite"><div className="usb-toolbar"><strong>{scan.status.replaceAll('_',' ')} · {scan.coverage} coverage</strong><span>{scan.checked} inspected · {scan.skipped} skipped · {scan.errors} errors</span></div>
-    <p className="usb-check-note">Shared desktop scan · {scan.bytes.toLocaleString()} bytes read</p>
-    {['failed','cancelled','timed_out','partial'].includes(scan.status)&&<p>Incomplete check. Uninspected files remain unknown.</p>}
-    {scan.status==='completed'&&!scan.findings.length&&<p>No test marker found. Safety remains unknown.</p>}
-    {scan.findings.length>0&&<ul>{scan.findings.map((finding,i)=><li key={i}><strong>{finding.kind==='synthetic_test'||finding.kind==='provider_synthetic_match'?'Test finding':'Finding'} · {finding.name}</strong><p>{finding.reason}</p></li>)}</ul>}
-    <details><summary>Scan details</summary><p>{scan.engine}</p><p>Rust inspection checks local signatures and bounded byte clues with partial coverage. This scan does not approve USB input.</p>{scan.files.map((file,i)=><p key={i}>{file.name} · {file.bytes} bytes<br/><code>{file.sha256}</code></p>)}</details>
-   </div>}
+  <div className="usb-page-heading"><h2 id="usb-heading">USB Guard</h2><span className="usb-mode">{state?'Monitoring connected devices':'Desktop disconnected'}</span></div>
+  <dl className="usb-status-strip"><div><dt>Input quarantine</dt><dd className="usb-status-warning">Unavailable</dd></div><div><dt>Device approval</dt><dd>Not enabled</dd></div><div><dt>Storage scan</dt><dd>Not running</dd></div></dl>
+  <section className="panel"><div className="usb-toolbar"><h3>Connected input and storage</h3><button className="btn ghost" disabled={observing||!state} onClick={()=>void observe()}>{observing?'Updating…':'Refresh'}</button></div>
+   {notice&&<p role="status">{notice}</p>}
+   {snapshot&&snapshot.state!=='unavailable'?<><p className="usb-inventory-count">{useful.length} Windows device groups · Updated {new Date(snapshot.observedAt).toLocaleTimeString()}{snapshot.state==='partial'?' · Incomplete inventory':''}</p>
+    <div className="usb-device-list">{useful.map(device=><article key={device.ref} data-usb-device className="usb-device-card">
+     <div className="usb-device-title"><span className="usb-device-glyph" aria-hidden="true">{device.interfaces.includes('storage')?'▣':device.interfaces.includes('hid_mouse')?'◉':'⌨'}</span><div><strong>{device.name||fallbackName(device.interfaces)}</strong><span className="usb-device-reference">{device.ref.replace('device-','Group ')} · Windows description</span></div><span className="usb-chip">{device.usbEvidence==='unresolved'?'USB ancestry unknown':'USB reported'}</span></div>
+     <div className="usb-interface-tags">{device.interfaces.filter(i=>i!=='other').map(i=><span key={i}>{labels[i]}</span>)}</div>
+     <dl className="usb-device-facts"><div><dt>Input access</dt><dd>{device.interfaces.some(i=>i.startsWith('hid_'))?'Not blocked':'No HID reported'}</dd></div><div><dt>Storage inspection</dt><dd>{device.interfaces.includes('storage')?'Not scanned':'No storage reported'}</dd></div><div><dt>Trust</dt><dd>Not enrolled</dd></div></dl>
+    </article>)}</div>{!useful.length&&<p>No input or storage groups reported.</p>}
+    <details><summary>Other interfaces ({other.length})</summary>{other.map(d=><p key={d.ref}>{d.name||fallbackName(d.interfaces)} · {d.ref.replace('device-','Group ')}</p>)}</details>
+    <details><summary>Device information</summary><p>Windows groups interfaces by reported identity. USB-connected built-in devices may appear here. Names do not establish trust. Missing records: {snapshot.omitted}.</p></details>
+   </>:<p>{!state?'Desktop disconnected.':notice||snapshot?.state==='unavailable'?'Device inventory unavailable.':'Reading connected devices…'}</p>}
   </section>
+  <UsbActivityPanel enabled={!!state}/>
  </section>;
 }
+

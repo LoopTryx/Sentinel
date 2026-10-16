@@ -2,7 +2,7 @@
 export const MAX_REPORT_BYTES=32768;
 const kinds=['storage','hid_keyboard','hid_mouse','hid_other','network','other'] as const;
 export type UsbInterface=typeof kinds[number];
-export interface UsbDeviceObservation {ref:string;usbEvidence:'os_reported'|'unresolved';interfaces:UsbInterface[]}
+export interface UsbDeviceObservation {ref:string;usbEvidence:'os_reported'|'unresolved';interfaces:UsbInterface[];name?:string}
 export interface UsbInventory {schemaVersion:1;mode:'observation_only';state:'observed'|'partial'|'unavailable';observedAt:string;omitted:number;devices:UsbDeviceObservation[]}
 function object(value:unknown):value is Record<string,unknown>{return typeof value==='object'&&value!==null&&!Array.isArray(value);}
 function keys(value:Record<string,unknown>,expected:string[]){return Object.keys(value).sort().join('|')===expected.sort().join('|');}
@@ -19,7 +19,8 @@ export function parseUsbInventory(text:string,now=Date.now()):UsbInventory|null{
   if(raw.state==='unavailable'&&raw.devices.length!==0||raw.state==='observed'&&raw.omitted!==0)return null;
   const seen=new Set<string>();
   for(const device of raw.devices){
-    if(!object(device)||!keys(device,['ref','usbEvidence','interfaces'])||typeof device.ref!=='string'||!/^device-([1-9]|[1-5][0-9]|6[0-4])$/.test(device.ref)||seen.has(device.ref))return null;
+    if(!object(device)||!keys(device,device.name===undefined?['ref','usbEvidence','interfaces']:['ref','usbEvidence','interfaces','name'])||typeof device.ref!=='string'||!/^device-([1-9]|[1-5][0-9]|6[0-4])$/.test(device.ref)||seen.has(device.ref))return null;
+    if(device.name!==undefined&&(typeof device.name!=='string'||!device.name.length||device.name.length>80||/[^\x20-\x7e]/.test(device.name)))return null;
     seen.add(device.ref);
     if(!['os_reported','unresolved'].includes(device.usbEvidence as string)||raw.state==='observed'&&device.usbEvidence==='unresolved')return null;
     if(!Array.isArray(device.interfaces)||device.interfaces.length<1||device.interfaces.length>kinds.length||new Set(device.interfaces).size!==device.interfaces.length||device.interfaces.some(kind=>!kinds.includes(kind)))return null;

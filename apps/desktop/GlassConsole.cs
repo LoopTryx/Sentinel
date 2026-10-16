@@ -12,6 +12,8 @@ using System.Windows.Threading;
 using System.Windows.Markup;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading;
 using System.Net.Http;
 using System.Web.Script.Serialization;
 using Microsoft.Web.WebView2.Core;
@@ -25,7 +27,15 @@ public sealed class SentinelGlassConsole : Window
     static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
     [DllImport("dwmapi.dll")]
     static extern int DwmExtendFrameIntoClientArea(IntPtr window, ref Margins margins);
+    [DllImport("gdi32.dll")] static extern IntPtr CreateRoundRectRgn(int left,int top,int right,int bottom,int width,int height);
+    [DllImport("user32.dll")] static extern int SetWindowRgn(IntPtr window,IntPtr region,bool redraw);
+    [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr value);
 
+    [DllImport("user32.dll")] static extern short GetAsyncKeyState(int key);
+    [DllImport("user32.dll")] static extern bool ReleaseCapture();
+    [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr window,int message,IntPtr wParam,IntPtr lParam);
+    bool dragging, nativeCorners;
+    readonly UsbInputMonitor inputMonitor=new UsbInputMonitor();
     readonly WebView2 view = new WebView2();
     readonly string assets, evidence;
     readonly bool smoke;
@@ -34,13 +44,16 @@ public sealed class SentinelGlassConsole : Window
     bool closing;
     readonly bool demo;
     readonly JavaScriptSerializer json = new JavaScriptSerializer { MaxJsonLength = 131072 };
-    readonly HttpClient runtimeClient = new HttpClient { Timeout = TimeSpan.FromSeconds(8), MaxResponseContentBufferSize = 131072 };
+    readonly HttpClient runtimeClient = new HttpClient { Timeout = TimeSpan.FromSeconds(12), MaxResponseContentBufferSize = 131072 };
     string runtimeUrl, runtimeToken, runtimeActionToken;
     bool actionDialog;
     bool selectionRequest;
     readonly NativeSelectionBinding nativeSelection = new NativeSelectionBinding();
     readonly Dictionary<string, string> quarantinedPaths = new Dictionary<string, string>();
     int requests;
+    System.Windows.Forms.NotifyIcon tray;
+    bool quitting;
+    static readonly string AppEventName = "Local\\SentinelDesktopOpen";
 
     [STAThread]
     public static void Main(string[] args)
@@ -48,54 +61,115 @@ public sealed class SentinelGlassConsole : Window
         string here = AppDomain.CurrentDomain.BaseDirectory;
         string root = Path.GetFullPath(Path.Combine(here, "../../.."));
         RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
-        var app = new Application();
-        app.Run(new SentinelGlassConsole(Path.Combine(root, "apps/ui/dist"), Path.Combine(here, "glass-smoke.txt"), Array.IndexOf(args, "--smoke") >= 0, Array.IndexOf(args, "--demo") >= 0));
+        bool standalone = args.Length == 0 || Array.IndexOf(args, "--app") >= 0 || Array.IndexOf(args,"--lifecycle-smoke")>=0;
+        Process worker = null;
+        Mutex instance = null;
+        bool owns = false;
+        try {
+            if (standalone) {
+                instance = new Mutex(false, "Local\\SentinelDesktopApp");
+                try { owns = instance.WaitOne(0); } catch (AbandonedMutexException) { owns = true; }
+                if (!owns) { using(var signal = EventWaitHandle.OpenExisting(AppEventName)) signal.Set(); return; }
+                string configPath = Path.Combine(here, "demo-runtime.json");
+                if(File.Exists(configPath)) File.Delete(configPath);
+                string bundled = Path.Combine(root, "tools/runtime/node.exe");
+                worker = Process.Start(new ProcessStartInfo(File.Exists(bundled) ? bundled : "node.exe", "\"" + Path.Combine(root,"apps/demo-runtime/server.mjs") + "\"") { UseShellExecute=false, CreateNoWindow=true, WorkingDirectory=root });
+                for(int i=0;i<150 && !File.Exists(configPath);i++) { if(worker.HasExited) throw new InvalidOperationException("Runtime did not start."); Thread.Sleep(100); }
+                if(!File.Exists(configPath)) throw new InvalidOperationException("Runtime startup timed out.");
+            }
+            var app = new Application();
+            var console = new SentinelGlassConsole(Path.Combine(root, "apps/ui/dist"), Path.Combine(here, "glass-smoke.txt"), Array.IndexOf(args, "--smoke") >= 0, standalone || Array.IndexOf(args, "--demo") >= 0);
+            if(Array.IndexOf(args,"--tray")>=0) console.Loaded += delegate { console.HideToTray(); };
+            if(Array.IndexOf(args,"--lifecycle-smoke")>=0) console.Loaded += delegate {
+                var timer=new DispatcherTimer { Interval=TimeSpan.FromSeconds(8) };
+                timer.Tick += delegate {
+                    timer.Stop();
+                    console.HideToTray();bool hidden=!console.IsVisible&&!console.ShowInTaskbar&&console.tray.Visible;
+                    console.OpenFromTray();bool shown=console.IsVisible&&console.ShowInTaskbar&&console.ResizeMode==ResizeMode.NoResize&&console.WindowState==WindowState.Normal;
+                    File.WriteAllText(Path.Combine(here,"lifecycle-smoke.txt"),"hidden="+hidden+"\nreopened="+shown+"\n");
+                    if(!hidden||!shown)Environment.ExitCode=1;
+                    console.quitting=true;console.Close();
+                };timer.Start();
+            };
+            app.Run(console);
+        } catch(Exception) { MessageBox.Show("Sentinel could not start. Check that the complete app folder is present and Microsoft Edge WebView2 Runtime is installed.", "Sentinel"); }
+        finally {
+            if(worker!=null) {
+                try { if(!worker.HasExited) {
+                    var config = new JavaScriptSerializer().Deserialize<Dictionary<string,string>>(File.ReadAllText(Path.Combine(here,"demo-runtime.json")));
+                    using(var client=new HttpClient()) { client.Timeout=TimeSpan.FromSeconds(5); client.DefaultRequestHeaders.Authorization=new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer",config["token"]); client.PostAsync(config["url"]+"/shutdown",new StringContent("{}",Encoding.UTF8,"application/json")).Wait(6000); }
+                    if(!worker.WaitForExit(8000)) worker.Kill();
+                }} catch { try { if(!worker.HasExited) worker.Kill(); } catch {} }
+                worker.Dispose();
+                if(owns)try { File.Delete(Path.Combine(here,"demo-runtime.json")); } catch {}
+            }
+            if(owns) instance.ReleaseMutex();
+            if(instance!=null) instance.Dispose();
+        }
     }
 
     public SentinelGlassConsole(string assets, string evidence, bool smoke, bool demo)
     {
         this.demo = demo;
         this.assets = assets; this.evidence = evidence; this.smoke = smoke;
-        Title = "Sentinel — GLM Glass Console";
-        Width = 1280; Height = 850; MinWidth = 850; MinHeight = 600;
+        Title = "Sentinel";
+        Width = Math.Min(1080,SystemParameters.WorkArea.Width); Height = Math.Min(740,SystemParameters.WorkArea.Height);
+        ResizeMode = ResizeMode.NoResize;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         WindowStyle = WindowStyle.None;
         Background = new SolidColorBrush(Color.FromRgb(7, 11, 30));
         WindowChrome.SetWindowChrome(this, new WindowChrome {
-            CaptionHeight = 42, ResizeBorderThickness = new Thickness(6),
+            CaptionHeight = 0, ResizeBorderThickness = new Thickness(0),
             GlassFrameThickness = new Thickness(-1), CornerRadius = new CornerRadius(12), UseAeroCaptionButtons = false
         });
         var grid = new Grid();
-        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(42) });
+        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(0) });
         grid.RowDefinitions.Add(new RowDefinition());
         var header = new DockPanel { Background = new SolidColorBrush(Color.FromArgb(95, 13, 24, 48)), LastChildFill = true };
         var controls = new StackPanel { Orientation = Orientation.Horizontal };
         DockPanel.SetDock(controls, Dock.Right);
-        controls.Children.Add(WindowButton("−", "Minimize", delegate { SystemCommands.MinimizeWindow(this); }));
-        var maximize = WindowButton("□", "Maximize", delegate {
-            if (WindowState == WindowState.Maximized) SystemCommands.RestoreWindow(this);
-            else SystemCommands.MaximizeWindow(this);
-        });
-        controls.Children.Add(maximize);
-        controls.Children.Add(WindowButton("×", "Close", delegate { SystemCommands.CloseWindow(this); }));
         StateChanged += delegate {
-            maximize.Content = WindowState == WindowState.Maximized ? "❐" : "□";
-            maximize.ToolTip = WindowState == WindowState.Maximized ? "Restore" : "Maximize";
-            AutomationProperties.SetName(maximize, (string)maximize.ToolTip);
+            if(WindowState==WindowState.Minimized) HideToTray();
+            if(WindowState==WindowState.Maximized) WindowState=WindowState.Normal;
         };
         header.Children.Add(controls);
         var identity = new TextBlock { Text = "S / SENTINEL", FontSize = 12, FontWeight = FontWeights.SemiBold,
             Foreground = new SolidColorBrush(Color.FromRgb(178, 213, 249)), Margin = new Thickness(20, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
         header.Children.Add(identity);
+        header.MouseLeftButtonDown += delegate(object sender, System.Windows.Input.MouseButtonEventArgs e) { if(e.ClickCount==1 && e.OriginalSource is TextBlock) DragMove(); };
         grid.Children.Add(header);
         view.DefaultBackgroundColor = System.Drawing.Color.Transparent;
         Grid.SetRow(view, 1); grid.Children.Add(view); Content = grid;
-        SourceInitialized += delegate { EnableBackdrop(); };
+        SourceInitialized += delegate { EnableBackdrop();var handle=new WindowInteropHelper(this).Handle;inputMonitor.Start(handle);HwndSource.FromHwnd(handle).AddHook(delegate(IntPtr hwnd,int message,IntPtr wParam,IntPtr lParam,ref bool handled){if(message==0x00FF)inputMonitor.Receive(lParam);if(message==0x00FE&&wParam.ToInt32()==2)inputMonitor.Removed(lParam);return IntPtr.Zero;}); };
         Loaded += Initialize;
+        Loaded += delegate { Dispatcher.BeginInvoke(new Action(EnableBackdrop),DispatcherPriority.ContextIdle); };
+        Loaded += delegate {
+            if(nativeCorners)return;
+            var handle=new WindowInteropHelper(this).Handle;
+            var transform=HwndSource.FromHwnd(handle).CompositionTarget.TransformToDevice;
+            var region=CreateRoundRectRgn(0,0,(int)Math.Ceiling(ActualWidth*transform.M11)+1,(int)Math.Ceiling(ActualHeight*transform.M22)+1,(int)Math.Ceiling(20*transform.M11),(int)Math.Ceiling(20*transform.M22));
+            if(region!=IntPtr.Zero&&SetWindowRgn(handle,region,true)==0)DeleteObject(region);
+        };
         deadline.Interval = TimeSpan.FromSeconds(30);
         deadline.Tick += delegate { Fail("initialization_timeout"); };
-        Closed += delegate { closing = true; deadline.Stop(); runtimeClient.Dispose(); view.Dispose(); };
+        if(!smoke) {
+            tray=new System.Windows.Forms.NotifyIcon { Icon=System.Drawing.SystemIcons.Shield, Text="Sentinel", Visible=true };
+            var menu=new System.Windows.Forms.ContextMenuStrip();
+            menu.Items.Add("Open Sentinel",null,delegate { Dispatcher.Invoke(new Action(OpenFromTray)); });
+            menu.Items.Add("Quit Sentinel",null,delegate { Dispatcher.Invoke(new Action(delegate { quitting=true; Close(); })); });
+            tray.ContextMenuStrip=menu;
+            tray.MouseClick += delegate(object sender,System.Windows.Forms.MouseEventArgs e) { if(e.Button==System.Windows.Forms.MouseButtons.Left)Dispatcher.Invoke(new Action(OpenFromTray)); };
+            Closing += delegate(object sender,System.ComponentModel.CancelEventArgs e) { if(!quitting) { e.Cancel=true; HideToTray(); } };
+            Deactivated += delegate { Dispatcher.BeginInvoke(new Action(delegate { if(!IsActive&&!dragging&&!actionDialog&&!selectionRequest&&!quitting) HideToTray(); }),DispatcherPriority.Background); };
+        }
+        var openSignal=new EventWaitHandle(false,EventResetMode.AutoReset,AppEventName);
+        var openTimer=new DispatcherTimer { Interval=TimeSpan.FromMilliseconds(300) };
+        openTimer.Tick += delegate { if(openSignal.WaitOne(0)) OpenFromTray(); };openTimer.Start();
+        Closed += delegate { closing = true; deadline.Stop(); openTimer.Stop(); openSignal.Dispose(); if(tray!=null) tray.Dispose(); runtimeClient.Dispose(); view.Dispose(); };
     }
+
+    void HideToTray() { try{if(view.CoreWebView2!=null)view.CoreWebView2.PostWebMessageAsJson("{\"kind\":\"vault-clear\"}");}catch{}ShowInTaskbar=false; Hide(); }
+    void OpenFromTray() { ShowInTaskbar=true; WindowState=WindowState.Normal; Show(); Activate(); }
 
     Button WindowButton(string glyph, string name, Action action)
     {
@@ -120,6 +194,12 @@ public sealed class SentinelGlassConsole : Window
     {
         try {
             var handle = new WindowInteropHelper(this).Handle;
+            int rounded = 2;
+            nativeCorners = DwmSetWindowAttribute(handle, 33, ref rounded, sizeof(int)) == 0;
+            int noBorder = unchecked((int)0xFFFFFFFE);
+            DwmSetWindowAttribute(handle, 34, ref noBorder, sizeof(int));
+            int rendering = 2;
+            DwmSetWindowAttribute(handle, 2, ref rendering, sizeof(int));
             int acrylic = 3;
             if (DwmSetWindowAttribute(handle, 38, ref acrylic, sizeof(int)) != 0) return;
             var margins = new Margins { Left = -1, Right = -1, Top = -1, Bottom = -1 };
@@ -155,7 +235,49 @@ public sealed class SentinelGlassConsole : Window
             if (id == null || !System.Text.RegularExpressions.Regex.IsMatch(id, "^[a-zA-Z0-9_-]{1,64}$")) return;
             string route = null;
             object data = request["data"];
-            if (method == "quarantine.request" || method == "restore.request") {
+            if(method=="window.drag") {
+                var empty=data as Dictionary<string,object>;
+                if(empty==null||empty.Count!=0)throw new InvalidOperationException();
+                if(!IsVisible||!IsActive||actionDialog||selectionRequest||(GetAsyncKeyState(1)&0x8000)==0){Reply(id,new{error="drag_unavailable"});return;}
+                Reply(id,new{ok=true});
+                dragging=true;
+                try{ReleaseCapture();SendMessage(new WindowInteropHelper(this).Handle,0x00A1,new IntPtr(2),IntPtr.Zero);}
+                finally{dragging=false;}
+                return;
+            }            if(method=="usb.activity"){var empty=data as Dictionary<string,object>;if(empty==null||empty.Count!=0)throw new InvalidOperationException();Reply(id,inputMonitor.Snapshot());return;}
+            if(method=="window.hide"){var empty=data as Dictionary<string,object>;if(empty==null||empty.Count!=0)throw new InvalidOperationException();HideToTray();Reply(id,new{ok=true});return;}
+            if (method == "vault.copy" || method == "vault.rotate" || method=="vault.view" || method=="vault.remove" || method=="vault.add" || method=="vault.update") {
+                if(actionDialog||selectionRequest){Reply(id,new {error="action_busy"});return;}
+                var account=data as Dictionary<string,object>;
+                bool add=method=="vault.add", update=method=="vault.update";
+                if(account==null)throw new InvalidOperationException();
+                if(add){if((account.Count!=3&&account.Count!=4)||!account.ContainsKey("name")||!account.ContainsKey("user")||!account.ContainsKey("host"))throw new InvalidOperationException();foreach(string key in account.Keys)if((key!="name"&&key!="user"&&key!="host"&&key!="password")||!(account[key] is string)||((string)account[key]).Length>256)throw new InvalidOperationException();}
+                else if(update){if((account.Count!=4&&account.Count!=5)||!account.ContainsKey("id")||!account.ContainsKey("name")||!account.ContainsKey("user")||!account.ContainsKey("host"))throw new InvalidOperationException();foreach(string key in account.Keys)if((key!="id"&&key!="name"&&key!="user"&&key!="host"&&key!="password")||!(account[key] is string)||((string)account[key]).Length>256)throw new InvalidOperationException();}
+                else if(account.Count!=1||!account.ContainsKey("id"))throw new InvalidOperationException();
+                string accountId=add?"new_login":account["id"] as string;
+                if(!System.Text.RegularExpressions.Regex.IsMatch(accountId??"","^[a-zA-Z0-9_-]{1,64}$"))throw new InvalidOperationException();
+                actionDialog=true;requests++;
+                try {
+                    using(var lease=PasswordActionLease.TryAcquire()) {
+                    if(lease==null){Reply(id,new {error="action_busy"});return;}
+                    bool copy=method=="vault.copy";
+                    string operation=update?"update":add?"add":method=="vault.view"?"view":method=="vault.remove"?"remove":copy?"copy":"rotate";
+                    bool approved=await Task.Run(()=>VaultApproval.Approve(operation,accountId));
+                    if(!approved){Reply(id,new {error=VaultApproval.LastError});return;}
+                    using(var message=new HttpRequestMessage(HttpMethod.Post,runtimeUrl+(update?"/account-update":add?"/account-add":operation=="remove"?"/account-remove":copy||operation=="view"?"/reveal":"/rotate"))) {
+                        message.Headers.Authorization=new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer",runtimeToken);
+                        message.Headers.Add("X-Sentinel-Native-Action",runtimeActionToken);
+                        message.Content=new StringContent(json.Serialize(add||update?(object)account:new {id=accountId}),Encoding.UTF8,"application/json");
+                        using(var response=await runtimeClient.SendAsync(message)) {
+                            response.EnsureSuccessStatusCode();
+                            if(copy||operation=="view"){var result=json.Deserialize<Dictionary<string,object>>(await response.Content.ReadAsStringAsync());if((string)result["mode"]!="synthetic_demo")throw new InvalidOperationException();if(copy)Clipboard.SetText((string)result["password"]);else{if(!IsActive||!IsVisible){Reply(id,new{error="Viewing cancelled after focus changed."});return;}Reply(id,new{password=(string)result["password"]});return;}}
+                            Reply(id,json.Deserialize<object>(await response.Content.ReadAsStringAsync()));
+                        }
+                    }
+                    }
+                }finally{actionDialog=false;requests--;if(!IsActive)HideToTray();}
+                return;
+            } else if (method == "quarantine.request" || method == "restore.request") {
                 if (actionDialog || selectionRequest) { Reply(id, new { error = "action_busy" }); return; }
                 var action = data as Dictionary<string, object>;
                 bool restore = method == "restore.request";
@@ -193,7 +315,15 @@ public sealed class SentinelGlassConsole : Window
                 var empty = data as Dictionary<string, object>;
                 if (empty == null || empty.Count != 0) throw new InvalidOperationException();
                 route = "inspection";
-            } else if (method == "state" || method == "lock" || method == "unlock" || method == "rotate" || method == "reveal" || method == "cancel" || method == "pair") route = method;
+            } else if (method == "wifi.assess") {
+                var empty = data as Dictionary<string, object>;
+                if (empty == null || empty.Count != 0) throw new InvalidOperationException();
+                route = "wifi";
+            } else if (method == "usb.observe") {
+                var empty = data as Dictionary<string, object>;
+                if (empty == null || empty.Count != 0) throw new InvalidOperationException();
+                route = "usb";
+            } else if (method == "state" || method == "lock" || method == "unlock" || method == "cancel" || method == "pair") route = method;
             else throw new InvalidOperationException();
             requests++;
             try {
@@ -321,6 +451,7 @@ public sealed class SentinelGlassConsole : Window
             var env = await CoreWebView2Environment.CreateAsync(null, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, smoke ? "profile-smoke" : "profile"));
             await view.EnsureCoreWebView2Async(env);
             if (closing) return;
+            view.ZoomFactor = 0.90;
             var core = view.CoreWebView2;
             core.Settings.AreHostObjectsAllowed = false;
             core.Settings.IsWebMessageEnabled = demo;
@@ -333,6 +464,7 @@ public sealed class SentinelGlassConsole : Window
                 core.WebMessageReceived += RuntimeMessage;
             }
             core.Settings.AreDevToolsEnabled = false;
+            core.Settings.AreDefaultContextMenusEnabled = false;
             core.Settings.AreDefaultScriptDialogsEnabled = false;
             core.PermissionRequested += delegate(object s, CoreWebView2PermissionRequestedEventArgs e) { e.State = CoreWebView2PermissionState.Deny; e.Handled = true; };
             core.NewWindowRequested += delegate(object s, CoreWebView2NewWindowRequestedEventArgs e) { e.Handled = true; };

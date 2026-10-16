@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
-import {useDemoState} from './demo-bridge';
+import {useDemoState, demoCall} from './demo-bridge';
+import {canDragWindow} from './desktop-interactions';
 import { ThreatProvider, useThreat } from "./state";
 import Dashboard from "./views/Dashboard";
 import ScanView from "./views/ScanView";
@@ -116,7 +117,7 @@ function Shell() {
   useBoxGlow();
 
   const statusLabel =
-    demo ? 'Connected demo · partial coverage' : level === "danger"
+    demo ? 'Connected · partial coverage' : level === "danger"
       ? "Preview · scenario alert"
       : level === "warn"
         ? "Preview · scenario attention"
@@ -126,6 +127,7 @@ function Shell() {
 
   return (
     <div className={`shell${view === "password" ? " password-shell" : ""}`}>
+      <div className="window-actions"><button aria-label="Minimize to tray" onClick={()=>void import('./demo-bridge').then(m=>m.demoCall('window.hide')).catch(()=>{})}>−</button><button aria-label="Close to tray" onClick={()=>void import('./demo-bridge').then(m=>m.demoCall('window.hide')).catch(()=>{})}>×</button></div>
       {/* Living dither backdrop — spans the WHOLE app (sidebar included) and
           recolors with the threat state. The sidebar's liquid glass blurs it. */}
       <div
@@ -140,8 +142,12 @@ function Shell() {
         <Dither
           waveColor={wave}
           backgroundColor={bg}
+          palette={["#050a19", "#0c1730", level === "danger" ? "#71322e" : level === "warn" ? "#765526" : "#163e6d", level === "danger" ? "#ff8a7a" : level === "warn" ? "#ffc46b" : "#2f89e3"]}
           colorNum={4}
           pixelSize={5}
+          dpr={1}
+          maxFps={24}
+          clickRipple={false}
           enableMouseInteraction={false}
         />
       </div>
@@ -155,7 +161,7 @@ function Shell() {
           <div className="brand-name">SENTINEL</div>
         </div>
 
-        {NAV.map((n) => (
+        <nav className="sidebar-nav" aria-label="Sentinel pages">{NAV.map((n) => (
           <Fragment key={n.id}>
           {n.id === "dashboard" && <div className="nav-label">Protect</div>}
           {n.id === "password" && <div className="nav-label">Tools</div>}
@@ -185,7 +191,7 @@ function Shell() {
             )}
           </button>
           </Fragment>
-        ))}
+        ))}</nav>
 
         <div className="sidebar-footer">
           <div className="sidebar-footer-text" style={{ color: "rgba(232,241,255,0.55)" }}>
@@ -200,7 +206,7 @@ function Shell() {
       </aside>
 
       <main className="main">
-        <header className="topbar" style={{ position: "relative", zIndex: 2 }}>
+        <header className="topbar" onMouseDown={event => { if(canDragWindow(event.target,event.button)){ event.preventDefault(); void demoCall('window.drag').catch(()=>{}); } }} style={{ position: "relative", zIndex: 2 }}>
           <h1>{VIEW_TITLES[view]}</h1>
           <div className="protection-pill">
             <span className="led" /> {statusLabel}
@@ -230,4 +236,3 @@ export default function App() {
     </ThreatProvider>
   );
 }
-
