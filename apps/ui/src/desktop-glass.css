@@ -68,7 +68,7 @@ html[data-desktop="glass"], html[data-desktop="glass"] body, html[data-desktop="
 html[data-desktop="glass"] .shell { background: linear-gradient(135deg, rgba(5, 10, 22, .24), rgba(8, 19, 38, .36)); }
 html[data-desktop="glass"] .sidebar { background: linear-gradient(180deg, #121d36f5, #080e1df5); backdrop-filter: none; }
 html[data-desktop="glass"] .topbar { background: #080e1deb; backdrop-filter: none; }
-html[data-desktop="glass"] .dither-bg { opacity: var(--sidebar-matrix-opacity) !important; }
+html[data-desktop="glass"] .dither-bg { opacity: .75 !important; }
 /* Native hosts may opt out when GPU acceleration is disabled. CSS cannot reliably
    detect GPU acceleration; this explicit switch also works in the browser. */
 html[data-glass-effects="off"] #root :is(.panel, .stat) {

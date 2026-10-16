@@ -1,4 +1,5 @@
 /* Natural document footer: scrolls with the page, never covers its controls. */
+.content{scrollbar-gutter:auto}
 .content>.desktop-ribbon{position:relative;flex:none;min-width:0;max-width:none;width:calc(100% + 2 * var(--layout-inset,24px));align-self:auto;margin:auto calc(-1 * var(--layout-inset,24px)) calc(16px - var(--layout-inset,24px));font-family:var(--font-display);overflow:hidden}
 .desktop-ribbon svg{width:100%;height:58px;display:block}
 .desktop-ribbon [role=group]{touch-action:pan-y;user-select:none;border-radius:0}

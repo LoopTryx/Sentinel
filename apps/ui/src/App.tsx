@@ -127,7 +127,7 @@ function Shell() {
           position: "absolute",
           inset: 0,
           zIndex: 0,
-          opacity: "var(--sidebar-matrix-opacity)",
+          opacity: 0.75,
         }}
       >
         <GradientASCII
@@ -179,7 +179,6 @@ function Shell() {
           </Fragment>
         ))}</nav>
 
-        <div className="sidebar-footer"><div className="sidebar-footer-text">THINK · PROTECT · DEFEND</div></div>
       </LiquidSidebar>
 
       <main className="main">

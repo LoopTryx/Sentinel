@@ -2,7 +2,7 @@
 /* Existing navigation and collapse state; visual layers never contain text. */
 #root .shell{grid-template-rows:minmax(0,1fr);grid-template-columns:var(--sidebar-expanded-width) minmax(0,1fr);transition:grid-template-columns var(--sidebar-width-duration) var(--sidebar-width-ease)}
 #root .shell.sidebar-collapsed{grid-template-columns:var(--sidebar-collapsed-width) minmax(0,1fr)}
-#root .liquid-sidebar{position:relative;z-index:3;display:flex;flex-direction:column;min-width:0;min-height:0;margin:12px 0 12px 12px;padding:10px;gap:12px;overflow:visible;border:1px solid var(--sidebar-border);border-radius:var(--sidebar-radius);background:var(--sidebar-solid);backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:var(--sidebar-shadow)}
+#root .liquid-sidebar{position:relative;z-index:3;display:flex;flex-direction:column;align-self:start;height:fit-content;max-height:calc(100dvh - 24px);min-width:0;min-height:0;margin:12px 0 12px 12px;padding:10px;gap:12px;overflow:visible;border:1px solid var(--sidebar-border);border-radius:var(--sidebar-radius);background:var(--sidebar-solid);backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:var(--sidebar-shadow)}
 #root .liquid-sidebar::before,#root .liquid-sidebar::after{content:none;animation:none}
 .liquid-sidebar-optics{position:absolute!important;inset:0;z-index:0!important;pointer-events:none;overflow:hidden;border-radius:inherit}
 .liquid-sidebar-optics>div{position:absolute;inset:0;border-radius:inherit}
@@ -20,7 +20,7 @@
 }
 /* Buffered scrollport keeps short windows usable. Row layers stay overflow-visible;
    tooltip portal escapes the scrollport entirely. Only optics use overflow:hidden. */
-.liquid-sidebar-content{position:relative;z-index:1;display:flex;flex-direction:column;gap:4px;flex:1;min-height:0;overflow:auto;padding:var(--sidebar-hover-buffer);margin:0 calc(-1 * var(--sidebar-hover-buffer));scrollbar-width:none;scrollbar-gutter:auto}
+.liquid-sidebar-content{position:relative;z-index:1;display:flex;flex-direction:column;gap:4px;flex:0 1 auto;min-height:0;overflow:auto;padding:var(--sidebar-hover-buffer);margin:0 calc(-1 * var(--sidebar-hover-buffer));scrollbar-width:none;scrollbar-gutter:auto}
 .liquid-sidebar-content::-webkit-scrollbar{display:none}
 #root .liquid-sidebar .sidebar-nav{overflow:visible;min-width:0}
 .sidebar-toggle{position:relative;z-index:2;flex:none;align-self:flex-end;display:grid;place-items:center;width:40px;height:40px;padding:0;border:1px solid var(--sidebar-border);border-radius:var(--sidebar-toggle-radius);background:var(--sidebar-toggle-fill);color:var(--sidebar-white);cursor:pointer;transition:background-color var(--sidebar-hover-duration) ease,box-shadow var(--sidebar-hover-duration) ease}
@@ -42,9 +42,7 @@
 #root .liquid-sidebar .nav-btn:not(.active):hover{background:linear-gradient(var(--sidebar-item-hover),var(--sidebar-item-hover)),var(--sidebar-item-scrim)}
 #root .liquid-sidebar .nav-btn:focus-visible{z-index:4}
 #root .liquid-sidebar .nav-btn:active{transform:translateX(1px) scale(.99)}
-#root .liquid-sidebar .sidebar-footer{flex:none;border-top:1px solid var(--sidebar-divider);margin-top:auto;padding:12px 8px 4px}
-#root .liquid-sidebar .sidebar-footer-text{font:500 11px/1.7 var(--font-mono);letter-spacing:.2em;white-space:normal;color:var(--sidebar-footer-ink);background:var(--sidebar-text-scrim)}
-#root .liquid-sidebar[data-collapsed=false] :is(.brand-name,.nav-item-label,.sidebar-footer){animation:sidebar-label-in var(--sidebar-label-duration) ease-out var(--sidebar-label-delay) both}
+#root .liquid-sidebar[data-collapsed=false] :is(.brand-name,.nav-item-label){animation:sidebar-label-in var(--sidebar-label-duration) ease-out var(--sidebar-label-delay) both}
 #root .liquid-sidebar[data-collapsed=false] .nav-label{animation:sidebar-section-in var(--sidebar-label-duration) ease-out var(--sidebar-label-delay) both}
 @keyframes sidebar-label-in{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
 @keyframes sidebar-section-in{from{opacity:0;transform:translateX(-6px)}to{opacity:var(--sidebar-muted-opacity);transform:translateX(0)}}
@@ -52,17 +50,16 @@
 #root .liquid-sidebar[data-collapsed=true] .sidebar-toggle{align-self:center}
 #root .liquid-sidebar[data-collapsed=true] .liquid-sidebar-content{flex:0 1 auto}
 #root .liquid-sidebar[data-collapsed=true] .brand{display:none}
-#root .liquid-sidebar[data-collapsed=true] :is(.nav-item-label,.sidebar-footer,.nav-status){opacity:0;visibility:hidden;pointer-events:none;transition:opacity var(--sidebar-label-duration) ease;max-height:0;padding:0;margin:0;border:0}
+#root .liquid-sidebar[data-collapsed=true] :is(.nav-item-label,.nav-status){opacity:0;visibility:hidden;pointer-events:none;transition:opacity var(--sidebar-label-duration) ease;max-height:0;padding:0;margin:0;border:0}
 #root .liquid-sidebar[data-collapsed=true] .nav-item-label{width:0}
 #root .liquid-sidebar[data-collapsed=true] .nav-status{display:none}
 #root .liquid-sidebar[data-collapsed=true] .nav-label{font-size:0;line-height:0;height:1px;padding:0;margin:10px 0;background:var(--sidebar-divider);border-radius:0;opacity:1}
 .sidebar-glass-tooltip{position:fixed;z-index:var(--sidebar-tooltip-z);pointer-events:none;max-width:220px;padding:8px 12px;border:1px solid var(--sidebar-border);border-radius:var(--sidebar-tooltip-radius);background:var(--sidebar-tooltip-fill);backdrop-filter:blur(var(--sidebar-blur));color:var(--sidebar-white);font:500 12px/1.4 var(--font-body);box-shadow:var(--sidebar-tooltip-shadow);transform:translateY(-50%);overflow-wrap:anywhere}
-html[data-desktop=glass] .dither-bg{opacity:var(--sidebar-matrix-opacity)!important}
 html[data-glass-effects=off] #root .liquid-sidebar{background:var(--sidebar-solid)}
 html[data-glass-effects=off] .liquid-sidebar-frost{backdrop-filter:none;-webkit-backdrop-filter:none;filter:none}
 html[data-glass-effects=off] .liquid-sidebar-bloom{display:none}
 html[data-glass-effects=off] .sidebar-glass-tooltip{backdrop-filter:none}
 @media(prefers-reduced-transparency:reduce){#root .liquid-sidebar{background:var(--sidebar-solid)}.liquid-sidebar-frost{backdrop-filter:none;-webkit-backdrop-filter:none;filter:none}.liquid-sidebar-bloom{display:none}.sidebar-glass-tooltip{backdrop-filter:none}}
-@media(prefers-reduced-motion:reduce){#root .shell,#root .liquid-sidebar .nav-btn,.sidebar-toggle{transition:none}#root .liquid-sidebar :is(.brand-name,.nav-item-label,.nav-label,.sidebar-footer){animation:none!important;transform:none!important}#root .liquid-sidebar .nav-btn{transform:none!important}.liquid-sidebar-bloom{animation:none}}
-@media(forced-colors:active){#root .liquid-sidebar{background:Canvas;border-color:CanvasText;box-shadow:none}.liquid-sidebar-optics{display:none}#root .liquid-sidebar :is(.nav-btn,.brand-name,.sidebar-footer-text,.nav-label),.sidebar-toggle{background:Canvas;color:CanvasText;text-shadow:none;-webkit-text-fill-color:CanvasText}#root .liquid-sidebar .nav-btn.active{background:Highlight;color:HighlightText;box-shadow:none}.sidebar-glass-tooltip{background:Canvas;color:CanvasText;backdrop-filter:none;box-shadow:none}}
+@media(prefers-reduced-motion:reduce){#root .shell,#root .liquid-sidebar .nav-btn,.sidebar-toggle{transition:none}#root .liquid-sidebar :is(.brand-name,.nav-item-label,.nav-label){animation:none!important;transform:none!important}#root .liquid-sidebar .nav-btn{transform:none!important}.liquid-sidebar-bloom{animation:none}}
+@media(forced-colors:active){#root .liquid-sidebar{background:Canvas;border-color:CanvasText;box-shadow:none}.liquid-sidebar-optics{display:none}#root .liquid-sidebar :is(.nav-btn,.brand-name,.nav-label),.sidebar-toggle{background:Canvas;color:CanvasText;text-shadow:none;-webkit-text-fill-color:CanvasText}#root .liquid-sidebar .nav-btn.active{background:Highlight;color:HighlightText;box-shadow:none}.sidebar-glass-tooltip{background:Canvas;color:CanvasText;backdrop-filter:none;box-shadow:none}}
 @media(forced-colors:active){#root .liquid-sidebar .brand-mark svg{stroke:CanvasText}#root .liquid-sidebar .nav-label{opacity:1}#root .liquid-sidebar[data-collapsed=true] .nav-label{border-bottom:1px solid CanvasText}}

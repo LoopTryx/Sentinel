@@ -94,3 +94,5 @@ Owner requested revert of a92bdf5: restored the prior blue glass material, top c
 17 October: ribbon reduced to22px type/38px band, moved to natural end of scrolling page with full-bleed edges and16px bottom gap. Responsive line width keeps type size stable at wide/HiDPI sizes. Decorative sidebar slogan/version removed. Requested ui-styling/ui-ux-pro-max applied; evidence/small-flow-ribbon-2026-10-17.md.
 
 17 October: sidebar restyled with shared premium liquid-glass tokens, subtle background-only refraction, paused/reduced-motion-aware blooms, synchronized500ms collapse, fixed icon slots and unclipped glass tooltips. Existing navigation/collapse state preserved; explicit owner tagline restored without version text. Matrix opacity25%. Evidence: evidence/premium-sidebar-2026-10-17.md.
+
+17 October correction: restored the app-wide blue ASCII backdrop to its prior75% opacity. Removed the sidebar tagline/footer and trimmed its glass panel to the navigation content. The moving Sentinel ribbon remains at the bottom of the scrolling content and now reaches both horizontal edges without a reserved scrollbar gutter.
