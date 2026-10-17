@@ -7,6 +7,7 @@ it('plays quietly, replaces overlapping sounds and stops immediately on mute',as
  setUiSoundsEnabled(true);expect(await playUiSound('button')).toBe(true);expect(created[0].volume).toBe(.16);
  expect(await playUiSound('error')).toBe(true);expect(created[0].pause).toHaveBeenCalled();expect(created[1].volume).toBe(.22);
  expect(await playUiSound('error')).toBe(false);expect(created).toHaveLength(2);
+ expect(await playUiSound('navigation')).toBe(false);expect(created).toHaveLength(2);
  setUiSoundsEnabled(false);expect(created[1].pause).toHaveBeenCalled();expect(uiSoundsEnabled()).toBe(false);expect(localStorage.getItem('sentinel-ui-sounds')).toBe('off');expect(await playUiSound('notification')).toBe(false);
 });
 it('handles autoplay denial without throwing or changing app behaviour',async()=>{

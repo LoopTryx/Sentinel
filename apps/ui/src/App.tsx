@@ -53,14 +53,16 @@ function Shell() {
   const [view, setView] = useState<ViewId>("dashboard");
   const { level, scanAlert,inspectionError,snapshot } = useThreat();
   const [soundEnabled,setSoundEnabled]=useState(uiSoundsEnabled);
-  const previousSoundState=useRef({level,error:'',completed:''});
+  const previousSoundState=useRef({level,error:'',completed:'',flagged:''});
   useEffect(()=>{
     const previous=previousSoundState.current;
     const completed=snapshot&&['finished','cancelled'].includes(snapshot.state)?snapshot.jobRef:'';
-    if(inspectionError&&inspectionError!==previous.error)void playUiSound('error');
+    const flagged=snapshot&&snapshot.reports.some(report=>report.verdict==='suspicious'||report.verdict==='signature_match')?JSON.stringify([snapshot.jobRef,snapshot.reports.filter(report=>report.verdict==='suspicious'||report.verdict==='signature_match').map(report=>[report.reportRef,report.verdict])]):'';
+    if(flagged&&flagged!==previous.flagged)void playUiSound('alert');
+    else if(inspectionError&&inspectionError!==previous.error)void playUiSound('error');
     else if(level==='danger'&&previous.level!=='danger')void playUiSound('error');
     else if(completed&&completed!==previous.completed&&snapshot?.state==='finished')void playUiSound('notification');
-    previousSoundState.current={level,error:inspectionError,completed};
+    previousSoundState.current={level,error:inspectionError,completed,flagged};
   },[level,inspectionError,snapshot]);
   const shellRef=useRef<HTMLDivElement>(null);
   useEffect(()=>{if(shellRef.current)shellRef.current.scrollTop=0;},[view]);
@@ -97,6 +99,7 @@ function Shell() {
 
         <header className="topbar" onMouseDown={event => { if(canDragWindow(event.target,event.button)){ event.preventDefault(); void demoCall('window.drag').catch(()=>{}); } }} style={{ position: "relative", zIndex: 2 }}>
           <h1>{VIEW_TITLES[view]}</h1>
+          <button className="app-refresh" aria-label="Refresh entire app" title="Refresh app and background" onClick={()=>window.location.reload()}><Icon name="refresh" size={16}/>Refresh</button>
           <button className="sound-toggle" aria-pressed={soundEnabled} aria-label={soundEnabled?"Mute interface sounds":"Enable interface sounds"} onClick={()=>{const next=!soundEnabled;setUiSoundsEnabled(next);setSoundEnabled(next);}}>{soundEnabled?"Sound on":"Sound off"}</button>
           <div className="protection-pill">
             <span className="led" /> {statusLabel}
