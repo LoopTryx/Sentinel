@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type CSSProperties, type HTMLAttributes } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type HTMLAttributes } from 'react';
 
 export type GradientASCIIShape = 'horizon' | 'pinch' | 'rise' | 'eclipse';
 
@@ -524,6 +524,7 @@ const GradientASCII = ({
 }: GradientASCIIProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [contextEpoch,setContextEpoch]=useState(0);
   const wakeRef = useRef<(() => void) | null>(null);
   const palette = (Array.isArray(colors) && colors.length ? colors : DEFAULT_COLORS).slice(0, MAX_COLORS).map(color=>String(color).slice(0,128));
   const settings: Settings = {
@@ -568,6 +569,7 @@ const GradientASCII = ({
     }) ?? null; } catch { return undefined; }
     const gl=context;
     if (!container || !canvas || !gl) return undefined;
+    canvas.style.opacity="1";
 
     const field = link(gl, FIELD);
     const halo = link(gl, HALO);
@@ -874,9 +876,11 @@ const GradientASCII = ({
     const pause=()=>{cancelAnimationFrame(raf);raf=0;last=0;lastPaint=-Infinity;};
     const onVisibility=()=>{if(document.hidden)pause();else wake();};
     const onMotion=()=>{reduce=motion?.matches??false;if(reduce)introClock=1;pause();wake();};
-    const onContextLost=()=>{lost=true;pause();canvas.style.opacity='0';};
+    const onContextLost=(event:Event)=>{event.preventDefault();lost=true;pause();canvas.style.opacity='0';};
+    const onContextRestored=()=>setContextEpoch(value=>value+1);
     motion?.addEventListener?.('change',onMotion);
     canvas.addEventListener('webglcontextlost',onContextLost);
+    canvas.addEventListener('webglcontextrestored',onContextRestored);
 
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(container);
@@ -899,6 +903,7 @@ const GradientASCII = ({
       disposed = true;
       motion?.removeEventListener?.('change',onMotion);
       canvas.removeEventListener('webglcontextlost',onContextLost);
+      canvas.removeEventListener('webglcontextrestored',onContextRestored);
       cancelAnimationFrame(raf);
       wakeRef.current = null;
       resizeObserver.disconnect();
@@ -915,7 +920,7 @@ const GradientASCII = ({
       [field, halo, blur, composite].forEach(item => gl.deleteProgram(item.program));
       // Explicit deletes allow React StrictMode to reuse the canvas context.
     };
-  }, []);
+  }, [contextEpoch]);
 
   useEffect(() => {
     wakeRef.current?.();

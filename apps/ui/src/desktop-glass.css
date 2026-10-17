@@ -66,3 +66,7 @@ html[data-glass-effects=off] #root :is(.glass-card,.panel,.stat)::before{content
 @media(prefers-reduced-transparency:reduce){#root :is(.glass-card,.panel,.stat){background:var(--glass-solid);backdrop-filter:none;-webkit-backdrop-filter:none}#root :is(.glass-card,.panel,.stat)::before{content:none}}
 @media(prefers-reduced-motion:reduce){#root :is(.glass-card,.panel,.stat){animation:none;transition:none;transform:none!important}#root :is(.glass-card,.panel,.stat)::before{animation:none}#root .glass-card .btn{transition:none}}
 @media(forced-colors:active){#root :is(h1,h2,h3,h4,h5,h6,.panel-title,.dashboard-title){color:CanvasText!important}#root :is(.glass-card,.panel,.stat){background:Canvas;color:CanvasText;border-color:CanvasText;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}#root :is(.glass-card,.panel,.stat)::before{content:none}#root :is(.glass-card,.panel,.stat) :is(.panel-title,.label,.num,.kv-key,.kv-val,.btn,.section-link){color:CanvasText;background:Canvas}#root .glass-card :is(.btn,.section-link):focus-visible{outline-color:Highlight}}
+
+/* Info-box headings remain legible on the dark glass in both threat states. */
+#root :is(.glass-card,.panel,.stat) :is(h1,h2,h3,h4,h5,h6,.panel-title){color:#a5d8ff!important}
+@media(forced-colors:active){#root :is(.glass-card,.panel,.stat) :is(h1,h2,h3,h4,h5,h6,.panel-title){color:CanvasText!important}}

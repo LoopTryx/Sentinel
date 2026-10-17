@@ -108,3 +108,5 @@ Owner requested revert of a92bdf5: restored the prior blue glass material, top c
 17 October correction: full-window ribbon now follows natural document scrolling instead of occupying a pinned row. The shell owns vertical scrolling; sidebar remains sticky and existing page insets remain. Top bar transparent; headings deep navy. Focusing an inner control no longer outlines the whole card in blue; individual keyboard focus rings retained.
 
 17 October: transparent top bar promoted to a full-window first row; sidebar and page start below it. ASCII backdrop now covers the viewport continuously while scrolling, removing the flat blue cutoff at the bottom. Full-width ribbon remains in natural document flow.
+
+17 October graphics recovery: info-box headings light blue. ASCII rendering now permits WebGL restoration and rebuilds resources after restoration. Hero receives a local dark gradient fallback, hides a lost canvas, rebuilds on restoration and caps rendering to24fps/DPR1/750k pixels. Automated ASCII loss/restoration/cleanup tests and UI build pass; actual GPU-driver crash recovery and usage still require desktop observation.

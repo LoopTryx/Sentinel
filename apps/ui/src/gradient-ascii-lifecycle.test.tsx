@@ -21,9 +21,10 @@ it('bounds render pixels and draw rate, pauses hidden/offscreen/reduced-motion, 
   await act(()=>root.render(<StrictMode><GradientASCII colors={['#9f1239','#fff1f2']} maxFps={24} mouseInteraction={false} clickEffect="none"/></StrictMode>));expect(gl.drawArrays).toHaveBeenCalledTimes(draws);
   hidden=false;document.dispatchEvent(new Event('visibilitychange'));expect(frames.size).toBe(1);intersect([{isIntersecting:false}]);expect(frames.size).toBe(0);intersect([{isIntersecting:true}]);expect(frames.size).toBe(1);
   motion.matches=true;motionChange();step(100);expect(frames.size).toBe(0);
-  canvas.dispatchEvent(new Event('webglcontextlost'));expect(canvas.style.opacity).toBe('0');expect(frames.size).toBe(0);
+  const lostEvent=new Event('webglcontextlost',{cancelable:true});canvas.dispatchEvent(lostEvent);expect(lostEvent.defaultPrevented).toBe(true);expect(canvas.style.opacity).toBe('0');expect(frames.size).toBe(0);
+  await act(()=>canvas.dispatchEvent(new Event('webglcontextrestored')));expect(canvas.style.opacity).toBe('1');expect(frames.size).toBe(1);step(150);expect(frames.size).toBe(0);
  }finally{await act(()=>root.unmount());host.remove();vi.restoreAllMocks();vi.unstubAllGlobals();}
- expect(frames.size).toBe(0);expect(gl.deleteProgram).toHaveBeenCalledTimes(8);expect(gl.deleteTexture).toHaveBeenCalledTimes(10);expect(gl.deleteFramebuffer).toHaveBeenCalledTimes(6);expect(lose).not.toHaveBeenCalled();
+ expect(frames.size).toBe(0);expect(gl.deleteProgram).toHaveBeenCalledTimes(12);expect(gl.deleteTexture).toHaveBeenCalledTimes(15);expect(gl.deleteFramebuffer).toHaveBeenCalledTimes(9);expect(lose).not.toHaveBeenCalled();
 });
 it('keeps a static gradient fallback when WebGL is unavailable',async()=>{
  vi.spyOn(HTMLCanvasElement.prototype,'getContext').mockReturnValue(null);const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
