@@ -1,0 +1,18 @@
+$ErrorActionPreference='Stop'
+$root=Split-Path -Parent $PSScriptRoot
+$framework=Join-Path $env:WINDIR 'Microsoft.NET/Framework64/v4.0.30319'
+$source=Join-Path $root 'artifacts/usb-arrival-test.cs';$exe=Join-Path $root 'artifacts/usb-arrival-test.exe'
+@'
+using System;using System.Windows;using System.Windows.Interop;using System.Windows.Threading;using System.IO;using System.Web.Script.Serialization;
+class Test{[STAThread]static int Main(string[] args){
+ if(args.Length==1&&args[0]=="--live"){
+  var app=new Application();var host=new Window{Title="Sentinel USB arrival observer",Width=1,Height=1,Left=-10000,Top=-10000,ShowInTaskbar=false,ShowActivated=false};UsbGuardArrival observer=null;
+  host.SourceInitialized+=(s,e)=>{var handle=new WindowInteropHelper(host).Handle;observer=new UsbGuardArrival(host,handle);HwndSource.FromHwnd(handle).AddHook((IntPtr hwnd,int message,IntPtr wp,IntPtr lp,ref bool handled)=>{if(message==0x0219)observer.Receive(wp,lp);return IntPtr.Zero;});};
+  var elapsed=System.Diagnostics.Stopwatch.StartNew();var timer=new DispatcherTimer{Interval=TimeSpan.FromSeconds(1)};timer.Tick+=(s,e)=>{if(observer!=null)File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"usb-arrival-live.json"),new JavaScriptSerializer().Serialize(new{capturedAtUtc=DateTime.UtcNow.ToString("o"),registered=observer.Registered,events=observer.EventCount,rejected=observer.RejectedBroadcasts,unresolved=observer.UnresolvedParents,arrivals=observer.ArrivalCount,popups=observer.PopupCount,policyChanged=false,inputBlockingActive=false}));if(elapsed.ElapsedMilliseconds>=120000){timer.Stop();app.Shutdown();}};timer.Start();
+  app.Exit+=(s,e)=>{if(observer!=null){var value=new{capturedAtUtc=DateTime.UtcNow.ToString("o"),registered=observer.Registered,arrivals=observer.ArrivalCount,popups=observer.PopupCount,policyChanged=false,inputBlockingActive=false};File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"usb-arrival-live.json"),new JavaScriptSerializer().Serialize(value));observer.Dispose();}};
+  host.Show();host.Hide();app.Run();return 0;
+ }
+ var state=new UsbGuardArrivalLedger();var first=state.Arrive("PRIVATE-ROOT");if(first==null||state.Arrive("PRIVATE-ROOT")!=null||!state.Current("PRIVATE-ROOT",first))return 1;state.Remove("PRIVATE-ROOT");if(state.Current("PRIVATE-ROOT",first))return 2;var next=state.Arrive("PRIVATE-ROOT");if(next==first||state.Current("PRIVATE-ROOT",first))return 3;for(int i=0;i<63;i++)if(state.Arrive("ROOT"+i)==null)return 4;if(state.Arrive("overflow")!=null)return 5;if(UsbGuardArrivalLedger.ValidInterfaceSize(27)||UsbGuardArrivalLedger.ValidInterfaceSize(4097)||!UsbGuardArrivalLedger.ValidInterfaceSize(30))return 6;state.Clear();if(state.Current("PRIVATE-ROOT",next))return 7;Console.WriteLine("Arrival deduplication/reconnect/late-result/capacity/interface-bounds PASS.");return 0;}}
+'@|Set-Content $source
+& (Join-Path $framework 'csc.exe') /nologo /target:exe /platform:x64 ('/out:'+$exe) ('/reference:'+(Join-Path $framework 'WPF/PresentationFramework.dll')) ('/reference:'+(Join-Path $framework 'WPF/PresentationCore.dll')) ('/reference:'+(Join-Path $framework 'WPF/WindowsBase.dll')) ('/reference:'+(Join-Path $framework 'System.Xaml.dll')) ('/reference:'+(Join-Path $framework 'System.Web.Extensions.dll')) $source (Join-Path $root 'apps/desktop/UsbGuardArrival.cs') (Join-Path $root 'apps/desktop/UsbGuardPopup.cs') (Join-Path $root 'apps/desktop/UsbInputIdentity.cs') (Join-Path $root 'apps/desktop/UsbConnectorEvidence.cs')
+if($LASTEXITCODE -ne 0){throw 'USB arrival build failed'};& $exe;if($LASTEXITCODE -ne 0){throw 'USB arrival regressions failed'}

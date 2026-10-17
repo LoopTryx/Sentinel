@@ -1,0 +1,13 @@
+# Restrictive approval recovery
+
+`RestrictiveApprovalBackend::new(registry, baseline, next) -> Result<Self, Error>` permits an append-only instance exception update over an exact existing restrictive profile. Both profiles are bounded validated `InputPolicy` values. Reordering, replacement, removal, unchanged profiles, excessive count and oversized durable records are refused. The constructor is an internal provider seam, not an authenticated approval endpoint.
+
+Capture requires exact baseline readback. Recovery's existing persist-before-apply protocol writes `SNTLKG01`, a baseline exception count and the next profile, within 4072 payload bytes. Apply adds only new indexed exceptions. It never disables the deny switches or removes baseline exceptions. Crash/restart or lease expiry removes only those additions and verifies the complete prior restrictive profile before clearing the journal. Unknown drift, missing baseline values, malformed records and flush failures retain recovery intent.
+
+The recovery-only native engine uses `PolicyBackend`, whose restore/verify methods now dispatch this format through the shared restrictive helper. Its apply method still rejects the new format; the exported native DLL has no apply operation. Legacy `SNTINP01` first-install rollback behavior remains separate and still restores empty state. This increment does not make that old behavior suitable as ongoing fail-closed recovery.
+
+Acceptance run: `cargo test -p sentinel-usb --test policy --offline --locked`: 13 PASS. New tests cover four before/after partial-write failures across two appended exceptions, restart, unchanged/reordered profile refusal, foreign drift, exact encoding bounds, corrupt fields, expiry, failed flush with retry, and recovery-only dispatch without apply authority.
+
+`tools/test-usb-native-recovery-engine.ps1`: PASS against a unique disposable HKCU namespace and owned journals. Establishes a synthetic 31-exception restrictive baseline, appends the 32nd exception, invokes actual native `recover_file`, verifies exact baseline preservation and idempotent restart, then explicitly restores the original scratch baseline and removes the exact test namespace. Windows DeviceInstall restrictions were not used. Independent static review found no blockers.
+
+Not implemented by this increment: authenticated SYSTEM service/approval IPC, service-verifiable Hello challenge, installed independent watchdog, first-install hardware acceptance, device admission proof, or Bluetooth enforcement. No production caller activates the adapter. Live blocking trials remain zero. The owner deferred the recovery-environment check and requested continued code tests.

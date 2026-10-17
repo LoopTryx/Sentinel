@@ -1,0 +1,15 @@
+$ErrorActionPreference='Stop'
+$root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
+$csc=Join-Path $env:WINDIR 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
+$sources=@('UsbAdmissionWorker.cs','UsbAdmissionMachineGpo.cs','UsbAdmissionCleanupStage.cs','UsbSavedAdmissionEntry.cs','UsbAdmissionJournal.cs','DuckyPolicyJournal.cs','DuckyLocalGpo.cs','DuckyWorkerJob.cs','DuckyWorkerLease.cs','UsbAdmissionTransaction.cs','UsbEnrollmentConfig.cs','UsbAdmissionPolicySurvey.cs')|ForEach-Object{Join-Path $root ('tools/usb/'+$_)}
+$sources+=@('tools/usb/UsbAdmissionLegacyState.cs','tools/usb/UsbLegacyReleasedBaseline.cs','apps/desktop/DuckyPolicyEnrollment.cs')|ForEach-Object{Join-Path $root $_}
+$legacyResources=@(('/resource:'+(Join-Path $root 'tools/usb/DuckyPolicyEntry.cs')+',Sentinel.LegacySource.Current'))
+$historical=Join-Path $root 'artifacts/LegacyDuckyEntry-d0c3349.cs'
+$info=[Diagnostics.ProcessStartInfo]::new('git','show d0c3349:tools/usb/DuckyPolicyEntry.cs');$info.WorkingDirectory=$root;$info.UseShellExecute=$false;$info.RedirectStandardOutput=$true;$info.RedirectStandardError=$true;$info.CreateNoWindow=$true
+$process=[Diagnostics.Process]::Start($info)
+try{$bytes=[IO.MemoryStream]::new();$process.StandardOutput.BaseStream.CopyTo($bytes);$errorText=$process.StandardError.ReadToEnd();$process.WaitForExit();if($process.ExitCode -eq 0){[IO.File]::WriteAllBytes($historical,$bytes.ToArray());$legacyResources+=('/resource:'+$historical+',Sentinel.LegacySource.Historical')}}finally{$process.Dispose();if($bytes){$bytes.Dispose()}}
+
+$target=Join-Path $root 'artifacts/Sentinel.UsbLegacyBaselineQualification.exe'
+& $csc /nologo /target:exe /platform:x64 /main:UsbLegacyBaselineQualification /reference:Microsoft.CSharp.dll /reference:System.Web.Extensions.dll @legacyResources /define:SENTINEL_USB_ADMISSION_BASELINE_QUALIFICATION ('/win32manifest:'+(Join-Path $root 'apps/desktop/password-approval.manifest')) ('/out:'+$target) (Join-Path $PSScriptRoot 'UsbLegacyBaselineQualification.cs') $sources
+if($LASTEXITCODE -ne 0){throw 'Readonly native baseline qualification build failed'}
+Write-Output 'Built separate readonly baseline qualification; no execution, policy edits, sidecar or task changes'
