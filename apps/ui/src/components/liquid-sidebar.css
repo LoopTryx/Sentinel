@@ -66,3 +66,6 @@ html[data-glass-effects=off] .sidebar-glass-tooltip{backdrop-filter:none}
 
 #root .liquid-sidebar .nav-btn.active{background:linear-gradient(135deg,var(--sidebar-active-start),var(--sidebar-active-end)),var(--sidebar-item-scrim)}
 #root .liquid-sidebar .nav-btn:focus-visible{box-shadow:var(--sidebar-active-glow)}
+
+/* Selected page uses Sentinel light blue; hover glow remains shared. */
+#root .liquid-sidebar .nav-btn.active{background:linear-gradient(135deg,#a5d8ff,#77b8fa);color:#1b1e4a;border-color:rgba(255,255,255,.45);text-shadow:none}

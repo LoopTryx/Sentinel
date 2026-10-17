@@ -1,3 +1,4 @@
+import GlassActionButton from "../components/GlassActionButton";
 import {useDemoState} from '../demo-bridge';
 import { useThreat } from "../state";
 import Grainient from "../components/ui/Grainient";
@@ -100,9 +101,9 @@ export default function Dashboard({ onViewAll, onNavigate }: { onViewAll: () => 
 
 
       <nav className="dashboard-actions" aria-label="Quick actions">
-        <button type="button" className="btn" disabled={!onNavigate} onClick={()=>onNavigate?.('scan')}><Icon name="scan" size={18}/>Scan files</button>
-        <button type="button" className="btn ghost" disabled={!onNavigate} onClick={()=>onNavigate?.('password')}><Icon name="key" size={18}/>Passwords</button>
-        <button type="button" className="btn ghost" disabled={!onNavigate} onClick={()=>onNavigate?.('watchtower')}><Icon name="wifi" size={18}/>Watchtower</button>
+        <GlassActionButton disabled={!onNavigate} onClick={()=>onNavigate?.('scan')}><Icon name="scan" size={18}/>Scan files</GlassActionButton>
+        <GlassActionButton disabled={!onNavigate} onClick={()=>onNavigate?.('password')}><Icon name="key" size={18}/>Passwords</GlassActionButton>
+        <GlassActionButton disabled={!onNavigate} onClick={()=>onNavigate?.('watchtower')}><Icon name="wifi" size={18}/>Watchtower</GlassActionButton>
       </nav>
       {/* ── STAT TILES — no backend in this preview, so honest em-dashes ── */}
       <div className="stat-grid dashboard-stats">
