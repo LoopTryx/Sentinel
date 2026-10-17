@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useState } from "react";
 import {useDemoState, demoCall} from './demo-bridge';
 import {canDragWindow} from './desktop-interactions';
 import { ThreatProvider, useThreat } from "./state";
@@ -46,67 +46,11 @@ const VIEW_TITLES: Record<ViewId, string> = {
   log: "Threat Log",
 };
 
-/** MagicBento-style border glow for EVERY panel and stat box: a cyan light
- *  that slides along the nearest box edges as the cursor moves. Drives the
- *  same --glow-x / --glow-y / --glow-intensity custom properties the bento
- *  cards use, so all boxes share one coherent animation. */
-function useBoxGlow() {
-  useEffect(() => {
-    const RADIUS = 300;
-    const proximity = RADIUS * 0.5;
-    const fadeDistance = RADIUS * 0.75;
-    let raf = 0;
-    let x = 0;
-    let y = 0;
-
-    const apply = () => {
-      raf = 0;
-      document.querySelectorAll<HTMLElement>(".panel, .stat").forEach((box) => {
-        const rect = box.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        const distance = Math.max(
-          0,
-          Math.hypot(x - centerX, y - centerY) - Math.max(rect.width, rect.height) / 2
-        );
-        let intensity = 0;
-        if (distance <= proximity) intensity = 1;
-        else if (distance <= fadeDistance)
-          intensity = (fadeDistance - distance) / (fadeDistance - proximity);
-
-        box.style.setProperty("--glow-x", `${((x - rect.left) / rect.width) * 100}%`);
-        box.style.setProperty("--glow-y", `${((y - rect.top) / rect.height) * 100}%`);
-        box.style.setProperty("--glow-intensity", intensity.toFixed(3));
-      });
-    };
-
-    const onMove = (e: MouseEvent) => {
-      x = e.clientX;
-      y = e.clientY;
-      if (!raf) raf = requestAnimationFrame(apply);
-    };
-    const onLeave = () => {
-      document
-        .querySelectorAll<HTMLElement>(".panel, .stat")
-        .forEach((box) => box.style.setProperty("--glow-intensity", "0"));
-    };
-
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseleave", onLeave);
-    return () => {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseleave", onLeave);
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, []);
-}
-
 function Shell() {
   const {state:demo}=useDemoState();
   const [sidebarCollapsed,setSidebarCollapsed]=useState(false);
   const [view, setView] = useState<ViewId>("dashboard");
   const { level, scanAlert } = useThreat();
-  useBoxGlow();
 
   const statusLabel =
     scanAlert ? 'Scan finding · review required' : demo ? 'Connected · partial coverage' : level === "danger"
@@ -127,7 +71,7 @@ function Shell() {
           position: "absolute",
           inset: 0,
           zIndex: 0,
-          opacity: 0.75,
+          opacity: 0.25,
         }}
       >
         <GradientASCII

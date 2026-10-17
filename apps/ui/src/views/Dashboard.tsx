@@ -106,16 +106,16 @@ export default function Dashboard({ onViewAll, onNavigate }: { onViewAll: () => 
       </nav>
       {/* ── STAT TILES — no backend in this preview, so honest em-dashes ── */}
       <div className="stat-grid dashboard-stats">
-        <button type="button" className="stat" onClick={()=>onNavigate?.('scan')} disabled={!onNavigate}>
-          <div className="num">{demo?.scan?.checked??'—'}</div>
+        <button type="button" className="stat glass-card glass-card--tile" onClick={()=>onNavigate?.('scan')} disabled={!onNavigate}>
+          <div className={`num${demo?.scan?.checked==null?" is-empty":""}`}>{demo?.scan?.checked??'—'}</div>
           <div className="label">FILES INSPECTED</div>
         </button>
-        <button type="button" className="stat" onClick={()=>onNavigate?.('scan')} disabled={!onNavigate}>
-          <div className="num">{snapshot?snapshot.reports.filter(r=>r.verdict==='suspicious'||r.verdict==='signature_match').length:'—'}</div>
+        <button type="button" className="stat glass-card glass-card--tile" onClick={()=>onNavigate?.('scan')} disabled={!onNavigate}>
+          <div className={`num${!snapshot?" is-empty":""}`}>{snapshot?snapshot.reports.filter(r=>r.verdict==='suspicious'||r.verdict==='signature_match').length:'—'}</div>
           <div className="label">REVIEW FINDINGS</div>
         </button>
-        <button type="button" className="stat" onClick={()=>onNavigate?.('password')} disabled={!onNavigate}>
-          <div className="num">{demo?.accounts.length??'—'}</div>
+        <button type="button" className="stat glass-card glass-card--tile" onClick={()=>onNavigate?.('password')} disabled={!onNavigate}>
+          <div className={`num${demo?.accounts.length==null?" is-empty":""}`}>{demo?.accounts.length??'—'}</div>
           <div className="label">DEMO ACCOUNTS</div>
         </button>
       </div>
@@ -124,7 +124,7 @@ export default function Dashboard({ onViewAll, onNavigate }: { onViewAll: () => 
 
       {/* ── MAIN GRID — wide activity feed left, scenario rail right ── */}
       <div className="console-grid">
-        <section className="panel" style={{ display: "flex", flexDirection: "column" }}>
+        <section className="panel glass-card glass-card--panel" style={{ display: "flex", flexDirection: "column" }}>
           <div className="section-head">
             <h3 className="panel-title" style={{ margin: 0 }}>
               ACTIVITY
@@ -187,7 +187,7 @@ export default function Dashboard({ onViewAll, onNavigate }: { onViewAll: () => 
         </section>
 
         <div className="side-rail">
-          <section className="panel">
+          <section className="panel glass-card glass-card--panel">
             <h3 className="panel-title">ATTACK SIMULATION — SYNTHETIC SCENARIO</h3>
             <p style={{ color: "var(--text-dim)", fontSize: "0.8125rem", lineHeight: 1.6, margin: "0 0 14px" }}>
               Changes the console theme using invented evidence. No file, device
@@ -204,25 +204,25 @@ export default function Dashboard({ onViewAll, onNavigate }: { onViewAll: () => 
             </div>
           </section>
 
-          <section className="panel">
+          <section className="panel glass-card glass-card--panel">
             <h3 className="panel-title">CAPABILITY STATUS</h3>
             <div className="kv-row">
               <span className="kv-key">
                 Scan adapter <span className="status-dot" style={{ display: "inline-block" }} />
               </span>
-              <span className="kv-val" style={{ color: "var(--warn)" }}>
+              <span className="kv-val glass-status--warning">
                 {demo?'bounded demo':'unavailable'}
               </span>
             </div>
             <div className="kv-row">
               <span className="kv-key">Vault backend</span>
-              <span className="kv-val" style={{ color: "var(--warn)" }}>
+              <span className="kv-val glass-status--warning">
                 {demo?'shared demo':'unavailable'}
               </span>
             </div>
             <div className="kv-row" style={{ borderBottom: "none" }}>
               <span className="kv-key">Local lessons</span>
-              <span className="kv-val" style={{ color: "var(--state)" }}>
+              <span className="kv-val glass-status--available">
                 available
               </span>
             </div>

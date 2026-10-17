@@ -1,93 +1,66 @@
-/* Shared desktop box primitive: .panel (and its compact .stat variant).
-   Cosmetic only: never changes dimensions, padding, content or event handlers. */
-:root {
-  --glass-blur: 14px;
-  --glass-opacity: .78;
-  --glass-deep-opacity: .88;
-  --glass-fill: linear-gradient(145deg, rgba(20, 37, 66, var(--glass-opacity)), rgba(5, 12, 25, var(--glass-deep-opacity)));
-  --glass-solid: linear-gradient(145deg, #142542, #050c19);
-  --glass-border: rgba(172, 202, 235, .24);
-  --glass-highlight: rgba(220, 235, 252, .13);
-  --glass-glow-opacity: .11;
-  --glass-glow: rgba(53, 103, 164, var(--glass-glow-opacity));
-  --glass-radius: var(--layout-radius, var(--radius, 16px));
-  --glass-shadow: 0 10px 30px rgba(0, 4, 12, .25), 0 0 28px var(--glass-glow);
-  --glass-elevated-shadow: 0 16px 38px rgba(0, 4, 12, .32), 0 0 36px var(--glass-glow);
-  --glass-ease: cubic-bezier(.2, .65, .3, 1);
+@import './components/glass-card-tokens.css';
+/* .panel/.stat are compatibility aliases: every existing card inherits this base. */
+#root :is(.glass-card,.panel,.stat){
+ --text-dim:var(--glass-body);--text-faint:var(--glass-muted);
+ position:relative;isolation:isolate;overflow:hidden;
+ background:var(--glass-solid);border:1px solid var(--glass-border);border-radius:var(--glass-radius);
+ box-shadow:inset 0 1px 0 var(--glass-highlight),var(--glass-shadow);
+ color:var(--glass-body);font-family:var(--glass-font);font-size:14px;font-weight:400;line-height:1.5;
+ backdrop-filter:none;-webkit-backdrop-filter:none;
+ animation:glass-appear var(--glass-duration) ease-out backwards;animation-delay:var(--card-delay,0ms);
+ transition:border-color var(--glass-duration) var(--glass-ease),box-shadow var(--glass-duration) var(--glass-ease),transform var(--glass-duration) var(--glass-ease);
 }
-/* Specificity beats per-page fills, without touching their spacing or geometry. */
-#root :is(.panel, .stat) {
-  --text-dim: #d0def2;
-  --text-faint: #c8d8ef;
-  background: var(--glass-solid);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--glass-radius);
-  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  animation: glass-appear 240ms var(--glass-ease);
-  transition: border-color 240ms var(--glass-ease), box-shadow 240ms var(--glass-ease), transform 240ms var(--glass-ease);
+#root :is(.stat,.glass-card--tile){border-radius:var(--glass-tile-radius)}
+/* Preserve existing spacing, including the small-window overrides. */
+#root .dashboard-layout :is(.panel,.stat){padding:var(--glass-padding)}
+#root .dashboard-layout .dashboard-hero{padding:0}
+#root :is(.glass-card,.panel,.stat)::before{
+ content:"";position:absolute;inset:-40px;z-index:-1;pointer-events:none;height:auto;padding:0;border-radius:inherit;
+ background:radial-gradient(ellipse 150px 120px at var(--bloom-x,8%) var(--bloom-y,12%),var(--glass-bloom-blue),transparent 75%),radial-gradient(ellipse 160px 130px at 90% 90%,var(--glass-bloom-indigo),transparent 75%);
+ filter:blur(var(--glass-bloom-blur));opacity:1;animation:glass-bloom var(--glass-bloom-duration) ease-in-out infinite alternate;
 }
-@keyframes glass-appear { from { opacity: .85; } to { opacity: 1; } }
-/* Replace continuous sweep/cursor glow with a static, one-pixel glass rim. */
-#root :is(.panel, .stat)::before {
-  content: "";
-  position: absolute;
-  inset: 0 12px auto;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(202, 224, 250, .30), transparent);
-  animation: none;
-  opacity: 1;
-  pointer-events: none;
+#root :is(.glass-card,.panel,.stat)::after{content:none}
+#root :is(.glass-card,.panel,.stat):nth-child(2n){--bloom-x:92%;--bloom-y:18%;--card-delay:var(--glass-stagger)}
+#root :is(.glass-card,.panel,.stat):nth-child(3n){--bloom-x:65%;--bloom-y:85%;--card-delay:calc(2 * var(--glass-stagger))}
+@keyframes glass-appear{from{opacity:0;transform:scale(.99)}to{opacity:1;transform:scale(1)}}
+@keyframes glass-bloom{from{transform:translate3d(-6px,-8px,0)}to{transform:translate3d(10px,8px,0)}}
+@supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+ #root :is(.glass-card,.panel,.stat){background:var(--glass-fill);backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturation));-webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturation))}
+ /* Avoid stacking another full blur inside an already frosted card. */
+ #root :is(.panel,.glass-card) :is(.panel,.stat,.glass-card){backdrop-filter:none;-webkit-backdrop-filter:none}
 }
-#root :is(.panel, .stat)::after { content: none; }
-#root :is(.dashboard-hero, .pm-detail) { box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-elevated-shadow); }
-/* All boxes share the tint, but only a bounded set of outer surfaces gets blur.
-   Stats, nested boxes and long lists never add another filtered layer. */
-@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  #root :is(.panel, .stat) { background: var(--glass-fill); }
-  #root :is(.content > .panel:nth-of-type(-n+3), .dashboard-hero, .pm-workspace > .panel:nth-of-type(-n+2), .usb-guard > .panel:nth-of-type(-n+2)) {
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-  }
-  #root .panel :is(.panel, .stat) { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-}
-/* Do not make informational sections look clickable. Existing buttons/links only. */
-@media (hover: hover) {
-  #root :is(button, a):is(.panel, .stat):not(:disabled):not([aria-disabled="true"]):hover {
-    border-color: rgba(172, 202, 235, .48);
-    box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-elevated-shadow);
-    transform: translateY(-2px);
-  }
-}
-#root :is(.panel, .stat):focus-within { border-color: rgba(172, 202, 235, .48); }
-#root :is(button, a):is(.panel, .stat):focus-visible { outline: 3px solid #9bddff; outline-offset: 4px; }
-#root :is(button, a):is(.panel, .stat):not(:disabled):not([aria-disabled="true"]):active { transform: translateY(0); box-shadow: inset 0 1px 0 var(--glass-highlight), 0 4px 16px rgba(0, 4, 12, .25); }
-/* Native backdrop remains opt-in and does not grant capabilities. No shell blur. */
-html[data-desktop="glass"], html[data-desktop="glass"] body, html[data-desktop="glass"] #root { background: transparent; }
-html[data-desktop="glass"] .shell { background: linear-gradient(135deg, rgba(5, 10, 22, .24), rgba(8, 19, 38, .36)); }
-html[data-desktop="glass"] .sidebar { background: linear-gradient(180deg, #121d36f5, #080e1df5); backdrop-filter: none; }
-html[data-desktop="glass"] .topbar { background: #080e1deb; backdrop-filter: none; }
-html[data-desktop="glass"] .dither-bg { opacity: .75 !important; }
-/* Native hosts may opt out when GPU acceleration is disabled. CSS cannot reliably
-   detect GPU acceleration; this explicit switch also works in the browser. */
-html[data-glass-effects="off"] #root :is(.panel, .stat) {
-  background: var(--glass-solid); backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
-}
-@media (prefers-reduced-transparency: reduce) {
-  #root :is(.panel, .stat) { background: var(--glass-solid); backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-  html[data-desktop="glass"] .shell { background: #070c19; }
-}
-@media (prefers-reduced-motion: reduce) {
-  #root :is(.panel, .stat) { transition: none; animation: none; }
-  #root :is(button, a):is(.panel, .stat):not(:disabled):hover,
-  #root :is(button, a):is(.panel, .stat):not(:disabled):active { transform: none; }
-}
-@media (forced-colors: active) {
-  #root :is(.panel, .stat) { background: Canvas; color: CanvasText; border-color: CanvasText; box-shadow: none; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-  #root :is(.panel, .stat)::before { content: none; }
-  #root :is(button, a):is(.panel, .stat):focus-visible { outline-color: Highlight; }
-}
-
-/* Retain the same glass material in the red threat form. */
-body[data-threat="danger"]{--glass-fill:linear-gradient(145deg,rgba(68,18,36,var(--glass-opacity)),rgba(15,7,20,var(--glass-deep-opacity)));--glass-border:rgba(239,132,145,.36);--glass-glow:rgba(158,43,66,var(--glass-glow-opacity))}
+@media(hover:hover){#root :is(.glass-card,.panel,.stat):hover{border-color:var(--glass-border-hover);transform:translateY(-2px)}}
+#root :is(.glass-card,.panel,.stat):focus-within{border-color:var(--glass-blue)}
+#root :is(button,a):is(.glass-card,.panel,.stat):focus-visible{outline:2px solid var(--glass-blue);outline-offset:3px}
+#root :is(button,a):is(.glass-card,.panel,.stat):active{transform:translateY(0)}
+#root :is(.glass-card,.panel,.stat) .panel-title{font:600 13px/1.5 var(--glass-font);text-transform:uppercase;letter-spacing:.08em;color:var(--glass-muted)}
+#root .stat .label{font:400 12px/1.5 var(--glass-font);text-transform:uppercase;letter-spacing:.08em;color:var(--glass-muted)}
+#root .stat .num{font:700 36px/1.2 var(--glass-font);color:var(--glass-text);text-shadow:none}
+#root .stat .num.is-empty{color:var(--glass-placeholder)}
+#root .glass-card p{font-size:14px!important;font-weight:400;line-height:1.5!important}
+#root .glass-card .section-link{color:var(--glass-link);text-decoration:none;font-family:var(--glass-font)}
+#root .glass-card .section-link:hover{color:var(--glass-cyan)}
+#root .glass-card :is(.section-link,.btn):focus-visible{outline:2px solid var(--glass-blue);outline-offset:3px}
+#root .glass-card .btn{border:1px solid var(--glass-button-border);border-radius:var(--glass-button-radius);background:transparent;color:var(--glass-text);font-family:var(--glass-font);transition:background-color var(--glass-duration) ease,box-shadow var(--glass-duration) ease,border-color var(--glass-duration) ease}
+#root .glass-card .btn:not(:disabled):hover{background:rgba(255,255,255,.07);box-shadow:0 0 18px rgba(77,217,255,.12)}
+#root .glass-card .btn.danger{color:var(--glass-danger);border-color:rgba(255,90,95,.5);background:rgba(255,90,95,.06)}
+#root .glass-card .btn.danger:not(:disabled):hover{background:rgba(255,90,95,.1);box-shadow:0 0 20px rgba(255,90,95,.2)}
+#root .glass-card .kv-row{border-color:var(--glass-divider)}
+#root .glass-card .kv-key{color:#d6dbee;font:400 14px/1.5 var(--glass-font)}
+#root .glass-card .kv-val{font:400 12px/1.5 var(--font-mono);border-radius:8px;padding:3px 7px;background:rgba(255,176,32,.09);color:var(--glass-warning)}
+#root .glass-card .kv-val.glass-status--available{color:var(--glass-cyan);background:rgba(77,217,255,.08)}
+#root .glass-card .status-dot{width:8px;height:8px;background:currentColor;color:var(--glass-blue);box-shadow:0 0 10px currentColor;animation:none}
+#root .glass-card :is(progress,.progress-track){height:6px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden}
+#root .glass-card .progress-fill{height:100%;border-radius:inherit;background:linear-gradient(90deg,#1f4bff,var(--glass-cyan));box-shadow:0 0 10px rgba(77,217,255,.25)}
+html[data-desktop=glass],html[data-desktop=glass] body,html[data-desktop=glass] #root{background:transparent}
+html[data-desktop=glass] .shell{background:linear-gradient(135deg,rgba(5,10,22,.24),rgba(8,19,38,.36))}
+html[data-desktop=glass] .topbar{background:#080e1deb;backdrop-filter:none}
+html[data-desktop=glass] .dither-bg{opacity:.25!important}
+/* The danger theme continues to communicate actual findings and previews. */
+body[data-threat=danger]{--glass-fill:rgba(42,14,24,var(--glass-opacity));--glass-solid:rgba(42,14,24,.92);--glass-bloom-blue:rgba(255,90,95,.30);--glass-bloom-indigo:rgba(145,35,73,.28)}
+html[data-glass-effects=off] #root :is(.glass-card,.panel,.stat){background:var(--glass-solid);backdrop-filter:none;-webkit-backdrop-filter:none}
+html[data-glass-effects=off] #root :is(.glass-card,.panel,.stat)::before{content:none}
+@media(max-width:600px){#root .dashboard-layout :is(.panel,.stat){padding:20px}#root .dashboard-layout .dashboard-hero{padding:0}}
+@media(prefers-reduced-transparency:reduce){#root :is(.glass-card,.panel,.stat){background:var(--glass-solid);backdrop-filter:none;-webkit-backdrop-filter:none}#root :is(.glass-card,.panel,.stat)::before{content:none}}
+@media(prefers-reduced-motion:reduce){#root :is(.glass-card,.panel,.stat){animation:none;transition:none;transform:none!important}#root :is(.glass-card,.panel,.stat)::before{animation:none}#root .glass-card .btn{transition:none}}
+@media(forced-colors:active){#root :is(.glass-card,.panel,.stat){background:Canvas;color:CanvasText;border-color:CanvasText;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}#root :is(.glass-card,.panel,.stat)::before{content:none}#root :is(.glass-card,.panel,.stat) :is(.panel-title,.label,.num,.kv-key,.kv-val,.btn,.section-link){color:CanvasText;background:Canvas}#root .glass-card :is(.btn,.section-link):focus-visible{outline-color:Highlight}}
