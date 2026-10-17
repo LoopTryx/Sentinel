@@ -71,11 +71,12 @@ function Shell() {
           position: "absolute",
           inset: 0,
           zIndex: 0,
-          opacity: 0.25,
+          opacity: 1,
         }}
       >
         <GradientASCII
-          colors={["#1e3fd8","#f6f8ff","#a5d8ff","#38bdf8"]}
+          colors={level === "danger" ? ["#9f1239","#f43f5e","#fda4af","#fff1f2"] : ["#1e3fd8","#f6f8ff","#a5d8ff","#38bdf8"]}
+          style={{background:level === "danger" ? "radial-gradient(ellipse at 50% 100%, #9f1239, #260916 70%, #05081a)" : "radial-gradient(ellipse at 50% 100%, #1e3fd8, #101c49 48%, #05081a 80%)"}}
           shape="horizon" characters=" =+xX0S8#@" cellSize={18} density={0.8}
           dpr={1} maxFps={24} mouseInteraction={false} clickEffect="none"
         />
@@ -144,12 +145,13 @@ function Shell() {
           {view === "password" && <PasswordManagerView />}
           {view === "quarantine" && <QuarantineView />}
           {view === "log" && <ThreatLogView />}
-        <footer className="desktop-ribbon">
-          <TextLoop fitWidth text="Sentinel" shape="line" speed={135} direction="forward" separator="✦" curviness={90} tilt={0} fontSize={18} fontWeight={800} letterSpacing={1} uppercase ribbon ribbonColor="#414bff" ribbonWidth={30} edgeFade={0} cross={false} crossAngle={14} draggable scrollBoost={0} outline={false} pauseOnHover outlineWidth={1.5} color="#000000"/>
-        </footer>
+
         </div>
 
       </main>
+        <footer className="desktop-ribbon">
+          <TextLoop fitWidth text="Sentinel" shape="line" speed={135} direction="forward" separator="✦" curviness={90} tilt={0} fontSize={18} fontWeight={800} letterSpacing={1} uppercase ribbon ribbonColor="#414bff" ribbonWidth={30} edgeFade={0} cross={false} crossAngle={14} draggable scrollBoost={0} outline={false} pauseOnHover outlineWidth={1.5} color="#000000"/>
+        </footer>
     </div>
   );
 }

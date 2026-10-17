@@ -53,9 +53,10 @@
 #root .glass-card :is(progress,.progress-track){height:6px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden}
 #root .glass-card .progress-fill{height:100%;border-radius:inherit;background:linear-gradient(90deg,#1f4bff,var(--glass-cyan));box-shadow:0 0 10px rgba(77,217,255,.25)}
 html[data-desktop=glass],html[data-desktop=glass] body,html[data-desktop=glass] #root{background:transparent}
-html[data-desktop=glass] .shell{background:linear-gradient(135deg,rgba(5,10,22,.24),rgba(8,19,38,.36))}
+#root .shell{background:transparent}
+body::before{display:none}
 html[data-desktop=glass] .topbar{background:#080e1deb;backdrop-filter:none}
-html[data-desktop=glass] .dither-bg{opacity:.25!important}
+html[data-desktop=glass] .dither-bg{opacity:1!important}
 /* The danger theme continues to communicate actual findings and previews. */
 body[data-threat=danger]{--glass-fill:rgba(42,14,24,var(--glass-opacity));--glass-solid:rgba(42,14,24,.92);--glass-bloom-blue:rgba(255,90,95,.30);--glass-bloom-indigo:rgba(145,35,73,.28)}
 html[data-glass-effects=off] #root :is(.glass-card,.panel,.stat){background:var(--glass-solid);backdrop-filter:none;-webkit-backdrop-filter:none}
