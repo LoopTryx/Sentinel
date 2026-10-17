@@ -11,3 +11,7 @@ Owner request 16 October: enable real Block and retain explicit blocks across Wi
 - [ ] Commit/push tested owned changes and update PR74 evidence; coordinator-reviewed integration remains separate.
 
 Guardrails: no class-wide apply from a device button; no blanket timeout removal; exact external USB HID subjects only; built-in safety candidates cannot enter deny set; CRYPTIC E untouched, Defender enabled; no force override/reboot; foreign-policy drift refuses mutation. Existing installed containment build remains until the new provider is qualified.
+
+## Current continuation (17 October, qualified backend)
+
+Private full backend and read-only production bridge now PASS; see progress.md for exact evidence and unknown historical COM root cause. Native Block/Allow integration is compiled behind explicit ReviewedExact, original shared-class gate remains false. Await owner tray Exit to replace locked installed console, then RP2040 physical acceptance. No live input/restart acceptance yet. Preserve B and unrelated audio changes.

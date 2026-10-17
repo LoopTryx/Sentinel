@@ -101,8 +101,8 @@ public static class SentinelDuckyLocalGpo {
    object instance=null;RegistryKey root=null;
    try{
     instance=Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("EA502722-A23D-11D1-A7D3-0000F87571E3")));
-    var gpo=(IGpo)instance;gpo.OpenLocalMachineGPO(readOnly?3u:1u);
-    IntPtr handle;gpo.GetRegistryKey(2,out handle);if(handle==IntPtr.Zero)throw new InvalidOperationException("Missing machine policy handle");
+    var gpo=(IGpo)instance;try{gpo.OpenLocalMachineGPO(readOnly?3u:1u);}catch(COMException error){throw new InvalidOperationException(readOnly?"IGpo.OpenLocalMachineGPO(readonly)":"IGpo.OpenLocalMachineGPO(write)",error);}
+    IntPtr handle;try{gpo.GetRegistryKey(2,out handle);}catch(COMException error){throw new InvalidOperationException("IGpo.GetRegistryKey(machine)",error);}if(handle==IntPtr.Zero)throw new InvalidOperationException("Missing machine policy handle");
     root=RegistryKey.FromHandle(new SafeRegistryHandle(handle,true),RegistryView.Default);
     Action check=()=>{if(Fingerprint(file)!=before)throw new InvalidOperationException("Local policy changed concurrently; save refused");};check();
     Action save=()=>{

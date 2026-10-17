@@ -28,10 +28,11 @@ internal sealed class UsbExactBlockGpo {
   if(key==null||before==null||candidate==null)throw new InvalidOperationException("Foreign overlay structure");ValidateLegacyChildren(key);var values=new SortedDictionary<string,object>(StringComparer.Ordinal);
   foreach(string name in key.GetValueNames()){if(name=="SentinelOperation"||name=="DenyInstanceIDs"||name=="DenyInstanceIDsRetroactive")continue;if(name!="SentinelExactBlockState"||key.GetValueKind(name)!=RegistryValueKind.String)throw new InvalidOperationException("Foreign overlay root value");values.Add(name,key.GetValue(name,null,RegistryValueOptions.DoNotExpandEnvironmentNames));}
   using(var list=key.OpenSubKey("DenyInstanceIDs")){if(list==null||list.SubKeyCount!=0||list.ValueCount>32)throw new InvalidOperationException("Foreign overlay list");foreach(string name in list.GetValueNames()){string full="DenyInstanceIDs\\"+name;object value=list.GetValue(name,null,RegistryValueOptions.DoNotExpandEnvironmentNames);if(!Name(full)||list.GetValueKind(name)!=RegistryValueKind.String||!(value is string)||!Exact((string)value))throw new InvalidOperationException("Foreign overlay subject");values.Add(full,value);}}
-  var actual=new Image(values);if(transition)Recognizable(actual,before,candidate);else if(!Same(actual,before))throw new InvalidOperationException("Overlay baseline differs");
+  before=ManagedOverlay(before);candidate=ManagedOverlay(candidate);var actual=new Image(values);if(transition)Recognizable(actual,before,candidate);else if(!Same(actual,before))throw new InvalidOperationException("Overlay baseline differs");
  }
  // This private-only mode preserves an independently authenticated legacy baseline.
- internal Image Managed(Image full){if(legacyNonce==null)return full;var values=full.Values;values.Remove("DenyInstanceIDs");values.Remove("DenyInstanceIDsRetroactive");return new Image(values,full.Tombstones);}
+ internal static Image ManagedOverlay(Image full){if(full==null)throw new ArgumentNullException("full");var values=full.Values;values.Remove("DenyInstanceIDs");values.Remove("DenyInstanceIDsRetroactive");return new Image(values,full.Tombstones);}
+ internal Image Managed(Image full){return legacyNonce==null?full:ManagedOverlay(full);}
  internal static Image Empty(){return new Image(new Dictionary<string,object>());}
  internal static Image Desired(ulong generation,string digest,string[] exactTargets){
   if(generation<1||!Regex.IsMatch(digest??"",@"\A[0-9a-f]{64}\z")||exactTargets==null||exactTargets.Length>32)throw new ArgumentException("Exact policy image refused");

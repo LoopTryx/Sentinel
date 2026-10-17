@@ -51,7 +51,11 @@ internal sealed partial class UsbAdmissionWindow : Form {
   Resize+=delegate{ArrangePanel();};ArrangePanel();
   devices.OwnerDraw=true;devices.DrawColumnHeader+=delegate(object sender,DrawListViewColumnHeaderEventArgs e){using(var brush=new SolidBrush(Color.FromArgb(33,48,73)))e.Graphics.FillRectangle(brush,e.Bounds);TextRenderer.DrawText(e.Graphics,e.Header.Text,Font,e.Bounds,ForeColor,TextFormatFlags.Left|TextFormatFlags.VerticalCenter);};devices.DrawItem+=delegate(object sender,DrawListViewItemEventArgs e){e.DrawDefault=true;};devices.DrawSubItem+=delegate(object sender,DrawListViewSubItemEventArgs e){e.DrawDefault=true;};
   Shown+=async delegate{
-   if(tabPipeName!=null){Opacity=0;ShowInTaskbar=false;ownerPoll.Interval=1000;ownerPoll.Tick+=delegate{if(!consoleOwner.Alive&&!busy)Close();};ownerPoll.Start();await RefreshView(true,false);Hide();StartTabServer();return;}
+   if(tabPipeName!=null){Opacity=0;ShowInTaskbar=false;ownerPoll.Interval=1000;ownerPoll.Tick+=delegate{if(!consoleOwner.Alive&&!busy)Close();};ownerPoll.Start();
+#if SENTINEL_USB_EXACT_LIVE_REVIEWED
+if(UsbExactBlockCapability.IsInstalled()){try{await UsbExactBlockOperations.RecoverPending();}catch{message.Text="Previous USB operation requires authenticated recovery.";}inventory=await Task.Run(()=>UsbAdmissionInventory.Collect(null));Hide();StartTabServer();return;}
+#endif
+await RefreshView(true,false);Hide();StartTabServer();return;}
    if(consoleOwner!=null){consoleOwner.Attach(this);ArrangePanel();ownerPoll.Interval=300;ownerPoll.Tick+=delegate{if(!consoleOwner.Position(this)&&!busy)Close();};ownerPoll.Start();}await RefreshView(true,false);
   };
   Deactivate+=delegate{if(tabPipeName==null&&consoleOwner!=null&&!busy)BeginInvoke(new Action(()=>{if(!busy&&consoleOwner.OwnsForeground)Close();}));};

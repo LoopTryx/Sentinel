@@ -26,3 +26,33 @@ Owner requests prioritizing combination with Engineer B3637eb2, compiling all an
 Actual private SYSTEM fixture PASS: independent scheduled recovery restored uncommitted private policy; external controller verified and retired task/journal. New full backend sources compile with pinned manifest, suspended authenticated named-job producers and separate SYSTEM recovery self-job. Full backend private run has NOT passed: stage2 failed creating SYSTEM-owned parent job. Actual elevated unnamed-job probe proved explicitSYSTEM ownership error1307, default administrator ownership succeeds. Source fixed to default ownership with unchanged protected SY/BA DACL and trusted-owner validation; corrected controller built using immutable existing worker. Corrected private full backend not rerun yet. Its protected private journal/recovery state is retained; no hardware restrictions were installed. Do not represent the worker candidate as activated production Block/Allow.
 
 Next enforcement work remains connected operator authority/worker/live exact provider qualification and physical Block/Allow/restart acceptance. The integration checkpoint retains containment gate and source/test/handoff work, and preserves Engineer B commit history.
+
+## 17 October 2026 — backend and production bridge qualification
+
+Latest PR head fetched and preserved: 55a61dc8f30b00832c7387bf2ec3db3ccad2a4fa, including Engineer B3637eb2 already integrated. No B branch edited; unrelated audio work and NativeConsole remain separate.
+
+Actual elevated diagnostics: explicit SYSTEM-owned job creation returns Win32 1307 (ERROR_INVALID_OWNER); default trusted owner succeeds for unnamed, named Local and named Global jobs. Required named producer job, protected DACL, suspended launch, containment and cleanup retained. Native error now captured immediately before LocalFree. Historical named-stage2 failure does not reproduce on current default-owner source; do not claim a newly established distinct named-object cause.
+
+Historical baseline COM failure also does not reproduce. Independent read-only baseline check passed repeatedly. Added precise GPO OpenLocalMachineGPO/GetRegistryKey and scheduler call context, HRESULT and nested diagnostics. No unsupported claim that STA caused the historical failure. Concrete newly reproduced blocker: recovery polling reopened the protected decision lock while the SYSTEM writer held it (IOException 0x80070020). Fixed read-only running-task authentication; protected-state verification happens after completion. Read verification now follows Decision -> legacy baseline -> GPO lock order, matching writes.
+
+Concrete live-overlay defect fixed: retained legacy deny switches were stripped from actual managed policy but remained in expected images. Both comparison sides now normalize consistently; saved legacy switches and foreign values remain preserved. Disposable HKCU overlay regression PASS.
+
+Full private backend qualification PASS (actual protected worker and real SYSTEM task, synthetic private policy location): multi-block/apply/Allow-one, precommit restoration retaining earlier committed block, postcommit candidate preservation after lost reply, and task/pending cleanup. This is not physical USB or Windows-restart evidence.
+
+Production bridge implemented behind explicit -ReviewedExact build: fresh native session reference -> exact selection -> named native confirmation -> Windows Hello -> protected worker/recovery -> saved/effective policy readback -> durable commit. Original baseline binding required; old journal/proposals/tasks/producers must be absent, old controller/config exclusion leases retained. No class-wide apply enabled. Recovery-only startup, disconnected committed Allow and truthful persistent-policy status included. Installation alone is not proof of hardware behavior.
+
+Commands/outcomes:
+- ./tools/build-usb-admission-operator.ps1 -ReviewedExact: PASS compiled operator and separate live worker; old shared class live path remains disabled.
+- ./tools/usb/tests/test-usb-exact-block-state.ps1: PASS.
+- ./tools/usb/tests/test-usb-exact-block-transaction.ps1: PASS 344 modeled cases.
+- ./tools/usb/tests/test-usb-exact-block-selection.ps1: PASS 36 assertions, synthetic only.
+- ./tools/usb/tests/test-usb-exact-block-native-authority.ps1: PASS, no Hello/device claim.
+- ./tools/usb/tests/test-usb-exact-block-recovery-tasks.ps1: PASS contract checks.
+- ./tools/usb/tests/test-usb-exact-block-overlay.ps1: PASS disposable HKCU, no machine enforcement.
+- pnpm --filter @sentinel/ui exec vitest run src/features/usb/tab-contract.test.ts src/features/usb/UsbGuardView.test.tsx: PASS 6 tests.
+- pnpm --filter @sentinel/ui typecheck: PASS.
+- ./tools/verify.ps1 unchanged: PASS exit0, artifacts/usb-final-full-verifier.log. Later disconnected-release/native-label changes received affected native and UI checks.
+- owner-approved Run-UsbBlockDiagnostics.ps1: baseline PASS exit0; full private backend PASS exit0; artifacts/usb-block-{baseline,backend}-diagnostic.log.
+- owner-approved Install-UsbExactReviewedTrial.ps1: protected immutable live runtime/operator installed; read-only production bridge PASS exit0, artifacts/usb-production-read-qualification.log. No device restrictions applied by installation.
+
+Hardware acceptance PENDING. Owner selected RP2040 harmless QUACK typing. Need physical Block/reconnect with normal controls intact, Allow/reconnect, second approved test device + Allow-one, closure, actual restart persistence and release. No automatic reboot. Block post-apply fresh inventory may fail closed and roll back if Windows removes the selected function from enumeration; physical evidence must determine this. Console replacement is waiting for the owner to Exit the tray app because its executable remains locked. Do not claim completion or merge PR74.

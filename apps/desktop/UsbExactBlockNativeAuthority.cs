@@ -24,14 +24,17 @@ internal sealed class UsbExactBlockNativeAuthority:UsbExactBlockTransaction.INat
  internal static void CheckInventory(UsbExactBlockState.Request request,UsbAdmissionInventory.Result inventory){
   if(request==null||inventory==null||!inventory.Complete||inventory.Preflight==null||inventory.Preflight.State!="review_required"||inventory.Preflight.TopologyToken!=request.TopologyHash||inventory.Preflight.Unresolved!=0||inventory.Preflight.Candidates==null)throw new InvalidOperationException("Fresh USB classification required");
   var selected=new HashSet<string>(request.Targets,StringComparer.OrdinalIgnoreCase);
+  var releaseOnly=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+  if(request.Action=="allow"&&request.Before!=null){var previous=new HashSet<string>(request.Before.Blocked,StringComparer.OrdinalIgnoreCase);var next=new HashSet<string>(request.After.Blocked,StringComparer.OrdinalIgnoreCase);foreach(string target in request.Targets)if(previous.Contains(target)&&!next.Contains(target))releaseOnly.Add(target);}
   var seen=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
   foreach(var candidate in inventory.Preflight.Candidates){
    if(candidate==null||string.IsNullOrEmpty(candidate.Instance)||!seen.Add(candidate.Instance))throw new InvalidOperationException("Ambiguous USB classification");
    if(candidate.Category=="required_safety_candidate"){
-    if(selected.Contains(candidate.Instance))throw new InvalidOperationException("Built-in input cannot be restricted");
+    if(selected.Contains(candidate.Instance)&&!releaseOnly.Contains(candidate.Instance))throw new InvalidOperationException("Built-in input cannot be restricted");
+    selected.Remove(candidate.Instance);
    }else if(candidate.Category=="external_approval_required")selected.Remove(candidate.Instance);
    else throw new InvalidOperationException("Unresolved USB classification");
   }
-  if(selected.Count!=0)throw new InvalidOperationException("Selected external USB function is not present");
+  foreach(string missing in selected)if(!releaseOnly.Contains(missing))throw new InvalidOperationException("Selected external USB function is not present");
  }
 }

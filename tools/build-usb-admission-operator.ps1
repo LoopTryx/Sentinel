@@ -1,5 +1,6 @@
-param([switch]$ReviewedLive,[switch]$UseExistingWorker)
+param([switch]$ReviewedLive,[switch]$UseExistingWorker,[switch]$ReviewedExact)
 $ErrorActionPreference='Stop'
+if($ReviewedLive -and $ReviewedExact){throw 'Choose one reviewed backend: legacy admission or exact-device blocking'}
 if($UseExistingWorker -and !$ReviewedLive){throw 'Reusing the installed live worker requires explicit reviewed live scope'}
 $root=Split-Path -Parent $PSScriptRoot
 $framework=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319'
@@ -15,15 +16,24 @@ $common+=@('tools/usb/UsbAdmissionLegacyState.cs','tools/usb/UsbLegacyReleasedBa
 $worker=Join-Path $root 'artifacts/Sentinel.UsbAdmissionWorker.exe'
 $options=@('/nologo','/platform:x64',('/reference:'+(Join-Path $framework 'Microsoft.CSharp.dll')))
 if($ReviewedLive){$options+='/define:SENTINEL_USB_ADMISSION_LIVE_REVIEWED'}
+if($ReviewedExact){$options+='/define:SENTINEL_USB_EXACT_LIVE_REVIEWED'}
 if(!$UseExistingWorker){& (Join-Path $root 'tools/usb/tests/build-usb-admission-worker.ps1') -ReviewedLive:$ReviewedLive}else{
  $manifest=Get-Content -LiteralPath (Join-Path $env:ProgramData 'SentinelUsbAdmission/admission-images.txt');if($manifest.Count -lt 2 -or $manifest[0] -ne ('worker-'+(Get-FileHash $worker).Hash.ToLowerInvariant()+'.exe')){throw 'Existing installed worker identity mismatch'}
 }
 $compiler=Join-Path $root 'target/debug/sentinel-usb-policy-plan.exe'
 $operator=Join-Path $root 'artifacts/Sentinel.UsbGuard.exe'
 $ui=@('apps/desktop/UsbAdmissionTabModel.cs','apps/desktop/UsbAdmissionTab.cs','apps/desktop/UsbAdmissionTabPipe.cs','apps/desktop/UsbAdmissionDeviceActions.cs','apps/desktop/UsbAdmissionWindow.cs','apps/desktop/UsbAdmissionConsoleOwner.cs','apps/desktop/UsbAdmissionDeviceRecovery.cs','tools/usb/UsbAdmissionRestartSelection.cs','apps/desktop/UsbAdmissionAuthorization.cs','apps/desktop/UsbAdmissionNativeAuthority.cs','apps/desktop/UsbOwnerVerification.cs','apps/desktop/UsbAdmissionInventory.cs','apps/desktop/UsbInternalDetection.cs','apps/desktop/UsbConnectorEvidence.cs','tools/usb/UsbAdmissionPreflight.cs','tools/usb/UsbAdmissionNativeStores.cs')|ForEach-Object{Join-Path $root $_}
+if($ReviewedExact){
+ # The reviewed exact backend is a separate opt-in. The legacy worker remains
+ # compiled without its live symbol; this cannot enable shared-class policy.
+ & (Join-Path $root 'tools/usb/tests/build-usb-exact-block-worker.ps1') -ReviewedLive
+ $common+=@('tools/usb/UsbExactBlockState.cs','tools/usb/UsbExactBlockTransaction.cs','tools/usb/UsbExactBlockFileStore.cs','tools/usb/UsbExactBlockRecoveryTasks.cs','tools/usb/UsbExactBlockBackend.cs','tools/usb/UsbExactBlockGpo.cs','tools/usb/UsbExactBlockBaseline.cs')|ForEach-Object{Join-Path $root $_}
+ $ui+=@('apps/desktop/UsbExactBlockSelection.cs','apps/desktop/UsbExactBlockNativeAuthority.cs','apps/desktop/UsbExactBlockOperations.cs','apps/desktop/UsbExactBlockCapability.cs')|ForEach-Object{Join-Path $root $_}
+}
 $legacyResources=@(('/resource:'+(Join-Path $root 'tools/usb/DuckyPolicyEntry.cs')+',Sentinel.LegacySource.Current'),('/resource:'+(Join-Path $root 'artifacts/LegacyDuckyEntry-d0c3349.cs')+',Sentinel.LegacySource.Historical'))
 $references=@('System.Web.Extensions.dll','System.Windows.Forms.dll','System.Drawing.dll','System.Runtime.WindowsRuntime.dll')|ForEach-Object{'/reference:'+(Join-Path $framework $_)}
 & (Join-Path $framework 'csc.exe') @options /target:winexe /main:UsbAdmissionWindow ('/out:'+$operator) ('/win32manifest:'+(Join-Path $root 'apps/desktop/password-approval.manifest')) ('/resource:'+$worker+',Sentinel.Admission.Worker') ('/resource:'+$compiler+',Sentinel.Admission.Compiler') @legacyResources @references $common $ui
 if($LASTEXITCODE -ne 0){throw 'Native USB Guard operator build failed'}
 Write-Output 'Built artifacts/Sentinel.UsbGuard.exe; no deployment or USB action performed'
-if(-not $ReviewedLive){Write-Output 'Live device policy remains compile-disabled; reviewed live build requires explicit -ReviewedLive'}
+if($ReviewedExact){Write-Output 'Built reviewed exact-device backend; legacy shared-class policy remains compile-disabled; no runtime installation performed'}
+elseif(-not $ReviewedLive){Write-Output 'Live device policy remains compile-disabled; reviewed build requires explicit -ReviewedExact or legacy -ReviewedLive'}

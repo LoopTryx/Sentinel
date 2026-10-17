@@ -23,7 +23,11 @@ internal sealed partial class UsbAdmissionWindow {
   if(raw==null||raw.Length>4096||busy||UsbOwnerVerification.HasPending)return "{\"error\":\"action_busy\"}";
   var json=new JavaScriptSerializer{MaxJsonLength=32768,RecursionLimit=8};var request=json.Deserialize<Dictionary<string,object>>(raw);
   object operation; if(request==null||!request.TryGetValue("action",out operation)||!(operation is string))return "{\"error\":\"invalid_request\"}";
-  string action=(string)operation;if(action=="snapshot"){if(request.Count!=1)return "{\"error\":\"invalid_request\"}";await RefreshView(true,false);return json.Serialize(TabSnapshot());}
+  string action=(string)operation;
+#if SENTINEL_USB_EXACT_LIVE_REVIEWED
+  if(UsbExactBlockCapability.IsInstalled())return await ExactTabRequest(request,action,json);
+#endif
+  if(action=="snapshot"){if(request.Count!=1)return "{\"error\":\"invalid_request\"}";await RefreshView(true,false);return json.Serialize(TabSnapshot());}
   if((action!="allow"&&action!="block")||request.Count!=3||!request.ContainsKey("ref")||!request.ContainsKey("topology"))return "{\"error\":\"invalid_request\"}";
   string reference=request["ref"] as string,topology=request["topology"] as string;
   if(!HexTab(reference)||!HexTab(topology))return "{\"error\":\"invalid_request\"}";
@@ -45,6 +49,37 @@ internal sealed partial class UsbAdmissionWindow {
   }finally{Hide();Opacity=0;tabIntentSummary=null;}
   await RefreshView(true,false);return json.Serialize(TabSnapshot());
  }
+#if SENTINEL_USB_EXACT_LIVE_REVIEWED
+ async Task<string> ExactTabRequest(Dictionary<string,object> request,string action,JavaScriptSerializer json){
+  if(action=="snapshot"){
+   if(request.Count!=1)return "{\"error\":\"invalid_request\"}";
+   inventory=await Task.Run(()=>UsbAdmissionInventory.Collect(null));
+   var state=await UsbExactBlockOperations.ReadVerified();return json.Serialize(ExactTabSnapshot(state));
+  }
+  if((action!="allow"&&action!="block")||request.Count!=3)return "{\"error\":\"invalid_request\"}";
+  object rawRef,rawTopology;if(!request.TryGetValue("ref",out rawRef)||!request.TryGetValue("topology",out rawTopology)||!HexTab(rawRef as string)||!HexTab(rawTopology as string))return "{\"error\":\"invalid_request\"}";
+  try{
+   Opacity=1;ShowInTaskbar=false;Text="Sentinel · Confirm USB access";heading.Text=action=="allow"?"Allow USB device":"Block USB device";cards.Visible=false;devices.Visible=false;arm.Visible=false;release.Visible=false;refresh.Visible=false;back.Visible=false;
+   ClientSize=new Size(660,330);StartPosition=FormStartPosition.CenterScreen;Show();Activate();BringToFront();SetBusy(true);
+   message.Text="Verify Windows Hello. Keep the selected device connected…";
+   var result=await UsbExactBlockOperations.Change(Handle,action,(string)rawRef,tabPipeName??tabSalt,(string)rawTopology,true,false,name=>{summary.Text=(action=="allow"?"Allow ":"Block ")+name;});
+   message.Text=result.RestartRequired?"Windows requires a restart to finish this change.":action=="allow"?"Selected rule removed. Reconnect this device and test its input; Windows may require a restart.":"Selected Windows rule verified. Reconnect this device and test that input is stopped.";
+   inventory=await Task.Run(()=>UsbAdmissionInventory.Collect(null));return json.Serialize(ExactTabSnapshot(result.State));
+  }finally{SetBusy(false);Hide();Opacity=0;FinishClose();}
+ }
+ object ExactTabSnapshot(UsbExactBlockState.Snapshot state){
+  bool complete=inventory!=null&&inventory.Complete&&inventory.Preflight!=null&&inventory.Preflight.State=="review_required";
+  var blocked=new HashSet<string>(state==null?new string[0]:state.Blocked,StringComparer.OrdinalIgnoreCase);var result=new List<object>();
+  if(complete)foreach(var group in ExternalGroups()){
+   string name="USB input device";foreach(var subject in inventory.Subjects)if(subject!=null&&subject.Input!=null&&group.Value.Exists(id=>string.Equals(id,subject.Input.Instance,StringComparison.OrdinalIgnoreCase))){name=subject.DisplayName;break;}
+   bool allBlocked=group.Value.TrueForAll(id=>blocked.Contains(id)),noneBlocked=group.Value.TrueForAll(id=>!blocked.Contains(id));
+   result.Add(new Dictionary<string,object>{{"ref",TabReference(group.Key)},{"name",UsbAdmissionInventory.Display(name)},{"access",allBlocked?"restricted":noneBlocked?"allowed":"unverified"},{"canChange",complete},{"canBlock",true},{"canScan",false}});
+  }
+  var represented=new HashSet<string>(StringComparer.OrdinalIgnoreCase);foreach(var group in ExternalGroups())foreach(string id in group.Value)represented.Add(id);
+  foreach(string id in blocked)if(!represented.Contains(id))result.Add(new Dictionary<string,object>{{"ref",TabReference(id)},{"name","Disconnected blocked input"},{"access","restricted"},{"canChange",complete},{"canBlock",false},{"canScan",false}});
+  return new{schemaVersion=1,verified=true,topology=complete?inventory.Preflight.TopologyToken:null,active=blocked.Count>0,persistent=true,deadline=(string)null,devices=result,message=message.Text??""};
+ }
+#endif
  static bool HexTab(string text){return text!=null&&System.Text.RegularExpressions.Regex.IsMatch(text,"^[a-f0-9]{64}$");}
  Dictionary<string,List<string>> ExternalGroups(){return UsbAdmissionTabModel.Groups(inventory);}
  object TabSnapshot(){

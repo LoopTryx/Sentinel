@@ -11,10 +11,10 @@ internal static class UsbAdmissionTabModel {
   }return groups;
  }
  internal static string Reference(string sessionSalt,string nativeGroupKey){if(string.IsNullOrEmpty(sessionSalt)||sessionSalt.Length>128||string.IsNullOrEmpty(nativeGroupKey)||nativeGroupKey.Length>512||sessionSalt.IndexOf('\0')>=0||nativeGroupKey.IndexOf('\0')>=0)throw new ArgumentException("USB tab reference refused");using(var sha=SHA256.Create())return BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(sessionSalt+"\n"+nativeGroupKey))).Replace("-","").ToLowerInvariant();}
- internal static object Snapshot(UsbAdmissionInventory.Result inventory,string sessionSalt){
+ internal static object Snapshot(UsbAdmissionInventory.Result inventory,string sessionSalt,bool exactAvailable=false){
   bool complete=inventory!=null&&inventory.Complete&&inventory.Preflight!=null&&inventory.Preflight.State=="review_required";var rows=new List<object>();
   foreach(var group in Groups(inventory)){string name="USB input device";foreach(var subject in inventory.Subjects){if(subject!=null&&subject.Input!=null&&group.Value.Exists(id=>string.Equals(id,subject.Input.Instance,StringComparison.OrdinalIgnoreCase))){name=subject.DisplayName;break;}}
-   rows.Add(new Dictionary<string,object>{{"ref",Reference(sessionSalt,group.Key)},{"name",UsbAdmissionInventory.Display(name)},{"access","unverified"},{"canChange",complete},{"canBlock",false},{"canScan",false}});
+   rows.Add(new Dictionary<string,object>{{"ref",Reference(sessionSalt,group.Key)},{"name",UsbAdmissionInventory.Display(name)},{"access","unverified"},{"canChange",complete},{"canBlock",exactAvailable&&complete},{"canScan",false}});
   }
   return new{schemaVersion=1,verified=false,active=false,deadline=(string)null,topology=complete?inventory.Preflight.TopologyToken:null,devices=rows,message=""};
  }

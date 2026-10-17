@@ -1,5 +1,5 @@
 using System;using System.IO;using System.Reflection;using System.Security.Principal;using System.Security.Cryptography;
-#if !SENTINEL_USB_EXACT_PRIVATE_QUALIFICATION
+#if !SENTINEL_USB_EXACT_PRIVATE_QUALIFICATION && !SENTINEL_USB_EXACT_LIVE_REVIEWED
 #error Exact worker remains private-qualification-only.
 #endif
 internal static class UsbExactBlockWorker {

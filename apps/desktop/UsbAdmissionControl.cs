@@ -41,7 +41,7 @@ internal static class UsbAdmissionControl {
   try{
    bool ready=false;try{ready=panel!=null&&!panel.HasExited&&tabPipe!=null;}catch{}
    if(ready)try{string reply=await UsbAdmissionTabPipe.Exchange(tabPipe,panel.Id,panel.StartTime.ToUniversalTime().Ticks,"{\"action\":\"snapshot\"}");var value=new System.Web.Script.Serialization.JavaScriptSerializer().Deserialize<System.Collections.Generic.Dictionary<string,object>>(reply);if(value!=null&&!value.ContainsKey("error"))return reply;}catch{}
-   return await Task.Run(()=>new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(UsbAdmissionTabModel.Snapshot(UsbAdmissionInventory.Collect(null),tabSession)));
+   return await Task.Run(()=>new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(UsbAdmissionTabModel.Snapshot(UsbAdmissionInventory.Collect(null),tabSession,UsbExactBlockCapability.IsInstalled())));
   }catch{return "{\"error\":\"inventory_unavailable\"}";}finally{tabLock.Release();}
  }
  internal static async Task<string> TabRequest(IntPtr owner,string request){
