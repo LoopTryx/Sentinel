@@ -1,11 +1,19 @@
 import {explainMessage} from './local-checks.js';
-const STYLE=`:host{display:block;margin:8px 0;color:#1b1e4a;font:13px/1.5 system-ui,sans-serif}button{cursor:pointer;border:1px solid #ff8379;border-radius:12px;background:linear-gradient(125deg,#e51c2a,#d21319 62%,#bd1036);color:#fff;padding:8px 13px;font:700 12px system-ui;box-shadow:inset 0 1px 0 #ffffff35,0 4px 12px #d2131930}button:hover{filter:brightness(1.08)}button:focus-visible{outline:3px solid #1b1e4a;outline-offset:3px}.detail{max-width:340px;margin-top:8px;padding:12px 14px;border:1px solid #afaea2;border-left:4px solid #d21319;border-radius:12px;background:linear-gradient(135deg,#fff9ed,#e5e1d5);box-shadow:0 6px 20px #0002}.detail strong{color:#1b1e4a;font-size:14px}p{margin:6px 0}ul{padding-left:18px;margin:8px 0}.muted{color:#474b5f;font-size:11px}@media(forced-colors:active){button,.detail{background:Canvas;color:CanvasText;border:1px solid CanvasText}.detail strong,.muted{color:CanvasText}}`;
+const STYLE=`
+:host{display:block;margin:8px 0 0;font: 16px/1.45 system-ui,sans-serif;color:#eee9dc}
+[hidden]{display:none!important}*{box-sizing:border-box}
+button{cursor:pointer;border:1px solid #ff827b;border-radius:10px;background:linear-gradient(125deg,#ec2937,#d21319 65%,#b91034);color:#fff;padding:8px 12px;font: 700 16px/1.4 system-ui}
+button:focus-visible{outline:3px solid #8ac7ff;outline-offset:3px}
+.detail{max-width:320px;margin-top:8px;padding:10px 12px;border:1px solid #afaea24d;border-radius:8px;background:#1b1e4a;overflow-wrap:anywhere}
+p{margin:0}.muted{margin-top:6px;color:#c0bfb4;font-size:14px}
+@media(forced-colors:active){button,.detail{background:Canvas;color:CanvasText;border-color:CanvasText}.muted{color:CanvasText}}
+`;
 export function mountWhatsAppWarnings(doc){
  const win=doc.defaultView;
  // The direct child badge owns the outline: recycled/cleared messages lose it automatically.
  // Outline does not resize WhatsApp bubbles or overwrite page inline styles.
  const bubbleStyle=doc.createElement('style');bubbleStyle.dataset.sentinelScam='';
- bubbleStyle.textContent='[data-pre-plain-text]:has(> [data-sentinel-scam]){outline:2px solid #e51c2a;outline-offset:5px;border-radius:8px}@media(forced-colors:active){[data-pre-plain-text]:has(> [data-sentinel-scam]){outline-color:CanvasText}}';
+ bubbleStyle.textContent='[data-pre-plain-text]:has(> [data-sentinel-flagged]){outline:2px solid #e51c2a;outline-offset:5px;border-radius:8px}@media(forced-colors:active){[data-pre-plain-text]:has(> [data-sentinel-flagged]){outline-color:CanvasText}}';
  doc.head.append(bubbleStyle);
  const records=new Map();let timer=null,stopped=false;
  function clearRecord(node){records.get(node)?.badge?.remove();records.delete(node);}
@@ -42,12 +50,15 @@ export function mountWhatsAppWarnings(doc){
    const badge=doc.createElement('span');badge.dataset.sentinelScam='';
    const shadow=badge.attachShadow({mode:'open'});
    const style=doc.createElement('style');style.textContent=STYLE;shadow.append(style);
-   const button=doc.createElement('button');button.type='button';button.textContent=direction==='incoming'?'⚠ Potential scam':'⚠ Suspicious wording';button.setAttribute('aria-expanded','false');
+   const button=doc.createElement('button');button.type='button';button.className='warning-trigger';button.setAttribute('aria-expanded','false');
    const detail=doc.createElement('div');detail.className='detail';detail.hidden=true;
-   const title=doc.createElement('strong');title.textContent='Pause and verify';detail.append(title);
-   if(direction==='unknown'){const note=doc.createElement('p');note.className='muted';note.textContent='Message direction is unavailable in this layout. This checks wording only and does not identify the sender.';detail.append(note);}
-   const reasons=doc.createElement('ul');for(const reason of result.reasons){const li=doc.createElement('li');li.textContent=reason.text;reasons.append(li);}detail.append(reasons);
-   const limits=doc.createElement('p');limits.className='muted';limits.textContent='Local check · Not proof of fraud or sender identity. No AI upload.';detail.append(limits);
+   button.textContent=`⚠ ${result.tier}${direction==='unknown'?' · wording only':''}`;
+   badge.setAttribute('data-sentinel-flagged','');
+   const summary=doc.createElement('p');
+   summary.textContent=`${result.signals.map(signal=>signal.label).join(' · ')}. Verify independently.`;
+   const limits=doc.createElement('p');limits.className='muted';
+   limits.textContent=direction==='unknown'?'Direction unknown · Local clues, not proof of fraud.':'Local clues, not proof of fraud · No AI upload';
+   detail.append(summary,limits);
    button.onclick=()=>{detail.hidden=!detail.hidden;button.setAttribute('aria-expanded',String(!detail.hidden));};
    shadow.append(button,detail);node.append(badge);records.set(node,{text,direction,badge});
   }

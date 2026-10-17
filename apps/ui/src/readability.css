@@ -1,0 +1,18 @@
+html{font-size:18px}body{font-family:Inter,system-ui,sans-serif;font-size:1rem;line-height:1.6}
+:root{--font-display:"Cabinet Grotesk",Inter,system-ui,sans-serif}h1,h2,h3,.panel-title{font-family:var(--font-display);line-height:1.25}button,input,select,textarea{font-family:inherit}
+:root{--selection-bg:#9bddff;--selection-ink:#1b1e4a}
+body,.main,.content{-webkit-user-select:text;user-select:text;font-weight:500}
+::selection{background:var(--selection-bg);color:var(--selection-ink);text-shadow:none}
+p,li,label,input,textarea,select,output{font-weight:600}h1,h2,h3,.panel-title{font-weight:800}button{font-weight:700;-webkit-user-select:none;user-select:none}
+.dashboard-actions{display:flex;flex-wrap:wrap;gap:12px;margin:0}.dashboard-actions .btn{min-height:48px;gap:10px}
+button.stat{text-align:left;font:inherit;color:var(--text);cursor:pointer;min-width:0}
+.btn,.nav-btn,button.stat,.module-action{transition:background-color 150ms ease,border-color 150ms ease,transform 150ms ease;cursor:pointer}
+.btn:not(:disabled):hover,button.stat:hover,.module-action:not(:disabled):hover{border-color:var(--blue-bright);background-color:var(--state-dim);transform:translateY(-2px)}
+.btn:not(:disabled):active,button.stat:active,.module-action:not(:disabled):active{transform:translateY(1px)}
+button:focus-visible{outline:3px solid #9bddff;outline-offset:4px}
+.module-action{display:block;width:100%;text-align:left;font:inherit;color:inherit;padding:12px 0;border:0;border-top:1px solid var(--grid-line);background:transparent;border-radius:8px}
+.module-action:disabled{cursor:default;opacity:1}
+@media(prefers-reduced-motion:reduce){.btn,.nav-btn,button.stat,.module-action{transition:none!important;transform:none!important}}
+:root{--text-dim:#a4b4d5;--text-faint:#8e9fc4}
+
+.scan-finding-summary{padding:16px 20px;margin:0 0 20px;border:1px solid #ef7180;border-radius:12px;background:linear-gradient(120deg,#631827e6,#33101ee6);color:#fff0f2;box-shadow:0 8px 24px #20030b33}.scan-finding-summary strong{display:block;font-family:var(--font-display);font-size:1.3rem}.scan-finding-summary p{margin:6px 0 0;color:#ffd8df}

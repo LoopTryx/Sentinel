@@ -1,0 +1,18 @@
+# Interactive UI and email actions — 16 October 2026
+
+Owner request on prattyush-changes-for-v3 / PR75, base5301269.
+
+## Changes
+- Screenshot establishes the native popup paints the transparent canvas black. Replace alpha with the owner's opaque beige contrast colour (#afaea2); navy panel grows from460px canvas/370px panel height to520px canvas/442px panel height within600px popup height. Remove full-width pseudo-element bars, use a rounded2px border/inset highlight, and re-anchor mascots with smaller reserved gutters. This is an intentional opaque fallback, not a claim of native-window transparency. Main content remains keyboard/wheel scrollable with hidden visual scrollbar; short viewports allow document scrolling.
+- Stronger body/control/heading weights across desktop/extension pages and email footer. Increase muted-text contrast. Enable desktop text selection previously blocked by user-select:none; selection is #9bddff with #1b1e4a text. Buttons retain nonselectable labels; native title-bar dragging remains available.
+- Dashboard quick actions and stat/capability buttons navigate to real existing views. Planned modules remain disabled; no scans, policy changes or privileged actions start from these navigation buttons. Replace stale ClamAV hero/stat copy with truthful local/partial scan and validated review-finding counts.
+- Hover/focus/press feedback uses short CSS transitions only; no new loops, WebGL effects or dependencies. Reduced motion removes the added transforms/transitions.
+- Email Report wrong flag shows pending, acknowledged local success, or retry/failure. Success requires the existing worker's recorded:true acknowledgement; missing/no-op callbacks cannot claim success. Feedback remains an aggregate count only, not message storage, model training, whitelisting or suppression.
+- Trusted senders waits for opened:true, then the fixed settings deep link opens a full-size extension tab, expands the sender controls and focuses the email input. Tests execute actual form save/remove against the sender store. Existing provider opt-in and sender authorization checks unchanged.
+- Layout preview's dummy no-op callbacks removed. Preview feedback is disabled with an availability hint; only the installed extension has live controls.
+
+## Skills and review
+Used requested shadcn, ui-styling and ui-ux-pro-max guidance. shadcn4.21.5 CLI info reports Vite/Tailwind4 with config:null and no installed components; Button/Card docs inspected via official links. Existing semantic native controls/CSS are retained and styled using that guidance; no React shadcn component installation is claimed. No dependency/lockfile, permission, scoring, generated-contract or native authority edits.
+
+Tests cover dashboard navigation/disabled planned controls, acknowledged and failed/retried email actions, fixed settings destination authorization, and actual trusted-sender save/remove/focus. Browser visual automation remains unavailable under prior URL-policy denial; no alternative browser/CDP/CLI screenshot workaround. Native Chrome popup appearance, zoom/reflow and keyboard journeys still need manual installed acceptance. Final test/build/verifier results are recorded below after completion. Existing email quality limits and independent Engineer A/coordinator review gates remain binding.
+Final acceptance: full tools/verify.ps1 PASS (41 desktop tests/build plus native and parity checks); dedicated extension124/124 PASS;13 focused action/storage/authorization tests PASS. No installed extension or desktop files replaced. Visual/native popup/zoom acceptance remains pending. Source and v17 archive are published on the existing review branch; no release or merge.

@@ -44,7 +44,7 @@ internal sealed class UsbExactBlockBackend:UsbExactBlockTransaction.INativeBacke
   internal static ExactJob Open(string nonce,string mode){IntPtr handle=OpenJobObject(0x0004|0x0008|0x00020000,false,Name(nonce,mode));if(handle==IntPtr.Zero){if(Marshal.GetLastWin32Error()==2)return null;throw new InvalidOperationException("Admission job open failed");}return new ExactJob(handle);}
   internal uint Active{get{Accounting data;if(!QueryInformationJobObject(handle,1,out data,(uint)Marshal.SizeOf(typeof(Accounting)),IntPtr.Zero))throw new InvalidOperationException("Admission job accounting unavailable");return data.ActiveProcesses;}}
   internal void Terminate(){if(!TerminateJobObject(handle,1))throw new InvalidOperationException("Admission job termination failed");}
- 
+
  public void Dispose(){if(handle!=IntPtr.Zero){CloseHandle(handle);handle=IntPtr.Zero;}}
  }
 

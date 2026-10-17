@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import App from './App';
+import {ThreatProvider} from './state';
 import ScanView from './views/ScanView';
 import QuarantineView from './views/QuarantineView';
 
@@ -15,8 +16,14 @@ describe('integrated console capability boundaries', () => {
     expect(html).not.toContain('signature engine online');
     expect(html).toContain('SYNTHETIC SCENARIO');
   });
+  it('keeps the ribbon after the main area and removes the sidebar footer',()=>{
+    const html=renderToStaticMarkup(<App/>);
+    expect(html).toContain('font-size:18px');expect(html).toContain('stroke-width="30"');
+    expect(html).toContain('</main><footer class="desktop-ribbon">');expect(html).not.toContain('sidebar-footer');
+    expect(html).not.toContain('THINK · PROTECT · DEFEND');
+  });
   it('does not offer scans through missing native commands', () => {
-    const html = renderToStaticMarkup(<ScanView />);
+    const html = renderToStaticMarkup(<ThreatProvider><ScanView /></ThreatProvider>);
     expect(html).toContain('unavailable');
     expect(html).toContain('disabled');
     expect(html).not.toContain('neutralizes what it catches');
