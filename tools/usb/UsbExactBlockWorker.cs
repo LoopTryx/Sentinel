@@ -1,0 +1,7 @@
+using System;using System.IO;using System.Reflection;using System.Security.Principal;using System.Security.Cryptography;
+#if !SENTINEL_USB_EXACT_PRIVATE_QUALIFICATION && !SENTINEL_USB_EXACT_LIVE_REVIEWED
+#error Exact worker remains private-qualification-only.
+#endif
+internal static class UsbExactBlockWorker {
+ [STAThread]public static int Main(string[] args){if(args.Length!=3||!System.Text.RegularExpressions.Regex.IsMatch(args[1]??"",@"\A[0-9a-f]{32}\z")||!System.Text.RegularExpressions.Regex.IsMatch(args[2]??"",@"\A[0-9a-f]{64}\z")||(args[0]!="recover"&&args[0]!="apply"&&args[0]!="verify"))return 2;if(args[0]=="recover"?!WindowsIdentity.GetCurrent().IsSystem:!new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator))return 3;try{if(args[0]=="recover")DuckyWorkerJob.AttachCurrentWorker();string path=Assembly.GetExecutingAssembly().Location,hash;using(var stream=new FileStream(path,FileMode.Open,FileAccess.Read,FileShare.Read))using(var sha=SHA256.Create())hash=BitConverter.ToString(sha.ComputeHash(stream)).Replace("-","").ToLowerInvariant();if(!string.Equals(Path.GetFullPath(path),Path.Combine(UsbExactBlockRecoveryTasks.CodeRoot,UsbExactBlockRecoveryTasks.ImageName(hash)),StringComparison.OrdinalIgnoreCase))return 4;using(var store=new UsbExactBlockFileStore(UsbExactBlockBackend.StateRoot))using(var backend=new UsbExactBlockBackend(store,hash)){backend.ExecuteWorker(args[0],args[1],args[2]);return 0;}}catch{return 1;}}
+}

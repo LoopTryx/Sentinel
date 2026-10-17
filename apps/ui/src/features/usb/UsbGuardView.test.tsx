@@ -1,29 +1,21 @@
 // @vitest-environment jsdom
-import {act} from 'react';
-import {createRoot} from 'react-dom/client';
-import {expect,it,vi} from 'vitest';
-import UsbGuardView from './UsbGuardView';
-import {demoCall,useDemoState} from '../../demo-bridge';
+import {act} from 'react';import {createRoot} from 'react-dom/client';import {expect,it,vi} from 'vitest';import UsbGuardView from './UsbGuardView';import {demoCall,useDemoState} from '../../demo-bridge';
 vi.mock('../../demo-bridge',()=>({demoCall:vi.fn(),useDemoState:vi.fn()}));
-vi.mock('./UsbActivityPanel',()=>({default:()=>null}));
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;
-it('shows every HID group including unnamed and unresolved groups without inventing a hold',async()=>{
- vi.mocked(useDemoState).mockReturnValue({state:{} as any,error:''});
- vi.mocked(demoCall).mockResolvedValue({schemaVersion:1,mode:'observation_only',state:'partial',observedAt:new Date().toISOString(),omitted:0,devices:[
-  {ref:'device-1',usbEvidence:'os_reported',interfaces:['hid_keyboard','storage'],name:'Example board'},
-  {ref:'device-2',usbEvidence:'os_reported',interfaces:['hid_mouse']},
-  {ref:'device-3',usbEvidence:'unresolved',interfaces:['hid_keyboard']}
- ]});
- const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
- try{await act(async()=>{root.render(<UsbGuardView/>);await Promise.resolve();});expect(host.querySelectorAll('[data-usb-device]')).toHaveLength(3);expect(host.textContent).toContain('HID keyboard');expect(host.textContent).toContain('HID mouse');expect(host.textContent).toContain('USB ancestry unknown');expect(host.textContent).toContain('Input quarantine');expect(host.textContent).toContain('Unavailable');expect(host.textContent).not.toContain('Unnamed input/storage interfaces');expect(host.textContent).not.toContain('Held');
- await act(()=>{vi.mocked(useDemoState).mockReturnValue({state:null,error:''});root.render(<UsbGuardView/>);});expect(host.querySelectorAll('[data-usb-device]')).toHaveLength(0);
- }finally{await act(()=>root.unmount());host.remove();}
+const snapshot=()=>({schemaVersion:1,verified:true,topology:'a'.repeat(64),active:true,deadline:'2026-10-16T15:00:00Z',devices:[{ref:'b'.repeat(64),name:'External keyboard',access:'restricted',canChange:true,canBlock:false,canScan:false}],message:''});
+it('opens a confirmation popup before sending an opaque device action',async()=>{
+ vi.mocked(useDemoState).mockReturnValue({state:{} as any,error:''});vi.mocked(demoCall).mockClear();vi.mocked(demoCall).mockResolvedValue(snapshot());const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ try{await act(async()=>{root.render(<UsbGuardView/>);await Promise.resolve();});expect(host.textContent).toContain('External keyboard');expect(host.textContent).not.toContain('Manage USB Guard');expect(host.querySelectorAll('[data-usb-device]')).toHaveLength(1);const buttons=Array.from(host.querySelectorAll('button'));await act(async()=>{buttons.find(b=>b.textContent==='Allow')!.click();await Promise.resolve();});expect(demoCall).not.toHaveBeenCalledWith('usb.admission.action',expect.anything());expect(host.querySelector('[role=dialog]')).not.toBeNull();await act(async()=>{Array.from(host.querySelectorAll('button')).find(b=>b.textContent==='Confirm Allow')!.click();await Promise.resolve();});expect(demoCall).toHaveBeenCalledWith('usb.admission.action',{action:'allow',ref:'b'.repeat(64),topology:'a'.repeat(64)});}
+ finally{await act(()=>root.unmount());host.remove();}
 });
-it('keeps the latest inventory when manual and automatic refreshes finish out of order',async()=>{
- vi.useFakeTimers();vi.mocked(useDemoState).mockReturnValue({state:{} as any,error:''});
- const snapshot=(name:string)=>({schemaVersion:1,mode:'observation_only',state:'observed',observedAt:new Date().toISOString(),omitted:0,devices:[{ref:'device-1',usbEvidence:'os_reported',interfaces:['hid_keyboard'],name}]});
- let old!:(v:unknown)=>void,newer!:(v:unknown)=>void;
- vi.mocked(demoCall).mockResolvedValueOnce(snapshot('First')).mockImplementationOnce(()=>new Promise(resolve=>{old=resolve;})).mockImplementationOnce(()=>new Promise(resolve=>{newer=resolve;}));
- const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
- try{await act(async()=>{root.render(<UsbGuardView/>);await Promise.resolve();});await act(()=>host.querySelector('button')!.click());await act(async()=>{vi.advanceTimersByTime(5000);await Promise.resolve();});await act(async()=>newer(snapshot('Newest')));await act(async()=>old(snapshot('Outdated')));expect(host.textContent).toContain('Newest');expect(host.textContent).not.toContain('Outdated');}finally{await act(()=>root.unmount());host.remove();vi.useRealTimers();}
+it('does not invent blocking after an initial failed read or disconnect',async()=>{
+ vi.mocked(useDemoState).mockReturnValue({state:{} as any,error:''});vi.mocked(demoCall).mockRejectedValue(Error('operator_unavailable'));const host=document.createElement('div');const root=createRoot(host);try{await act(async()=>{root.render(<UsbGuardView/>);await Promise.resolve();});expect(host.querySelectorAll('[data-usb-device]')).toHaveLength(0);expect(host.textContent).not.toContain('Blocked');await act(()=>{vi.mocked(useDemoState).mockReturnValue({state:null,error:''});root.render(<UsbGuardView/>);});expect(host.textContent).toContain('Desktop disconnected');}finally{await act(()=>root.unmount());}
+});
+it('retains device names but disables stale actions after a background read failure',async()=>{
+ vi.useFakeTimers();vi.mocked(useDemoState).mockReturnValue({state:{} as any,error:''});vi.mocked(demoCall).mockResolvedValueOnce(snapshot()).mockRejectedValue(Error('action_unavailable'));const host=document.createElement('div');const root=createRoot(host);
+ try{await act(async()=>{root.render(<UsbGuardView/>);await Promise.resolve();});await act(async()=>{vi.advanceTimersByTime(10000);await Promise.resolve();});expect(host.textContent).toContain('External keyboard');expect(host.textContent).toContain('Update needed');expect(host.textContent).not.toContain('action_unavailable');expect(Array.from(host.querySelectorAll('button')).find(b=>b.textContent==='Allow')!.disabled).toBe(true);}finally{await act(()=>root.unmount());vi.useRealTimers();}
+});
+it('offers persistent Block with a named confirmation and no invented expiry',async()=>{
+ vi.mocked(useDemoState).mockReturnValue({state:{} as any,error:''});vi.mocked(demoCall).mockReset();vi.mocked(demoCall).mockResolvedValue({...snapshot(),persistent:true,deadline:null,devices:[{...snapshot().devices[0],canBlock:true}]});const host=document.createElement('div');const root=createRoot(host);
+ try{await act(async()=>{root.render(<UsbGuardView/>);await Promise.resolve();});expect(host.textContent).toContain('Persistent rules saved');await act(()=>Array.from(host.querySelectorAll('button')).find(b=>b.textContent==='Block')!.click());expect(host.querySelector('[role=dialog]')?.textContent).toContain('External keyboard');expect(host.querySelector('[role=dialog]')?.textContent).toContain('across Windows restarts');expect(demoCall).not.toHaveBeenCalledWith('usb.admission.action',expect.anything());}finally{await act(()=>root.unmount());}
 });

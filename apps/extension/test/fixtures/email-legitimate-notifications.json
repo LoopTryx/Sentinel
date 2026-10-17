@@ -1,0 +1,342 @@
+[
+  {
+    "id": "authored-legitimate-0",
+    "source": "Sentinel authored tricky legitimate notification; not an actual bank email",
+    "label": "legitimate",
+    "split": "regression",
+    "email": {
+      "subject": null,
+      "body": "Your verification code is 123456. Do not share this code with anyone.",
+      "sender": {
+        "address": null,
+        "name": null
+      },
+      "links": [],
+      "attachments": [],
+      "authentication": {}
+    }
+  },
+  {
+    "id": "authored-legitimate-1",
+    "source": "Sentinel authored tricky legitimate notification; not an actual bank email",
+    "label": "legitimate",
+    "split": "regression",
+    "email": {
+      "subject": null,
+      "body": "Your account statement is ready. Open your banking app to view it.",
+      "sender": {
+        "address": null,
+        "name": null
+      },
+      "links": [],
+      "attachments": [],
+      "authentication": {}
+    }
+  },
+  {
+    "id": "authored-legitimate-2",
+    "source": "Sentinel authored tricky legitimate notification; not an actual bank email",
+    "label": "legitimate",
+    "split": "regression",
+    "email": {
+      "subject": null,
+      "body": "Your parcel arrives tomorrow. No payment is due.",
+      "sender": {
+        "address": null,
+        "name": null
+      },
+      "links": [],
+      "attachments": [],
+      "authentication": {}
+    }
+  },
+  {
+    "id": "authored-legitimate-3",
+    "source": "Sentinel authored tricky legitimate notification; not an actual bank email",
+    "label": "legitimate",
+    "split": "regression",
+    "email": {
+      "subject": null,
+      "body": "Your payment was received. Thank you.",
+      "sender": {
+        "address": null,
+        "name": null
+      },
+      "links": [],
+      "attachments": [],
+      "authentication": {}
+    }
+  },
+  {
+    "id": "authored-legitimate-4",
+    "source": "Sentinel authored tricky legitimate notification; not an actual bank email",
+    "label": "legitimate",
+    "split": "regression",
+    "email": {
+      "subject": null,
+      "body": "Your appointment is confirmed for Tuesday.",
+      "sender": {
+        "address": null,
+        "name": null
+      },
+      "links": [],
+      "attachments": [],
+      "authentication": {}
+    }
+  },
+  {
+    "id": "authored-legitimate-5",
+    "source": "Sentinel authored tricky legitimate notification; not an actual bank email",
+    "label": "legitimate",
+    "split": "regression",
+    "email": {
+      "subject": null,
+      "body": "Security alert: a sign-in occurred. If this was you, no action is needed.",
+      "sender": {
+        "address": null,
+        "name": null
+      },
+      "links": [],
+      "attachments": [],
+      "authentication": {}
+    }
+  },
+  {
+    "id": "authored-legitimate-6",
+    "source": "Sentinel authored tricky legitimate notification; not an actual bank email",
+    "label": "legitimate",
+    "split": "regression",
+    "email": {
+      "subject": null,
+      "body": "Your invoice is attached as requested during our call.",
+      "sender": {
+        "address": null,
+        "name": null
+      },
+      "links": [],
+      "attachments": [],
+      "authentication": {}
+    }
+  },
+  {
+    "id": "authored-legitimate-7",
+    "source": "Sentinel authored tricky legitimate notification; not an actual bank email",
+    "label": "legitimate",
+    "split": "regression",
+    "email": {
+      "subject": null,
+      "body": "Your refund has been issued to your original payment method.",
+      "sender": {
+        "address": null,
+        "name": null
+      },
+      "links": [],
+      "attachments": [],
+      "authentication": {}
+    }
+  },
+  {
+    "id": "authored-legitimate-8",
+    "source": "Sentinel authored tricky legitimate notification; not an actual bank email",
+    "label": "legitimate",
+    "split": "regression",
+    "email": {
+      "subject": null,
+      "body": "The password reset you requested is complete.",
+      "sender": {
+        "address": null,
+        "name": null
+      },
+      "links": [],
+      "attachments": [],
+      "authentication": {}
+    }
+  },
+  {
+    "id": "authored-legitimate-9",
+    "source": "Sentinel authored tricky legitimate notification; not an actual bank email",
+    "label": "legitimate",
+    "split": "regression",
+    "email": {
+      "subject": null,
+      "body": "Your flight check-in opens tomorrow.",
+      "sender": {
+        "address": null,
+        "name": null
+      },
+      "links": [],
+      "attachments": [],
+      "authentication": {}
+    }
+  },
+  {
+    "id": "authored-legitimate-10",
+    "source": "Sentinel authored tricky legitimate notification; not an actual bank email",
+    "label": "legitimate",
+    "split": "regression",
+    "email": {
+      "subject": null,
+      "body": "Your subscription renews next month. Manage it in the app.",
+      "sender": {
+        "address": null,
+        "name": null
+      },
+      "links": [],
+      "attachments": [],
+      "authentication": {}
+    }
+  },
+  {
+    "id": "authored-legitimate-11",
+    "source": "Sentinel authored tricky legitimate notification; not an actual bank email",
+    "label": "legitimate",
+    "split": "regression",
+    "email": {
+      "subject": null,
+      "body": "Meeting agenda: discuss the urgent project deadline.",
+      "sender": {
+        "address": null,
+        "name": null
+      },
+      "links": [],
+      "attachments": [],
+      "authentication": {}
+    }
+  },
+  {
+    "id": "authored-legitimate-12",
+    "source": "Sentinel authored tricky legitimate notification; not an actual bank email",
+    "label": "legitimate",
+    "split": "regression",
+    "email": {
+      "subject": null,
+      "body": "Congratulations on winning the team quiz. Collect your certificate at reception.",
+      "sender": {
+        "address": null,
+        "name": null
+      },
+      "links": [],
+      "attachments": [],
+      "authentication": {}
+    }
+  },
+  {
+    "id": "authored-legitimate-13",
+    "source": "Sentinel authored tricky legitimate notification; not an actual bank email",
+    "label": "legitimate",
+    "split": "regression",
+    "email": {
+      "subject": null,
+      "body": "Please review the draft recruitment plan at our meeting.",
+      "sender": {
+        "address": null,
+        "name": null
+      },
+      "links": [],
+      "attachments": [],
+      "authentication": {}
+    }
+  },
+  {
+    "id": "authored-legitimate-14",
+    "source": "Sentinel authored tricky legitimate notification; not an actual bank email",
+    "label": "legitimate",
+    "split": "regression",
+    "email": {
+      "subject": null,
+      "body": "The charity donation receipt is attached. No further payment is needed.",
+      "sender": {
+        "address": null,
+        "name": null
+      },
+      "links": [],
+      "attachments": [],
+      "authentication": {}
+    }
+  },
+  {
+    "id": "authored-legitimate-15",
+    "source": "Sentinel authored tricky legitimate notification; not an actual bank email",
+    "label": "legitimate",
+    "split": "regression",
+    "email": {
+      "subject": null,
+      "body": "Your package was delivered to reception.",
+      "sender": {
+        "address": null,
+        "name": null
+      },
+      "links": [],
+      "attachments": [],
+      "authentication": {}
+    }
+  },
+  {
+    "id": "authored-legitimate-16",
+    "source": "Sentinel authored tricky legitimate notification; not an actual bank email",
+    "label": "legitimate",
+    "split": "regression",
+    "email": {
+      "subject": null,
+      "body": "The court appointment you booked is confirmed.",
+      "sender": {
+        "address": null,
+        "name": null
+      },
+      "links": [],
+      "attachments": [],
+      "authentication": {}
+    }
+  },
+  {
+    "id": "authored-legitimate-17",
+    "source": "Sentinel authored tricky legitimate notification; not an actual bank email",
+    "label": "legitimate",
+    "split": "regression",
+    "email": {
+      "subject": null,
+      "body": "The tax return you submitted was received.",
+      "sender": {
+        "address": null,
+        "name": null
+      },
+      "links": [],
+      "attachments": [],
+      "authentication": {}
+    }
+  },
+  {
+    "id": "authored-legitimate-18",
+    "source": "Sentinel authored tricky legitimate notification; not an actual bank email",
+    "label": "legitimate",
+    "split": "regression",
+    "email": {
+      "subject": null,
+      "body": "حوالتك وصلت. لا تشارك رمز التحقق مع أي شخص.",
+      "sender": {
+        "address": null,
+        "name": null
+      },
+      "links": [],
+      "attachments": [],
+      "authentication": {}
+    }
+  },
+  {
+    "id": "authored-legitimate-19",
+    "source": "Sentinel authored tricky legitimate notification; not an actual bank email",
+    "label": "legitimate",
+    "split": "regression",
+    "email": {
+      "subject": null,
+      "body": "Your new bank card was dispatched. You do not need to reply.",
+      "sender": {
+        "address": null,
+        "name": null
+      },
+      "links": [],
+      "attachments": [],
+      "authentication": {}
+    }
+  }
+]

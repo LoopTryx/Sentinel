@@ -64,10 +64,13 @@ pnpm install --frozen-lockfile
 pnpm --filter @sentinel/ui build
 node apps/extension/scripts/build.mjs
 ./apps/desktop/build-console.ps1 -WebView2SdkPath "C:/path/to/Microsoft.Web.WebView2"
+cargo build -p sentinel-av --bin sentinel-inspect
+$inspectionTarget = if ($env:CARGO_TARGET_DIR) { $env:CARGO_TARGET_DIR } else { "target" }
+./tools/stage-inspection-engine.ps1 -EnginePath (Join-Path $inspectionTarget "debug/sentinel-inspect.exe")
 pwsh -NoProfile -File ./tools/launch-demo.ps1
 ```
 
-The native host needs the official WebView2 SDK. The prepared ClamAV executable, databases and certificate files are included in the portable release; they are not vendored into the source archive. Follow the [demo setup notes](docs/today-demo.md) when preparing a source build.
+The inspection worker must be staged before launching; building only the UI leaves file scans unavailable. The native host needs the official WebView2 SDK. The prepared ClamAV executable, databases and certificate files are included in the portable release; they are not vendored into the source archive. Follow the [demo setup notes](docs/today-demo.md) when preparing a source build.
 
 To run the repository checks on a configured Windows development machine:
 

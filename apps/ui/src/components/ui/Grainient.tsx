@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Renderer, Program, Mesh, Triangle } from 'ogl';
 
 interface GrainientProps {
@@ -171,6 +171,7 @@ const Grainient: React.FC<GrainientProps> = ({
   className = ''
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [contextEpoch,setContextEpoch]=useState(0);
 
   // Effect 1: build WebGL context once, pause when offscreen / tab hidden
   useEffect(() => {
@@ -183,7 +184,7 @@ const Grainient: React.FC<GrainientProps> = ({
       webgl: 2,
       alpha: true,
       antialias: false,
-      dpr: Math.min(window.devicePixelRatio || 1, 2)
+      dpr: 1
     }); } catch { return; }
 
     const gl = renderer.gl;
@@ -191,6 +192,7 @@ const Grainient: React.FC<GrainientProps> = ({
     canvas.style.width = '100%';
     canvas.style.height = '100%';
     canvas.style.display = 'block';
+    canvas.style.opacity = '0';
     container.appendChild(canvas);
 
     const geometry = new Triangle(gl);
@@ -230,8 +232,9 @@ const Grainient: React.FC<GrainientProps> = ({
 
     const setSize = () => {
       const rect = container.getBoundingClientRect();
-      const w = Math.max(1, Math.floor(rect.width));
-      const h = Math.max(1, Math.floor(rect.height));
+      const scale=Math.min(1,Math.sqrt(750000/Math.max(1,rect.width*rect.height)),4096/Math.max(1,rect.width,rect.height));
+      const w = Math.max(1, Math.floor(rect.width*scale));
+      const h = Math.max(1, Math.floor(rect.height*scale));
       renderer.setSize(w, h);
       const res = (program.uniforms.iResolution as { value: Float32Array }).value;
       res[0] = gl.drawingBufferWidth;
@@ -247,15 +250,20 @@ const Grainient: React.FC<GrainientProps> = ({
     let isVisible = true;
     let isPageVisible = !document.hidden;
     const t0 = performance.now();
+    let lost=false,lastPaint=-Infinity;
 
     const loop = (t: number) => {
+      if(lost)return;
+      if(t-lastPaint<1000/24){raf=requestAnimationFrame(loop);return;}
+      lastPaint=t;
       (program.uniforms.iTime as { value: number }).value = (t - t0) * 0.001;
       renderer.render({ scene: mesh });
+      canvas.style.opacity="1";
       raf = requestAnimationFrame(loop);
     };
 
     const tryStart = () => {
-      if (isVisible && isPageVisible && raf === 0) raf = requestAnimationFrame(loop);
+      if (!lost && isVisible && isPageVisible && raf === 0) raf = requestAnimationFrame(loop);
     };
     const tryStop = () => {
       if (raf !== 0) { cancelAnimationFrame(raf); raf = 0; }
@@ -273,10 +281,16 @@ const Grainient: React.FC<GrainientProps> = ({
     };
     document.addEventListener('visibilitychange', onVisibility);
 
+    const onLost=(event:Event)=>{event.preventDefault();lost=true;tryStop();canvas.style.opacity="0";};
+    const onRestored=()=>setContextEpoch(value=>value+1);
+    canvas.addEventListener("webglcontextlost",onLost);
+    canvas.addEventListener("webglcontextrestored",onRestored);
     tryStart();
 
     return () => {
       tryStop();
+      canvas.removeEventListener("webglcontextlost",onLost);
+      canvas.removeEventListener("webglcontextrestored",onRestored);
       ro.disconnect();
       io.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
@@ -286,7 +300,7 @@ const Grainient: React.FC<GrainientProps> = ({
       gl.getExtension('WEBGL_lose_context')?.loseContext();
       try { container.removeChild(canvas); } catch { /* ignore */ }
     };
-  }, []); // renderer created once
+  }, [contextEpoch]); // recreate GPU resources after context restoration
 
   // Effect 2: sync props to uniforms — zero GPU cost, no teardown
   useEffect(() => {
@@ -323,11 +337,11 @@ const Grainient: React.FC<GrainientProps> = ({
     timeSpeed, colorBalance, warpStrength, warpFrequency, warpSpeed,
     warpAmplitude, blendAngle, blendSoftness, rotationAmount, noiseScale,
     grainAmount, grainScale, grainAnimated, contrast, gamma, saturation,
-    centerX, centerY, zoom, color1, color2, color3, lightMode
+    centerX, centerY, zoom, color1, color2, color3, lightMode, contextEpoch
   ]);
 
 
-  return <div ref={containerRef} className={`relative h-full w-full overflow-hidden ${className}`.trim()} />;
+  return <div ref={containerRef} style={{background:`linear-gradient(135deg, ${color1}, ${color2} 55%, ${color3})`}} className={`relative h-full w-full overflow-hidden ${className}`.trim()} />;
 };
 
 export default Grainient;

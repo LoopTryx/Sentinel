@@ -1,0 +1,4 @@
+import {openedRoots,readMessage} from './shared.js';
+// Outlook layouts vary by tenant/version. Missing selectors mean unavailable, not Safe.
+export const outlookSelectors={roots:'[data-app-section="MailReadCompose"],.ReadingPaneContainer',body:'[data-testid="message-body"],[aria-label="Message body"][role="document"]',sender:['[data-testid="sender-email"]','[data-email-address]','.ms-Persona-primaryText[email]'],name:['.ms-Persona-primaryText','[data-testid="sender-name"]'],subject:['[data-testid="message-subject"]','[role="heading"][aria-level="2"]'],replyTo:['[data-testid="reply-to"]'],headerRows:'[data-testid="message-details"] tr,[data-testid="message-details"] [role="row"]',attachments:'[data-testid="attachment-name"],[data-filename]'};
+export const outlookAdapter={id:'outlook',hosts:['outlook.live.com','outlook.office.com','outlook.office365.com'],roots:doc=>openedRoots(doc,outlookSelectors),read:root=>readMessage(root,'outlook',outlookSelectors)};

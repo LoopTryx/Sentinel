@@ -1,0 +1,16 @@
+/* The window scrolls as one document; the full-width ribbon follows the page. */
+#root .content{scrollbar-gutter:auto;scrollbar-width:none}
+#root .content::-webkit-scrollbar{display:none}
+/* Separate full-window row: no sidebar offset, no overlay on page controls. */
+#root .shell:has(>.desktop-ribbon){grid-template-rows:auto minmax(min-content,1fr) auto;overflow-y:auto;scrollbar-width:none;overflow-anchor:none}
+#root .shell::-webkit-scrollbar{display:none}
+#root .shell:has(>.desktop-ribbon)>.topbar{grid-column:1 / -1;grid-row:1;min-width:0}
+#root .shell:has(>.desktop-ribbon)>.main{grid-column:2;grid-row:2;overflow:visible;min-height:min-content}
+#root .shell:has(>.desktop-ribbon) .content{overflow:visible;flex:1 0 auto}
+#root .shell:has(>.desktop-ribbon)>.liquid-sidebar{grid-column:1;grid-row:2;position:sticky;top:12px}
+#root .shell>.desktop-ribbon{position:relative;z-index:4;grid-column:1 / -1;grid-row:3;min-width:0;min-height:66px;align-self:end;width:100%;margin:0;padding:0 0 16px;font-family:var(--font-display);overflow:hidden}
+
+.desktop-ribbon svg{width:100%;height:50px;display:block}
+.desktop-ribbon [role=group]{touch-action:pan-y;user-select:none;border-radius:0}
+.desktop-ribbon [role=group]:focus-visible{outline:3px solid #9bddff;outline-offset:-3px}
+@media(forced-colors:active){.desktop-ribbon svg path{stroke:Canvas}.desktop-ribbon svg text{fill:CanvasText}}

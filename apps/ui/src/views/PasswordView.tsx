@@ -149,7 +149,7 @@ function VerdictGauge({ score, label, active }: { score: number; label: string; 
         style={{
           position: "absolute", inset: 0,
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16,
+          fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "1.0rem",
           letterSpacing: 1.5, color,
           textShadow: active ? `0 0 14px ${SCORE_COLORS[score]}66` : "none",
         }}
@@ -199,7 +199,7 @@ export default function PasswordView({onUse}:{onUse?:(password:string)=>void}={}
             maxLength={128} aria-label="Invented password example" placeholder="Type a password to analyze — nothing leaves this machine"
             value={pw}
             onChange={(e) => setPw(e.target.value)}
-            style={{ fontSize: 15, letterSpacing: show ? 0.5 : 2 }}
+            style={{ fontSize: "0.9375rem", letterSpacing: show ? 0.5 : 2 }}
           />
           <button className="btn ghost" onClick={() => setShow(!show)}>
             {show ? "Hide" : "Show"}
@@ -367,7 +367,7 @@ export default function PasswordView({onUse}:{onUse?:(password:string)=>void}={}
             marginBottom: 14,
           }}
         >
-          <label style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-dim)", fontFamily: "var(--font-mono)", fontSize: 12 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-dim)", fontFamily: "var(--font-mono)", fontSize: "0.75rem" }}>
             LENGTH
             <input
               type="range"
@@ -386,7 +386,7 @@ export default function PasswordView({onUse}:{onUse?:(password:string)=>void}={}
               ["#!$", genSymbols, setGenSymbols],
             ] as const
           ).map(([label, val, set]) => (
-            <label key={label} style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--text-dim)", fontFamily: "var(--font-mono)", fontSize: 12, cursor: "pointer" }}>
+            <label key={label} style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--text-dim)", fontFamily: "var(--font-mono)", fontSize: "0.75rem", cursor: "pointer" }}>
               <input
                 type="checkbox"
                 checked={val}
@@ -403,12 +403,12 @@ export default function PasswordView({onUse}:{onUse?:(password:string)=>void}={}
           </button>
           {onUse&&<button className="btn ghost" disabled={!pw} onClick={()=>onUse(pw)}>Use generated password</button>}
           {copied && (
-            <span style={{ color: "var(--safe)", fontFamily: "var(--font-mono)", fontSize: 12, alignSelf: "center" }}>
+            <span style={{ color: "var(--safe)", fontFamily: "var(--font-mono)", fontSize: "0.75rem", alignSelf: "center" }}>
               ✓ copied to clipboard
             </span>
           )}
         </div>
-        <p style={{ marginTop: 12, color: "var(--text-faint)", fontFamily: "var(--font-mono)", fontSize: 11 }}>
+        <p style={{ marginTop: 12, color: "var(--text-faint)", fontFamily: "var(--font-mono)", fontSize: "0.75rem" }}>
           Generated locally with crypto-grade randomness — never sent anywhere.
         </p>
       </section>
