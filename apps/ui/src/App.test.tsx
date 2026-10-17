@@ -18,7 +18,7 @@ describe('integrated console capability boundaries', () => {
   });
   it('keeps the ribbon in page flow and removes the sidebar footer',()=>{
     const html=renderToStaticMarkup(<App/>);
-    expect(html).toContain('font-size:22px');expect(html).toContain('stroke-width="38"');
+    expect(html).toContain('font-size:18px');expect(html).toContain('stroke-width="30"');
     expect(html).toContain('</footer></div>');expect(html).not.toContain('sidebar-footer');
     expect(html).not.toContain('THINK · PROTECT · DEFEND');
   });
