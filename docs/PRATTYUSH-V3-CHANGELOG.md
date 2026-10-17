@@ -116,3 +116,5 @@ Owner requested revert of a92bdf5: restored the prior blue glass material, top c
 17 October: owner-provided glass pill button adapted into reusable GlassActionButton for Scan files/Passwords/Watchtower, with light-blue tint,navy labels,pointer highlight,keyboard focus and reduced-motion/forced-color support. Selected sidebar page restored to light-blue fill/navy icon and text. Seven focused tests/build pass.
 
 17 October: restored the historical azure sidebar selection (#2f89e3 to #2265b5),transparent unselected rows with restrained hover glass/blue glow. USB Guard now uses the official Lucide USB symbol in the existing inline icon set with ISC attribution. shadcn CLI confirms no configured icon library/components; icon guidance applied without adding a UI framework. Six focused tests/build pass.
+
+17 October: five owner-supplied local MP3 effects for opening,button/navigation clicks,scan completion and error/alert transitions. Quiet16/22% volumes,one active clip,repeat-error suppression,autoplay denial handling and persistent top-bar Sound on/off control. Assets bundled locally; no uploads/network playback.
