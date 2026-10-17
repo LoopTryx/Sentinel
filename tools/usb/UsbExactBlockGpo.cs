@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
 
-// Qualification provider only: this version cannot address DeviceInstall policy.
+// Default build is private-only; reviewed machine factory requires a pinned baseline.
 // It exercises actual saved/effective local GPO machinery at a disposable private key.
 internal sealed class UsbExactBlockGpo {
  internal sealed class Image {
@@ -17,6 +17,18 @@ internal sealed class UsbExactBlockGpo {
  readonly string path;readonly Action fence;readonly string legacyNonce;
  internal UsbExactBlockGpo(string privatePath,string nonce,Action checkCurrent,string privateLegacyNonce=null){
   if(!Regex.IsMatch(nonce??"",@"\A[0-9a-f]{32}\z")||privatePath!=@"SOFTWARE\Sentinel\ExactBlockQualification\"+nonce||checkCurrent==null)throw new InvalidOperationException("Unqualified exact-block policy location");if(privateLegacyNonce!=null&&!Regex.IsMatch(privateLegacyNonce,@"\A[0-9a-f]{32}\z"))throw new ArgumentException("Invalid private baseline");path=privatePath;fence=checkCurrent;legacyNonce=privateLegacyNonce;
+ }
+ // The default build remains incapable of writing DeviceInstall policy.
+#if SENTINEL_USB_EXACT_LIVE_REVIEWED
+ internal static UsbExactBlockGpo CreateReviewedMachine(UsbExactBlockBaseline baseline,Action checkCurrent){if(baseline==null||checkCurrent==null)throw new ArgumentNullException();baseline.Check();return new UsbExactBlockGpo(baseline,checkCurrent);}
+ UsbExactBlockGpo(UsbExactBlockBaseline baseline,Action guard){path=@"SOFTWARE\Policies\Microsoft\Windows\DeviceInstall\Restrictions";legacyNonce=baseline.Nonce;fence=()=>{guard();baseline.Check();};}
+#endif
+ static void ValidateLegacyChildren(RegistryKey key,bool requireDeny=true){if(key.SubKeyCount>3)throw new InvalidOperationException("Foreign overlay structure");bool deny=false;foreach(string name in key.GetSubKeyNames()){if(name=="DenyInstanceIDs"){deny=true;continue;}if(name!="AllowInstanceIDs"&&name!="DenyDeviceIDs")throw new InvalidOperationException("Foreign overlay subkey");using(var neutral=key.OpenSubKey(name))if(neutral==null||neutral.ValueCount!=0||neutral.SubKeyCount!=0)throw new InvalidOperationException("Neutral legacy list changed");}if(requireDeny&&!deny)throw new InvalidOperationException("Legacy deny list missing");}
+ internal static void ValidateLegacyOverlay(RegistryKey key,Image before,Image candidate,bool transition){
+  if(key==null||before==null||candidate==null)throw new InvalidOperationException("Foreign overlay structure");ValidateLegacyChildren(key);var values=new SortedDictionary<string,object>(StringComparer.Ordinal);
+  foreach(string name in key.GetValueNames()){if(name=="SentinelOperation"||name=="DenyInstanceIDs"||name=="DenyInstanceIDsRetroactive")continue;if(name!="SentinelExactBlockState"||key.GetValueKind(name)!=RegistryValueKind.String)throw new InvalidOperationException("Foreign overlay root value");values.Add(name,key.GetValue(name,null,RegistryValueOptions.DoNotExpandEnvironmentNames));}
+  using(var list=key.OpenSubKey("DenyInstanceIDs")){if(list==null||list.SubKeyCount!=0||list.ValueCount>32)throw new InvalidOperationException("Foreign overlay list");foreach(string name in list.GetValueNames()){string full="DenyInstanceIDs\\"+name;object value=list.GetValue(name,null,RegistryValueOptions.DoNotExpandEnvironmentNames);if(!Name(full)||list.GetValueKind(name)!=RegistryValueKind.String||!(value is string)||!Exact((string)value))throw new InvalidOperationException("Foreign overlay subject");values.Add(full,value);}}
+  var actual=new Image(values);if(transition)Recognizable(actual,before,candidate);else if(!Same(actual,before))throw new InvalidOperationException("Overlay baseline differs");
  }
  // This private-only mode preserves an independently authenticated legacy baseline.
  internal Image Managed(Image full){if(legacyNonce==null)return full;var values=full.Values;values.Remove("DenyInstanceIDs");values.Remove("DenyInstanceIDsRetroactive");return new Image(values,full.Tombstones);}
@@ -32,7 +44,7 @@ internal sealed class UsbExactBlockGpo {
  static bool Equal(object first,object second){return first!=null&&second!=null&&first.GetType()==second.GetType()&&first.Equals(second);}
  Image Read(RegistryKey root,string path,bool saved){
   var values=new SortedDictionary<string,object>(StringComparer.Ordinal);var tombstones=new List<string>();using(var key=root.OpenSubKey(path)){
-   if(key==null){if(!saved&&legacyNonce!=null)throw new InvalidOperationException("Legacy baseline missing");return Empty();}if(!saved&&legacyNonce!=null)ValidatePrivateBaseline(key);if(key.SubKeyCount>1||Array.Exists(key.GetSubKeyNames(),name=>name!="DenyInstanceIDs"))throw new InvalidOperationException("Foreign exact policy subkey");
+   if(key==null){if(!saved&&legacyNonce!=null)throw new InvalidOperationException("Legacy baseline missing");return Empty();}if(!saved&&legacyNonce!=null)ValidatePrivateBaseline(key);if(legacyNonce!=null)ValidateLegacyChildren(key,!saved);else if(key.SubKeyCount>1||Array.Exists(key.GetSubKeyNames(),name=>name!="DenyInstanceIDs"))throw new InvalidOperationException("Foreign exact policy subkey");
    foreach(string sub in new[]{"","DenyInstanceIDs"})using(var child=sub==""?null:key.OpenSubKey(sub)){
     var current=child??key;if(sub!=""&&child==null)continue;if(sub!=""&&current.SubKeyCount!=0||current.ValueCount>36)throw new InvalidOperationException("Exact policy bound");
     foreach(string name in current.GetValueNames()){
@@ -76,5 +88,5 @@ internal sealed class UsbExactBlockGpo {
   });
  }
  internal void VerifyEffective(Image expected){if(!Same(Effective(),expected))throw new InvalidOperationException("Effective exact policy differs");}
- internal void DeleteEmptyPrivateProbe(){Verify(Empty());SentinelDuckyLocalGpo.Session(false,(root,save)=>{fence();root.DeleteSubKeyTree(path,false);save();});if(legacyNonce==null)Registry.LocalMachine.DeleteSubKeyTree(path,false);}
+ internal void DeleteEmptyPrivateProbe(){if(!path.StartsWith(@"SOFTWARE\Sentinel\ExactBlockQualification\",StringComparison.Ordinal))throw new InvalidOperationException("Private cleanup only");Verify(Empty());SentinelDuckyLocalGpo.Session(false,(root,save)=>{fence();root.DeleteSubKeyTree(path,false);save();});if(legacyNonce==null)Registry.LocalMachine.DeleteSubKeyTree(path,false);}
 }
