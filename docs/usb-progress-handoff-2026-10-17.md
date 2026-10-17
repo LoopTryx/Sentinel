@@ -50,6 +50,8 @@ Engineer B's published `prattyush-changes-for-v3` head `3637eb2` (48 commits fro
 
 The combined desktop and recovery-only native engine rebuilt successfully to isolated output with `artifacts/build-combined-console.ps1 -WebView2SdkPath artifacts/ducky-webview-sdk`. The gated operator rebuilt with `tools/build-usb-admission-operator.ps1`; output explicitly says live device policy is compile-disabled. The combined local package is `artifacts/Sentinel-Demo-20261017-082214-combined.zip`, SHA256 `48A9357CA5186F7901EB7ACB160EC6C225FA3D19B4AD8C0BB7A0521C4ABA5C42`. This is a local demo package, not a release. The unchanged full verifier and packaged desktop smoke passed as recorded above.
 
+The newly rebuilt, hash-pinned private backend retry recovered its earlier synthetic pending transaction, then failed again at stage 2 while creating the named parent job. The read-only baseline qualifier returned a COM exception on that retry. Do not count either as passed; investigate the named-job failure and perform controlled cleanup before another run. This qualification did not target USB devices or DeviceInstall policy.
+
 Shared-file integration is published on PR #74 for peer/coordinator review. It remains stacked on `codex/engineer-a/desktop-v2-20261013`; do not merge into main without the required review. Owner-visible success on one old build must not be applied to a different executable by assumption.
 
 ## Exact next steps / continuation prompt
