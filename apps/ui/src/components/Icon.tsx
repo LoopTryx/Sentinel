@@ -59,11 +59,16 @@ const PATHS: Record<string, React.ReactNode> = {
       <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
     </>
   ),
+  // Lucide USB icon, ISC license: see lucide-icons.LICENSE.
   usb: (
     <>
-      <path d="M12 2v6M12 22v-6" />
-      <path d="M6 12H2M22 12h-4" />
-      <rect x="8" y="8" width="8" height="8" rx="2" />
+      <circle cx="10" cy="7" r="1" />
+      <circle cx="4" cy="20" r="1" />
+      <path d="M4.7 19.3 19 5" />
+      <path d="m21 3-3 1 2 2Z" />
+      <path d="M9.26 7.68 5 12l2 5" />
+      <path d="m10 14 5 2 3.5-3.5" />
+      <path d="m18 12 1-1 1 1-1 1Z" />
     </>
   ),
   play: <polygon points="6 3 20 12 6 21 6 3" />,

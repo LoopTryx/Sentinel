@@ -30,7 +30,7 @@ const NAV: { id: ViewId; label: string; icon: string }[] = [
   { id: "dashboard", label: "Console", icon: "shield" },
   { id: "scan", label: "Scan & Detect", icon: "scan" },
   { id: "watchtower", label: "Watchtower", icon: "wifi" },
-  { id: "usb", label: "USB Guard", icon: "shield" },
+  { id: "usb", label: "USB Guard", icon: "usb" },
   { id: "password", label: "Passwords", icon: "key" },
   { id: "quarantine", label: "Quarantine", icon: "vault" },
   { id: "log", label: "Threat Log", icon: "list" },
