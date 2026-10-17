@@ -71,7 +71,7 @@ function Shell() {
           position: "absolute",
           inset: 0,
           zIndex: 0,
-          opacity: 1,
+          opacity: 0.75,
         }}
       >
         <GradientASCII

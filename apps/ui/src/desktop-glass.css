@@ -56,7 +56,7 @@ html[data-desktop=glass],html[data-desktop=glass] body,html[data-desktop=glass] 
 #root .shell{background:transparent}
 body::before{display:none}
 html[data-desktop=glass] .topbar{background:#080e1deb;backdrop-filter:none}
-html[data-desktop=glass] .dither-bg{opacity:1!important}
+html[data-desktop=glass] .dither-bg{opacity:.75!important}
 /* The danger theme continues to communicate actual findings and previews. */
 body[data-threat=danger]{--glass-fill:rgba(42,14,24,var(--glass-opacity));--glass-solid:rgba(42,14,24,.92);--glass-bloom-blue:rgba(255,90,95,.30);--glass-bloom-indigo:rgba(145,35,73,.28)}
 html[data-glass-effects=off] #root :is(.glass-card,.panel,.stat){background:var(--glass-solid);backdrop-filter:none;-webkit-backdrop-filter:none}

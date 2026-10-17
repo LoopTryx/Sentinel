@@ -102,3 +102,5 @@ Owner requested revert of a92bdf5: restored the prior blue glass material, top c
 17 October: bottom Sentinel ribbon reduced to18px type/30px band. Full-bleed footer selector now takes precedence over later page styles; hidden content scrollbar removes the reserved right strip while keyboard/wheel scrolling stays available.
 
 17 October correction: ribbon now occupies its own full-window bottom row, including the sidebar width, with no left/right inset. Removed shell/background wash and restored full ASCII opacity. The actual threat level switches the ASCII palette and GPU fallback to red; Reset Console uses the existing acknowledgement logic.
+
+17 October owner adjustment: ASCII background opacity75% in both normal and red alert states; shell tint remains removed.
