@@ -106,3 +106,5 @@ Owner requested revert of a92bdf5: restored the prior blue glass material, top c
 17 October owner adjustment: ASCII background opacity75% in both normal and red alert states; shell tint remains removed.
 
 17 October correction: full-window ribbon now follows natural document scrolling instead of occupying a pinned row. The shell owns vertical scrolling; sidebar remains sticky and existing page insets remain. Top bar transparent; headings deep navy. Focusing an inner control no longer outlines the whole card in blue; individual keyboard focus rings retained.
+
+17 October: transparent top bar promoted to a full-window first row; sidebar and page start below it. ASCII backdrop now covers the viewport continuously while scrolling, removing the flat blue cutoff at the bottom. Full-width ribbon remains in natural document flow.

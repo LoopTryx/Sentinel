@@ -68,7 +68,7 @@ function Shell() {
       <div
         className="dither-bg"
         style={{
-          position: "absolute",
+          position: "fixed",
           inset: 0,
           zIndex: 0,
           opacity: 0.75,
@@ -81,6 +81,13 @@ function Shell() {
           dpr={1} maxFps={24} mouseInteraction={false} clickEffect="none"
         />
       </div>
+
+        <header className="topbar" onMouseDown={event => { if(canDragWindow(event.target,event.button)){ event.preventDefault(); void demoCall('window.drag').catch(()=>{}); } }} style={{ position: "relative", zIndex: 2 }}>
+          <h1>{VIEW_TITLES[view]}</h1>
+          <div className="protection-pill">
+            <span className="led" /> {statusLabel}
+          </div>
+        </header>
 
       <LiquidSidebar collapsed={sidebarCollapsed} onToggle={()=>setSidebarCollapsed(value=>!value)}>
         <div className="brand">
@@ -127,12 +134,7 @@ function Shell() {
       </LiquidSidebar>
 
       <main className="main">
-        <header className="topbar" onMouseDown={event => { if(canDragWindow(event.target,event.button)){ event.preventDefault(); void demoCall('window.drag').catch(()=>{}); } }} style={{ position: "relative", zIndex: 2 }}>
-          <h1>{VIEW_TITLES[view]}</h1>
-          <div className="protection-pill">
-            <span className="led" /> {statusLabel}
-          </div>
-        </header>
+
 
         <div
           className="content"
