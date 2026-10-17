@@ -44,11 +44,13 @@ Reproduce source checks from repository root:
 
 Build private native tests using their `build-usb-exact-block-*-qualification.ps1` scripts. Run only the reviewed binaries through explicit Windows elevation: `UsbExactBlockPrivateQualification.exe --private` and `UsbExactBlockNativeBackendQualification.exe --private-manual`. These create private registry/file fixtures and refresh computer policy; they are not ordinary non-privileged unit tests. Do not substitute their results for real device acceptance. Raw machine identities and private receipts stay out of Git.
 
-## Engineer B coordination
+## Engineer B coordination and current build
 
-Freshly fetched Engineer B branch `prattyush-changes-for-v3` at `ee04077` contains the latest backdrop/sidebar/navigation work. It was inspected but not edited, reset, rebased, cherry-picked or merged. Existing Engineer B designs remain the presentation baseline. Unrelated local `apps/desktop/NativeConsole.cs` is preserved and excluded from this publication. No generated distribution, local credentials, private runtime state or binary installers are included.
+Engineer B's published `prattyush-changes-for-v3` head `3637eb2` (48 commits from the shared base) is included in merge commit `658ae6040e485faf855ec5e5e63b14271bf87747` on this issue branch. Its navigation, glass styling, mute-safe sounds, page refresh, scan alerts, and extension updates are retained. The CSS conflict kept B's shared styling and A's scoped USB controls. Engineer B's branch was not changed. Unrelated untracked `apps/desktop/NativeConsole.cs` remains preserved and excluded.
 
-Shared-file integration is for peer/coordinator review on this PR. Do not replace B's current UI with this branch wholesale; port the reviewed USB bridge/view delta onto the agreed integration head and verify both journeys. Owner-visible success on one old build must not be applied to a different executable by assumption.
+The combined desktop and recovery-only native engine rebuilt successfully to isolated output with `artifacts/build-combined-console.ps1 -WebView2SdkPath artifacts/ducky-webview-sdk`. The gated operator rebuilt with `tools/build-usb-admission-operator.ps1`; output explicitly says live device policy is compile-disabled. The combined local package is `artifacts/Sentinel-Demo-20261017-082214-combined.zip`, SHA256 `48A9357CA5186F7901EB7ACB160EC6C225FA3D19B4AD8C0BB7A0521C4ABA5C42`. This is a local demo package, not a release. The unchanged full verifier and packaged desktop smoke passed as recorded above.
+
+Shared-file integration is published on PR #74 for peer/coordinator review. It remains stacked on `codex/engineer-a/desktop-v2-20261013`; do not merge into main without the required review. Owner-visible success on one old build must not be applied to a different executable by assumption.
 
 ## Exact next steps / continuation prompt
 

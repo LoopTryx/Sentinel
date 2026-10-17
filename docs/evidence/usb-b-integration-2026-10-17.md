@@ -16,8 +16,16 @@ The dangerous old shared-class ApplySelection stays centrally disabled. The pers
 - Exact state/transaction/native authority, GPO/overlay and scheduler contract checks pass; private worker/qualifier builds pass. These do not prove real device behavior.
 - Combined complete portable package created with existing packaging script, then freshly compiled desktop binaries overlaid. Every packaged file's SHA256 verified. Existing packaged `tools/launch-demo.ps1 -Smoke` exited0; graceful runtime shutdown removed ephemeral connection config. No password/device-policy action performed.
 
+Publication refresh: `artifacts/build-combined-console.ps1 -WebView2SdkPath artifacts/ducky-webview-sdk` rebuilt the combined console and recovery-only native engine successfully into isolated output. `tools/build-usb-admission-operator.ps1` rebuilt successfully and explicitly reported live device policy compile-disabled. The combined local demo archive SHA256 rechecked as `48A9357CA5186F7901EB7ACB160EC6C225FA3D19B4AD8C0BB7A0521C4ABA5C42`; it is not a Git release.
+
 The earlier antivirus E0463/missing-rlib error disappeared on no-run recompilation in the same isolated directory. Both subsequent unchanged full verifiers passed without unrelated source edits; the original failure cause remains unestablished.
 
 ## Continuation
 
 Read `docs/usb-progress-handoff-2026-10-17.md` and `docs/work/usb-persistent/`. Rerun the corrected actual private backend against its authenticated existing manifest; do not overwrite pending state or rebuild the immutable installed worker blindly. Finish exact production connection, owner Hello, safe Allow/recovery and controlled physical/reboot tests before enabling capability. Automatic unknown-device holding stays inactive pending a verified safe mechanism. No self-merge or issue closure.
+
+## Engineer B integration
+
+Engineer B's published `prattyush-changes-for-v3` head `3637eb2` (48 commits from the shared base) is included in merge commit `658ae6040e485faf855ec5e5e63b14271bf87747` on this issue branch. Its navigation, glass styling, mute-safe sounds, page refresh, scan alerts, and extension updates are retained. The CSS conflict kept B's shared styling and A's scoped USB controls. Engineer B's branch remains unchanged. Unrelated untracked `apps/desktop/NativeConsole.cs` remains preserved and excluded.
+
+This integration is on PR #74 for peer/coordinator review and remains stacked on `codex/engineer-a/desktop-v2-20261013`. Do not merge into main without the required review. No production USB blocking or reboot acceptance is claimed.
