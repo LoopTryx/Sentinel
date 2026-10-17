@@ -73,10 +73,10 @@ internal sealed partial class UsbAdmissionWindow {
   if(complete)foreach(var group in ExternalGroups()){
    string name="USB input device";foreach(var subject in inventory.Subjects)if(subject!=null&&subject.Input!=null&&group.Value.Exists(id=>string.Equals(id,subject.Input.Instance,StringComparison.OrdinalIgnoreCase))){name=subject.DisplayName;break;}
    bool allBlocked=group.Value.TrueForAll(id=>blocked.Contains(id)),noneBlocked=group.Value.TrueForAll(id=>!blocked.Contains(id));
-   result.Add(new Dictionary<string,object>{{"ref",TabReference(group.Key)},{"name",UsbAdmissionInventory.Display(name)},{"access",allBlocked?"restricted":noneBlocked?"allowed":"unverified"},{"canChange",complete},{"canBlock",true},{"canScan",false}});
+   result.Add(new Dictionary<string,object>{{"ref",TabReference(group.Key)},{"name",UsbAdmissionInventory.Display(name)},{"access",allBlocked?(group.Value.TrueForAll(id=>UsbExactBlockDeviceStatus.Stopped(id))?"restricted":"policy_only"):noneBlocked?"allowed":"unverified"},{"canChange",complete},{"canBlock",!allBlocked},{"canScan",false}});
   }
   var represented=new HashSet<string>(StringComparer.OrdinalIgnoreCase);foreach(var group in ExternalGroups())foreach(string id in group.Value)represented.Add(id);
-  foreach(string id in blocked)if(!represented.Contains(id))result.Add(new Dictionary<string,object>{{"ref",TabReference(id)},{"name","Disconnected blocked input"},{"access","restricted"},{"canChange",complete},{"canBlock",false},{"canScan",false}});
+  foreach(string id in blocked)if(!represented.Contains(id))result.Add(new Dictionary<string,object>{{"ref",TabReference(id)},{"name","Disconnected blocked input"},{"access","policy_only"},{"canChange",complete},{"canBlock",false},{"canScan",false}});
   return new{schemaVersion=1,verified=true,topology=complete?inventory.Preflight.TopologyToken:null,active=blocked.Count>0,persistent=true,deadline=(string)null,devices=result,message=message.Text??""};
  }
 #endif

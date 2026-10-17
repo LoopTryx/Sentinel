@@ -2,7 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import {demoCall,useDemoState} from '../../demo-bridge';
 import {parseUsbTab,type UsbTabSnapshot,type UsbTabDevice} from './tab-contract';
 import './usb-guard.css';
-const labels={allowed:'Allowed',restricted:'Restricted by Windows rule',off:'Not restricted',unverified:'Access not verified'};
+const labels={allowed:'Allowed',restricted:'Windows reports device stopped',policy_only:'Rule saved · input blocking not confirmed',off:'Not restricted',unverified:'Access not verified'};
 type Choice={action:'block'|'allow'|'scan';device:UsbTabDevice;topology:string|null};
 function friendly(error:unknown){const code=error instanceof Error?error.message:'';return code==='device_scope_repair_required'?'Blocking is paused while device isolation is repaired.':code==='shared_rule_release_required'?'Release the protection session before reconnecting this device.':code==='approval_cancelled'?'Windows approval was cancelled. No change is confirmed.':code==='device_list_changed'?'The connected devices changed. Refresh and try again.':code==='action_busy'?'Another device action is finishing. Please wait.':code==='action_unavailable'?'Bring Sentinel to the front, then try the action again.':'Device access could not be verified. Refresh to reconnect.';}
 export default function UsbGuardView(){
@@ -18,7 +18,7 @@ export default function UsbGuardView(){
   catch(error){if(generation.current===epoch){setStale(true);setNotice(friendly(error));setChoice(null);}}
   finally{if(generation.current===epoch){pending.current=false;setBusy('');}}
  }
- const connected=!!state;const status=!connected?'Desktop disconnected':stale?'Update needed':!snapshot?.verified?'Access not verified':snapshot.active?snapshot.persistent?'Persistent blocks active':`Active until ${new Date(snapshot.deadline!).toLocaleTimeString()}`:'Protection session inactive';
+ const connected=!!state;const status=!connected?'Desktop disconnected':stale?'Update needed':!snapshot?.verified?'Access not verified':snapshot.active?snapshot.persistent?'Persistent rules saved':`Active until ${new Date(snapshot.deadline!).toLocaleTimeString()}`:'Protection session inactive';
  return <section className="usb-guard usb-minimal" aria-labelledby="usb-heading">
   <div className="usb-page-heading"><h2 id="usb-heading">USB Guard</h2><span className="usb-mode">{status}</span></div>
   {notice&&<p role="status" className="usb-action-status">{notice}</p>}

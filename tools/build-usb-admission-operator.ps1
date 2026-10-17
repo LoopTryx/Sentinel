@@ -28,7 +28,7 @@ if($ReviewedExact){
  # compiled without its live symbol; this cannot enable shared-class policy.
  & (Join-Path $root 'tools/usb/tests/build-usb-exact-block-worker.ps1') -ReviewedLive
  $common+=@('tools/usb/UsbExactBlockState.cs','tools/usb/UsbExactBlockTransaction.cs','tools/usb/UsbExactBlockFileStore.cs','tools/usb/UsbExactBlockRecoveryTasks.cs','tools/usb/UsbExactBlockBackend.cs','tools/usb/UsbExactBlockGpo.cs','tools/usb/UsbExactBlockBaseline.cs')|ForEach-Object{Join-Path $root $_}
- $ui+=@('apps/desktop/UsbExactBlockSelection.cs','apps/desktop/UsbExactBlockNativeAuthority.cs','apps/desktop/UsbExactBlockOperations.cs','apps/desktop/UsbExactBlockCapability.cs')|ForEach-Object{Join-Path $root $_}
+ $ui+=@('apps/desktop/UsbExactBlockDeviceStatus.cs','apps/desktop/UsbExactBlockSelection.cs','apps/desktop/UsbExactBlockNativeAuthority.cs','apps/desktop/UsbExactBlockOperations.cs','apps/desktop/UsbExactBlockCapability.cs')|ForEach-Object{Join-Path $root $_}
 }
 $legacyResources=@(('/resource:'+(Join-Path $root 'tools/usb/DuckyPolicyEntry.cs')+',Sentinel.LegacySource.Current'),('/resource:'+(Join-Path $root 'artifacts/LegacyDuckyEntry-d0c3349.cs')+',Sentinel.LegacySource.Historical'))
 $references=@('System.Web.Extensions.dll','System.Windows.Forms.dll','System.Drawing.dll','System.Runtime.WindowsRuntime.dll')|ForEach-Object{'/reference:'+(Join-Path $framework $_)}
