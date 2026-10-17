@@ -38,7 +38,7 @@
 #root .liquid-sidebar .nav-icon-slot svg,.sidebar-toggle svg{width:20px;height:20px;stroke-width:1.75;flex:none;transform:none;transition:none}
 #root .liquid-sidebar .nav-item-label{white-space:nowrap;min-width:0;pointer-events:none}
 #root .liquid-sidebar .nav-btn.active{background:linear-gradient(var(--sidebar-active-aa-scrim),var(--sidebar-active-aa-scrim)),linear-gradient(135deg,var(--sidebar-active-start),var(--sidebar-active-end));border-color:var(--sidebar-active-ring);box-shadow:var(--sidebar-active-shadow);color:var(--sidebar-white)}
-@media(hover:hover){#root .liquid-sidebar .nav-btn:hover{z-index:4;transform:translateX(2px) scale(1.03);box-shadow:var(--sidebar-logo-shadow)}}
+@media(hover:hover){#root .liquid-sidebar .nav-btn:hover{z-index:4;transform:translateX(2px) scale(1.03);box-shadow:var(--sidebar-active-glow)}}
 #root .liquid-sidebar .nav-btn:not(.active):hover{background:linear-gradient(var(--sidebar-item-hover),var(--sidebar-item-hover)),var(--sidebar-item-scrim)}
 #root .liquid-sidebar .nav-btn:focus-visible{z-index:4}
 #root .liquid-sidebar .nav-btn:active{transform:translateX(1px) scale(.99)}
@@ -63,3 +63,6 @@ html[data-glass-effects=off] .sidebar-glass-tooltip{backdrop-filter:none}
 @media(prefers-reduced-motion:reduce){#root .shell,#root .liquid-sidebar .nav-btn,.sidebar-toggle{transition:none}#root .liquid-sidebar :is(.brand-name,.nav-item-label,.nav-label){animation:none!important;transform:none!important}#root .liquid-sidebar .nav-btn{transform:none!important}.liquid-sidebar-bloom{animation:none}}
 @media(forced-colors:active){#root .liquid-sidebar{background:Canvas;border-color:CanvasText;box-shadow:none}.liquid-sidebar-optics{display:none}#root .liquid-sidebar :is(.nav-btn,.brand-name,.nav-label),.sidebar-toggle{background:Canvas;color:CanvasText;text-shadow:none;-webkit-text-fill-color:CanvasText}#root .liquid-sidebar .nav-btn.active{background:Highlight;color:HighlightText;box-shadow:none}.sidebar-glass-tooltip{background:Canvas;color:CanvasText;backdrop-filter:none;box-shadow:none}}
 @media(forced-colors:active){#root .liquid-sidebar .brand-mark svg{stroke:CanvasText}#root .liquid-sidebar .nav-label{opacity:1}#root .liquid-sidebar[data-collapsed=true] .nav-label{border-bottom:1px solid CanvasText}}
+
+#root .liquid-sidebar .nav-btn.active{background:linear-gradient(135deg,var(--sidebar-active-start),var(--sidebar-active-end)),var(--sidebar-item-scrim)}
+#root .liquid-sidebar .nav-btn:focus-visible{box-shadow:var(--sidebar-active-glow)}

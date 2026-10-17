@@ -70,3 +70,15 @@ html[data-glass-effects=off] #root :is(.glass-card,.panel,.stat)::before{content
 /* Info-box headings remain legible on the dark glass in both threat states. */
 #root :is(.glass-card,.panel,.stat) :is(h1,h2,h3,h4,h5,h6,.panel-title){color:#a5d8ff!important}
 @media(forced-colors:active){#root :is(.glass-card,.panel,.stat) :is(h1,h2,h3,h4,h5,h6,.panel-title){color:CanvasText!important}}
+
+/* Stronger headings and visible, rounded Console quick actions. */
+#root :is(h1,h2,h3,h4,h5,h6,.panel-title,.dashboard-title){font-weight:800!important}
+#root :is(.glass-card,.panel,.stat) .panel-title{font-size:15px;letter-spacing:.06em}
+#root .stat .label{font-weight:700;color:#a5d8ff}
+#root .dashboard-actions{gap:12px}
+#root .dashboard-actions .btn{border-radius:20px;min-height:48px;height:auto;padding:12px 22px;border:1px solid rgba(165,216,255,.38);background:rgba(12,18,35,.88);color:#c4e6ff;font-weight:700;font-size:16px;box-shadow:inset 0 1px 0 rgba(255,255,255,.09);transition:background-color 200ms ease,border-color 200ms ease,box-shadow 200ms ease}
+#root .dashboard-actions .btn:not(:disabled):hover{background:rgba(30,53,90,.94);border-color:#a5d8ff;box-shadow:0 0 20px rgba(43,107,255,.25)}
+#root .dashboard-actions .btn:focus-visible{outline:2px solid #a5d8ff;outline-offset:3px}
+#root .dashboard-actions .btn:disabled{opacity:.5;cursor:not-allowed}
+@media(prefers-reduced-motion:reduce){#root .dashboard-actions .btn{transition:none}}
+@media(forced-colors:active){#root .dashboard-actions .btn{background:ButtonFace;color:ButtonText;border-color:ButtonText}}

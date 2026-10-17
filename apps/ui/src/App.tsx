@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {useDemoState, demoCall} from './demo-bridge';
 import {canDragWindow} from './desktop-interactions';
 import { ThreatProvider, useThreat } from "./state";
@@ -51,6 +51,8 @@ function Shell() {
   const [sidebarCollapsed,setSidebarCollapsed]=useState(false);
   const [view, setView] = useState<ViewId>("dashboard");
   const { level, scanAlert } = useThreat();
+  const shellRef=useRef<HTMLDivElement>(null);
+  useEffect(()=>{if(shellRef.current)shellRef.current.scrollTop=0;},[view]);
 
   const statusLabel =
     scanAlert ? 'Scan finding · review required' : demo ? 'Connected · partial coverage' : level === "danger"
@@ -62,7 +64,7 @@ function Shell() {
 
 
   return (
-    <div className={`shell${view === "password" ? " password-shell" : ""}${sidebarCollapsed?" sidebar-collapsed":""}`}>
+    <div ref={shellRef} className={`shell${view === "password" ? " password-shell" : ""}${sidebarCollapsed?" sidebar-collapsed":""}`}>
       <div className="window-actions"><button aria-label="Minimize to tray" onClick={()=>void import('./demo-bridge').then(m=>m.demoCall('window.hide')).catch(()=>{})}>−</button><button aria-label="Close to tray" onClick={()=>void import('./demo-bridge').then(m=>m.demoCall('window.hide')).catch(()=>{})}>×</button></div>
       {/* Owner-supplied ASCII backdrop; decoration never intercepts input. */}
       <div
@@ -152,7 +154,7 @@ function Shell() {
 
       </main>
         <footer className="desktop-ribbon">
-          <TextLoop fitWidth text="Sentinel" shape="line" speed={135} direction="forward" separator="✦" curviness={90} tilt={0} fontSize={18} fontWeight={800} letterSpacing={1} uppercase ribbon ribbonColor="#414bff" ribbonWidth={30} edgeFade={0} cross={false} crossAngle={14} draggable scrollBoost={0} outline={false} pauseOnHover outlineWidth={1.5} color="#000000"/>
+          <TextLoop key={view} fitWidth text="Sentinel" shape="line" speed={135} direction="forward" separator="✦" curviness={90} tilt={0} fontSize={18} fontWeight={800} letterSpacing={1} uppercase ribbon ribbonColor="#414bff" ribbonWidth={30} edgeFade={0} cross={false} crossAngle={14} draggable scrollBoost={0} outline={false} pauseOnHover outlineWidth={1.5} color="#000000"/>
         </footer>
     </div>
   );
