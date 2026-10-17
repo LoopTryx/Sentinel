@@ -16,27 +16,25 @@ function ConvertTo-SentinelUsbSnapshot {
     foreach($row in $ordered){
         $id=[string]$row.Id
         if($id -notmatch '^(USB|USBSTOR|HID)\\' -and [string]$row.Class -notin @('Keyboard','Mouse','HIDClass')){continue}
-        $cursor=$id;$evidence='unresolved';$visited=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-        for($depth=0;$depth -lt 8;$depth++){
-            if($cursor -match '^(USB|USBSTOR)\\'){$evidence='os_reported';break}
-            if($cursor -match '^(BTH|BTHENUM|ACPI|PCI)\\'){$evidence='not_usb';break}
-            if(-not $visited.Add($cursor) -or -not $map.ContainsKey($cursor)){break}
+        $cursor=$id;$evidence='unresolved';$physicalRoot='';$visited=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+        for($depth=0;$depth -lt 12;$depth++){
+            if(-not $cursor -or $cursor.Length -gt 512 -or -not $visited.Add($cursor) -or -not $map.ContainsKey($cursor)){break}
+            if($cursor -match '^(USB|USBSTOR)\\'){$evidence='os_reported'}
+            if($cursor -match '^USB\\VID_[0-9A-F]{4}&PID_[0-9A-F]{4}[^\\]*\\[^\\]+$' -and $cursor -notmatch '&MI_'){$physicalRoot=$cursor;break}
+            if($cursor -match '^(BTH|BTHENUM|ACPI|PCI)\\'){if($evidence -ne 'os_reported'){$evidence='not_usb'};break}
             $cursor=[string]$map[$cursor].Parent
-            if(-not $cursor -or $cursor.Length -gt 512){break}
         }
         if($evidence -eq 'not_usb'){continue}
-        if($evidence -eq 'unresolved'){$partial=$true}
+        if($evidence -eq 'unresolved' -or -not $physicalRoot){$partial=$true}
         $kind=switch([string]$row.Class){'DiskDrive'{'storage'}'Keyboard'{'hid_keyboard'}'Mouse'{'hid_mouse'}'HIDClass'{'hid_other'}'Net'{'network'}default{'other'}}
-        $container=[guid]::Empty;$validContainer=[guid]::TryParse([string]$row.Container,[ref]$container) -and $container -ne [guid]::Empty
-        # Unresolved ancestry never joins another device merely by a claimed container.
-        $groupKey=if($validContainer -and $evidence -eq 'os_reported'){'container:'+ $container.ToString()}else{'node:'+ $id}
-        if(-not $validContainer){$partial=$true}
+        # Only a resolved physical USB parent groups functions. Container IDs are not authority.
+        $groupKey=if($physicalRoot){'root:'+ $physicalRoot}else{'node:'+ $id}
         if(-not $groups.Contains($groupKey)){
             if($groups.Count -ge 64){$omitted=[Math]::Min(512,$omitted+1);$partial=$true;continue}
             $groups[$groupKey]=[pscustomobject]@{ref=('device-'+($groups.Count+1));usbEvidence=$evidence;interfaces=[Collections.Generic.HashSet[string]]::new();name=''}
         }
         $name=[string]$row.DisplayName
-        if($map.ContainsKey($cursor) -and $map[$cursor].DisplayName){$name=[string]$map[$cursor].DisplayName}
+        if($physicalRoot -and $map[$physicalRoot].DisplayName){$name=[string]$map[$physicalRoot].DisplayName}
         $name=($name -replace '[^\x20-\x7E]','').Trim()
         if($name.Length -gt 80){$name=$name.Substring(0,80)}
         if($name -and $name -notmatch '^(HID[- ]|USB Input Device|USB Composite Device|USB Mass Storage Device|USB Root Hub|Generic USB)'){$groups[$groupKey].name=$name}
@@ -57,7 +55,7 @@ function Get-SentinelUsbSnapshot {
         $queried=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase);$queries=0
         foreach($candidate in $candidates){
             $cursor=$candidate.Id
-            for($depth=0;$depth -lt 8;$depth++){
+            for($depth=0;$depth -lt 12;$depth++){
                 if($queries -ge 256 -or $watch.ElapsedMilliseconds -ge 8000){$partial=$true;break}
                 if(-not $cursor -or $cursor.Length -gt 512 -or $cursor -match '[*?\[\]]' -or -not $queried.Add($cursor)){break}
                 $queries++

@@ -1,0 +1,61 @@
+using System;
+using System.Collections.Generic;
+using System.Text;
+using System.Security.Cryptography;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Web.Script.Serialization;
+using System.Windows.Forms;
+using System.Drawing;
+internal sealed partial class UsbAdmissionWindow {
+ readonly string tabPipeName; readonly CancellationTokenSource tabCancellation=new CancellationTokenSource();
+ string tabIntentSummary;
+ readonly string tabSalt=Guid.NewGuid().ToString("N");
+ string TabReference(string id){return UsbAdmissionTabModel.Reference(tabPipeName??tabSalt,id);}
+ void StartTabServer(){
+  Task.Run(async()=>{try{await UsbAdmissionTabPipe.Serve(tabPipeName,consoleOwner.ProcessId,consoleOwner.ProcessStartTicks,DispatchTab,tabCancellation.Token);}catch{}finally{if(!IsDisposed)try{BeginInvoke(new Action(()=>{if(!busy)Close();else closing=true;}));}catch{}}});
+ }
+ Task<string> DispatchTab(string raw){
+  var completion=new TaskCompletionSource<string>();
+  try{BeginInvoke(new Action(async()=>{try{completion.SetResult(await TabRequest(raw));}catch{completion.SetResult("{\"error\":\"usb_action_unverified\"}");}}));}catch{completion.TrySetResult("{\"error\":\"operator_unavailable\"}");}return completion.Task;
+ }
+ async Task<string> TabRequest(string raw){
+  if(raw==null||raw.Length>4096||busy||UsbOwnerVerification.HasPending)return "{\"error\":\"action_busy\"}";
+  var json=new JavaScriptSerializer{MaxJsonLength=32768,RecursionLimit=8};var request=json.Deserialize<Dictionary<string,object>>(raw);
+  object operation; if(request==null||!request.TryGetValue("action",out operation)||!(operation is string))return "{\"error\":\"invalid_request\"}";
+  string action=(string)operation;if(action=="snapshot"){if(request.Count!=1)return "{\"error\":\"invalid_request\"}";await RefreshView(true,false);return json.Serialize(TabSnapshot());}
+  if((action!="allow"&&action!="block")||request.Count!=3||!request.ContainsKey("ref")||!request.ContainsKey("topology"))return "{\"error\":\"invalid_request\"}";
+  string reference=request["ref"] as string,topology=request["topology"] as string;
+  if(!HexTab(reference)||!HexTab(topology))return "{\"error\":\"invalid_request\"}";
+  if(action=="block")return "{\"error\":\"device_scope_repair_required\"}";
+  await RefreshView(true,false);
+  if(active!=null)return "{\"error\":\"shared_rule_release_required\"}";
+  if(inventory==null||!inventory.Complete||inventory.Preflight==null||inventory.Preflight.State!="review_required"||inventory.Preflight.TopologyToken!=topology)return "{\"error\":\"device_list_changed\"}";
+  List<string> selected=null;foreach(var group in ExternalGroups())if(TabReference(group.Key)==reference)selected=group.Value;
+  if(selected==null)return "{\"error\":\"device_unavailable\"}";
+  string targetName="USB input device";foreach(var subject in inventory.Subjects)if(selected.Contains(subject.Input.Instance)){targetName=UsbAdmissionInventory.Display(subject.DisplayName);break;}
+  tabIntentSummary=(action=="allow"?"Allow ":"Block ")+targetName+" · "+selected.Count+" input interfaces";
+  // Only the protected operator owns the Hello foreground window. Renderer input is never a proof.
+  try{
+   Opacity=1;ShowInTaskbar=false;Text="Sentinel · Confirm USB access";heading.Text=action=="allow"?"Allow USB device":"Block USB device";cards.Visible=false;devices.Visible=false;arm.Visible=false;release.Visible=false;refresh.Visible=false;back.Visible=false;
+   ClientSize=new Size(660,330);StartPosition=FormStartPosition.CenterScreen;Show();Activate();BringToFront();
+   // Allow must never arm a class-wide deny or restart unrelated interfaces.
+   // With an active shared rule the request is refused above, before mutation.
+   SetBusy(true);try{if(await ReleaseWithHello(true,selected.ToArray()))message.Text=recoveryStatus??"Input recovery attempted. Test the selected device.";}finally{SetBusy(false);FinishClose();}
+  }finally{Hide();Opacity=0;tabIntentSummary=null;}
+  await RefreshView(true,false);return json.Serialize(TabSnapshot());
+ }
+ static bool HexTab(string text){return text!=null&&System.Text.RegularExpressions.Regex.IsMatch(text,"^[a-f0-9]{64}$");}
+ Dictionary<string,List<string>> ExternalGroups(){return UsbAdmissionTabModel.Groups(inventory);}
+ object TabSnapshot(){
+  bool complete=inventory!=null&&inventory.Complete&&inventory.Preflight!=null&&inventory.Preflight.State=="review_required";
+  bool verified=active!=null&&config!=null&&verifiedNonce==active.Nonce&&(DateTime.UtcNow-verifiedAt).TotalSeconds<30&&DateTime.UtcNow<active.DeadlineUtc&&Convert.ToBase64String(Policy(config))==Convert.ToBase64String(active.Policy);
+  var approved=new HashSet<string>(config==null?new string[0]:config.ApprovedExternal,StringComparer.OrdinalIgnoreCase);var result=new List<object>();
+  if(complete)foreach(var group in ExternalGroups()){
+   string name="USB input device";foreach(var subject in inventory.Subjects)if(group.Value.Contains(subject.Input.Instance)){name=subject.DisplayName;break;}
+   bool allAllowed=group.Value.TrueForAll(id=>approved.Contains(id));bool noneAllowed=group.Value.TrueForAll(id=>!approved.Contains(id));
+   result.Add(new Dictionary<string,object>{{"ref",TabReference(group.Key)},{"name",UsbAdmissionInventory.Display(name)},{"access",verified?(allAllowed?"allowed":noneAllowed?"restricted":"unverified"):verifiedOff?"off":"unverified"},{"canChange",!staged&&active==null},{"canBlock",false},{"canScan",false}});
+  }
+  return new{schemaVersion=1,verified=verified||verifiedOff,topology=complete?inventory.Preflight.TopologyToken:null,active=verified,deadline=active==null?null:active.DeadlineUtc.ToString("o"),devices=result,message=message.Text??""};
+ }
+}

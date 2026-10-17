@@ -1,41 +1,42 @@
 import {useEffect,useRef,useState} from 'react';
 import {demoCall,useDemoState} from '../../demo-bridge';
-import {useAutoRefresh} from '../../use-auto-refresh';
-import {parseUsbInventory,type UsbInventory,type UsbInterface} from './inventory';
+import {parseUsbTab,type UsbTabSnapshot,type UsbTabDevice} from './tab-contract';
 import './usb-guard.css';
 import UsbActivityPanel from './UsbActivityPanel';
-const labels:Record<UsbInterface,string>={hid_keyboard:'HID keyboard',hid_mouse:'HID mouse',hid_other:'Other HID',storage:'Storage',network:'Network',other:'Other interface'};
-function fallbackName(interfaces:UsbInterface[]){
- const input=interfaces.includes('hid_keyboard')&&interfaces.includes('hid_mouse')?'Keyboard + mouse':interfaces.includes('hid_keyboard')?'Keyboard':interfaces.includes('hid_mouse')?'Mouse':interfaces.includes('hid_other')?'HID device':'';
- return input?(interfaces.includes('storage')?input+' with storage':input):interfaces.includes('storage')?'USB storage':'USB interface';
-}
+import Icon from '../../components/Icon';
+const labels={allowed:'Allowed',restricted:'Restricted by Windows rule',off:'Not restricted',unverified:'Access not verified'};
+type Choice={action:'block'|'allow'|'scan';device:UsbTabDevice;topology:string|null};
+function friendly(error:unknown){const code=error instanceof Error?error.message:'';return code==='device_scope_repair_required'?'Blocking is paused while device isolation is repaired.':code==='shared_rule_release_required'?'Release the protection session before reconnecting this device.':code==='approval_cancelled'?'Windows approval was cancelled. No change is confirmed.':code==='device_list_changed'?'The connected devices changed. Refresh and try again.':code==='action_busy'?'Another device action is finishing. Please wait.':code==='action_unavailable'?'Bring Sentinel to the front, then try the action again.':'Device access could not be verified. Refresh to reconnect.';}
 export default function UsbGuardView(){
- const {state}=useDemoState();
- const [inventory,setInventory]=useState<UsbInventory|null>(null);
- const [observing,setObserving]=useState(false),[notice,setNotice]=useState('');
- const epoch=useRef(0),sequence=useRef(0),active=useRef(!!state);active.current=!!state;
- useEffect(()=>{epoch.current++;setInventory(null);setObserving(false);return()=>{epoch.current++;};},[!!state]);
- async function observe(){const generation=epoch.current,request=++sequence.current;setObserving(true);setNotice('');try{const parsed=parseUsbInventory(JSON.stringify(await demoCall('usb.observe')));if(!parsed)throw Error();if(active.current&&generation===epoch.current&&request===sequence.current)setInventory(parsed);}catch{if(active.current&&generation===epoch.current&&request===sequence.current){setInventory(null);setNotice('Device inventory unavailable.');}}finally{if(generation===epoch.current&&request===sequence.current)setObserving(false);}}
- useAutoRefresh(observe,5000,!!state);
- const snapshot=state?inventory:null;
- const useful=snapshot?.devices.filter(d=>d.interfaces.some(i=>i==='storage'||i.startsWith('hid_')))??[];
- const other=snapshot?.devices.filter(d=>!useful.includes(d))??[];
+ const {state}=useDemoState();const [snapshot,setSnapshot]=useState<UsbTabSnapshot|null>(null),[busy,setBusy]=useState(''),[notice,setNotice]=useState(''),[stale,setStale]=useState(false),[choice,setChoice]=useState<Choice|null>(null),[refresh,setRefresh]=useState(0);
+ const generation=useRef(0),pending=useRef(false),closeButton=useRef<HTMLButtonElement>(null),restoreFocus=useRef<HTMLElement|null>(null);
+ useEffect(()=>{if(choice){restoreFocus.current=document.activeElement as HTMLElement;closeButton.current?.focus();return()=>restoreFocus.current?.focus();}},[choice]);
+ useEffect(()=>{const epoch=++generation.current;setChoice(null);setBusy('');pending.current=false;if(!state){setSnapshot(null);setNotice('');setStale(false);return;}
+  let stopped=false;async function read(){if(stopped||pending.current)return;pending.current=true;try{const value=parseUsbTab(await demoCall('usb.admission.snapshot'));if(!value)throw Error('Invalid device state.');if(!stopped&&generation.current===epoch){setSnapshot(value);setStale(false);setNotice('');}}catch(error){if(!stopped&&generation.current===epoch){setStale(true);setNotice(friendly(error));}}finally{if(generation.current===epoch)pending.current=false;}}
+  void read();const timer=setInterval(()=>void read(),10000);return()=>{stopped=true;clearInterval(timer);};
+ },[!!state,refresh]);
+ async function confirm(){if(!choice||choice.action==='scan'||!choice.topology||pending.current)return;const selected=choice;const epoch=generation.current;pending.current=true;setBusy(selected.device.ref);setNotice('Waiting for Windows authorization…');
+  try{const value=parseUsbTab(await demoCall('usb.admission.action',{action:selected.action,ref:selected.device.ref,topology:selected.topology}));if(!value)throw Error('Windows access could not be verified.');if(generation.current===epoch){setSnapshot(value);setStale(false);setNotice(value.message);setChoice(null);}}
+  catch(error){if(generation.current===epoch){setStale(true);setNotice(friendly(error));setChoice(null);}}
+  finally{if(generation.current===epoch){pending.current=false;setBusy('');}}
+ }
+ const connected=!!state;const status=!connected?'Desktop disconnected':stale?'Update needed':!snapshot?.verified?'Access not verified':snapshot.active?`Active until ${new Date(snapshot.deadline!).toLocaleTimeString()}`:'Protection session inactive';
  return <section className="usb-guard usb-minimal" aria-labelledby="usb-heading">
-  <div className="usb-page-heading"><h2 id="usb-heading">USB Guard</h2><span className="usb-mode">{state?'Monitoring connected devices':'Desktop disconnected'}</span></div>
-  <dl className="usb-status-strip"><div><dt>Input quarantine</dt><dd className="usb-status-warning">Unavailable</dd></div><div><dt>Device approval</dt><dd>Not enabled</dd></div><div><dt>Storage scan</dt><dd>Not running</dd></div></dl>
-  <section className="panel"><div className="usb-toolbar"><h3>Connected input and storage</h3><button className="btn ghost" disabled={observing||!state} onClick={()=>void observe()}>{observing?'Updating…':'Refresh'}</button></div>
-   {notice&&<p role="status">{notice}</p>}
-   {snapshot&&snapshot.state!=='unavailable'?<><p className="usb-inventory-count">{useful.length} Windows device groups · Updated {new Date(snapshot.observedAt).toLocaleTimeString()}{snapshot.state==='partial'?' · Incomplete inventory':''}</p>
-    <div className="usb-device-list">{useful.map(device=><article key={device.ref} data-usb-device className="usb-device-card">
-     <div className="usb-device-title"><span className="usb-device-glyph" aria-hidden="true">{device.interfaces.includes('storage')?'▣':device.interfaces.includes('hid_mouse')?'◉':'⌨'}</span><div><strong>{device.name||fallbackName(device.interfaces)}</strong><span className="usb-device-reference">{device.ref.replace('device-','Group ')} · Windows description</span></div><span className="usb-chip">{device.usbEvidence==='unresolved'?'USB ancestry unknown':'USB reported'}</span></div>
-     <div className="usb-interface-tags">{device.interfaces.filter(i=>i!=='other').map(i=><span key={i}>{labels[i]}</span>)}</div>
-     <dl className="usb-device-facts"><div><dt>Input access</dt><dd>{device.interfaces.some(i=>i.startsWith('hid_'))?'Not blocked':'No HID reported'}</dd></div><div><dt>Storage inspection</dt><dd>{device.interfaces.includes('storage')?'Not scanned':'No storage reported'}</dd></div><div><dt>Trust</dt><dd>Not enrolled</dd></div></dl>
-    </article>)}</div>{!useful.length&&<p>No input or storage groups reported.</p>}
-    <details><summary>Other interfaces ({other.length})</summary>{other.map(d=><p key={d.ref}>{d.name||fallbackName(d.interfaces)} · {d.ref.replace('device-','Group ')}</p>)}</details>
-    <details><summary>Device information</summary><p>Windows groups interfaces by reported identity. USB-connected built-in devices may appear here. Names do not establish trust. Missing records: {snapshot.omitted}.</p></details>
-   </>:<p>{!state?'Desktop disconnected.':notice||snapshot?.state==='unavailable'?'Device inventory unavailable.':'Reading connected devices…'}</p>}
+  <div className="usb-page-heading"><h2 id="usb-heading">USB Guard</h2><span className="usb-mode">{status}</span></div>
+  {notice&&<p role="status" className="usb-action-status">{notice}</p>}
+  <section className="panel glass-card glass-card--panel usb-inline-devices"><div className="usb-toolbar"><h3>Connected devices</h3><button className="btn ghost" disabled={!connected||!!busy} onClick={()=>setRefresh(n=>n+1)}>Refresh</button></div>
+   {connected&&snapshot?<div className="usb-device-list">{snapshot.devices.map(device=><article key={device.ref} data-usb-device className="usb-device-card usb-inline-row">
+    <div className="usb-device-title"><span className="usb-device-glyph" aria-hidden="true"><Icon name="usb" size={24}/></span><div><strong>{device.name}</strong><span className="usb-device-reference">{busy===device.ref?'Working…':stale?'Update needed':labels[device.access]}</span></div></div>
+    <div className="usb-row-actions">{(['block','allow','scan'] as const).map(action=><button key={action} className={`btn ${action==='allow'?'':'ghost'}`} disabled={!!busy||stale||!device.canChange||action==='block'&&!device.canBlock||action==='scan'&&!device.canScan} title={action==='block'?'Paused while device isolation is repaired':action==='scan'?'No verified storage scan is available for this device':undefined} onClick={()=>setChoice({action,device,topology:snapshot.topology})}>{action[0].toUpperCase()+action.slice(1)}</button>)}</div>
+   </article>)}{!snapshot.devices.length&&<p>{snapshot.topology?'No external USB input devices connected.':'Device inventory is incomplete. Refresh to try again.'}</p>}</div>:<p>{!connected?'Desktop disconnected.':stale?'Could not update devices. Use Refresh to try again.':'Loading devices…'}</p>}
   </section>
-  <UsbActivityPanel enabled={!!state}/>
+  <UsbActivityPanel enabled={connected}/>
+  {choice&&<div className="usb-dialog-shade"><div role="dialog" aria-modal="true" aria-labelledby="usb-dialog-title" className="usb-action-dialog" onKeyDown={e=>{if(e.key==='Escape'&&!busy)setChoice(null);if(e.key==='Tab'){const buttons=Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'));if(buttons.length){const first=buttons[0],last=buttons[buttons.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}}}}>
+   <span className="usb-dialog-eyebrow">USB Guard</span><h3 id="usb-dialog-title">{choice.action==='scan'?'Scan device':choice.action==='allow'?'Allow device?':'Block device?'}</h3><strong className="usb-dialog-device">{choice.device.name}</strong>
+   <p>{choice.action==='scan'?'No accessible storage has been verified for this device. HID input and firmware cannot be scanned as files.':choice.action==='allow'?'Windows Hello verifies your identity before this device is allowed.':'Windows Hello verifies your identity before input from this device is restricted.'}</p>
+   {choice.action!=='scan'&&<p className="usb-dialog-detail">This recovery action reconnects only the selected device. It does not start a new blocking rule.</p>}
+   {busy&&<p role="status" className="usb-dialog-progress">Applying your change. Keep the device connected…</p>}
+   <div className="usb-dialog-buttons"><button ref={closeButton} className="btn ghost" disabled={!!busy} onClick={()=>setChoice(null)}>{choice.action==='scan'?'Close':'Cancel'}</button>{choice.action!=='scan'&&<button className="btn" disabled={!!busy||stale} onClick={()=>void confirm()}>{busy?'Working…':choice.action==='allow'?'Confirm Allow':'Confirm Block'}</button>}</div>
+  </div></div>}
  </section>;
 }
-

@@ -1,0 +1,10 @@
+[package]
+name = "sentinel-usb-broker-engine"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.98"
+[workspace]
+[lib]
+crate-type = ["cdylib", "rlib"]
+[dependencies]
+sentinel-usb = {path = "../../crates/sentinel-usb"}
