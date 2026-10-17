@@ -46,8 +46,8 @@ internal static class UsbExactBlockOperations {
    string binding=Path.Combine(UsbAdmissionWorkerBackend.DirectoryPath,"legacy-baseline.bin");
    Require(File.Exists(binding)&&(File.GetAttributes(binding)&FileAttributes.ReparsePoint)==0,"The authenticated original USB policy baseline is required");
    bool initial=Store.ReadCommitted()==null&&Store.ReadPending()==null;
-   legacy=UsbAdmissionWorkerBackend.AcquireRetiredForExact(initial);
-   Backend=new UsbExactBlockBackend(Store,hash);
+   legacy=UsbAdmissionWorkerBackend.AcquireRetiredForExact(false);
+   Backend=new UsbExactBlockBackend(Store,hash);if(initial)Backend.VerifyPolicy(null);
   }catch{Dispose();throw;}}
   internal void CheckLegacy(){legacy.CheckRetiredForExact();}
   internal UsbExactBlockState.Snapshot Verified(){CheckLegacy();Require(Store.ReadPending()==null,"An interrupted USB transaction requires recovery");var state=Store.ReadCommitted();Backend.VerifyPolicy(state);Require(Store.ReadPending()==null&&UsbExactBlockState.Same(state,Store.ReadCommitted()),"USB state changed during verification");CheckLegacy();return state;}
