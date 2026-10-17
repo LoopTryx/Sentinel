@@ -104,3 +104,5 @@ Owner requested revert of a92bdf5: restored the prior blue glass material, top c
 17 October correction: ribbon now occupies its own full-window bottom row, including the sidebar width, with no left/right inset. Removed shell/background wash and restored full ASCII opacity. The actual threat level switches the ASCII palette and GPU fallback to red; Reset Console uses the existing acknowledgement logic.
 
 17 October owner adjustment: ASCII background opacity75% in both normal and red alert states; shell tint remains removed.
+
+17 October correction: full-window ribbon now follows natural document scrolling instead of occupying a pinned row. The shell owns vertical scrolling; sidebar remains sticky and existing page insets remain. Top bar transparent; headings deep navy. Focusing an inner control no longer outlines the whole card in blue; individual keyboard focus rings retained.
