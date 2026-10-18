@@ -1,3 +1,4 @@
+import {watchtowerPreferences} from './watchtower-observe.mjs';
 import {rememberBrowserDomain,forgetBrowserDomains} from './watchtower-browser.mjs';
 import http from 'node:http';
 import {observeWifi} from './wifi.mjs';
@@ -180,6 +181,7 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
    const id='account_'+randomBytes(8).toString('hex');accounts.push({id,name:body.name.trim(),user:body.user.trim(),host:body.host.toLowerCase(),password});revision++;event('desktop','account_added');return respond(200,{ok:true,id});
   }
   if(req.url==='/watchtower-domain'){if(!browser)return respond(403,{error:'forbidden'});if(keys(body,['host'])&&Object.keys(body).length===1&&body.host===null){forgetBrowserDomains();return respond(200,{ok:true});}if(!keys(body,['host','codes'])||(body.codes!==undefined&&(!Array.isArray(body.codes)||body.codes.length>2||!body.codes.every(code=>['portal_credentials','portal_payment'].includes(code))))||!rememberBrowserDomain(body.host,Date.now(),body.codes??[]))return respond(400,{error:'invalid_request'});return respond(200,{ok:true});}
+  if(req.url==='/watchtower-preference'){if(!desktop)return respond(403,{error:'forbidden'});if(!keys(body,['host','risk'])||Object.keys(body).length!==2)return respond(400,{error:'invalid_request'});try{return respond(200,await watchtowerPreferences.change(body.host,body.risk));}catch{return respond(503,{error:'preferences_unavailable'});}}
   if(req.url==='/wifi'){
    if(!desktop)return respond(403,{error:'forbidden'});
    if(!keys(body,[]))return respond(400,{error:'invalid_request'});

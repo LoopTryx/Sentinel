@@ -384,6 +384,16 @@ public sealed class SentinelGlassConsole : Window
                 var empty = data as Dictionary<string, object>;
                 if (empty == null || empty.Count != 0) throw new InvalidOperationException();
                 route = "inspection";
+            } else if (method == "watchtower.preference") {
+                var preference=data as Dictionary<string,object>;
+                if(preference==null||preference.Count!=2||!preference.ContainsKey("host")||!preference.ContainsKey("choice"))throw new InvalidOperationException();
+                string host=preference["host"] as string,choice=preference["choice"] as string;
+                if(host==null||host.Length>253||!System.Text.RegularExpressions.Regex.IsMatch(host,@"^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$" )||Array.IndexOf(new[]{"allow_once","trust","untrust"},choice)<0||!IsActive||!IsVisible||actionDialog)throw new InvalidOperationException();
+                if(choice=="trust"){
+                    actionDialog=true;bool approved;try{approved=MessageBox.Show(this,"Use a higher warning threshold for this domain and its subdomains? This does not establish that it is safe.\n\n"+host,"Trust domain in Watchtower",MessageBoxButton.YesNo,MessageBoxImage.Warning,MessageBoxResult.No)==MessageBoxResult.Yes;}finally{actionDialog=false;}
+                    if(!approved){Reply(id,new{state="declined"});return;}
+                }
+                route="watchtower-preference";data=new{host=host,risk=choice};
             } else if (method == "wifi.assess") {
                 var empty = data as Dictionary<string, object>;
                 if (empty == null || empty.Count != 0) throw new InvalidOperationException();
