@@ -11,3 +11,5 @@
  --glass-ease:cubic-bezier(.2,.65,.3,1);--glass-duration:200ms;--glass-stagger:40ms;--glass-bloom-duration:20s;
  --glass-font:"Space Grotesk","Inter","Segoe UI",sans-serif;
 }
+
+:root{--heading-ink:#1b1e4a;--heading-highlight:#a5d8ff}
