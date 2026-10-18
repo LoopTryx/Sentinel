@@ -90,7 +90,8 @@
       "resources": [
         "src/assets/blue-ledge-v1.png",
         "src/assets/red-peeking-v1.png",
-        "src/ui-overlay.css"
+        "src/ui-overlay.css",
+        "popup.html"
       ],
       "matches": [
         "http://*/*",
