@@ -138,3 +138,20 @@ Owner requested revert of a92bdf5: restored the prior blue glass material, top c
 18 October: Restore now uses the same1400ms GLM wave-fill HoldButton in blue. Hold completion opens native restore confirmation. Tests verify both actions require the hold; typecheck, three Vault tests and UI build passed.
 
 18 October Watchtower stage1 checkpoint: bounded local DNS-cache/connection collection, shared domain scoring/config, tiered reasons, current-report UI and105-case offline set/evaluator. Nine backend tests and UI test/typecheck/build pass; actual local collector availability/counts validated. Public-feed hostname-only detection is0/50, so website protection remains incomplete. No reputation/TLS/age provider, browser URL bridge, rogue-hotspot or traffic-behavior detector, or blocking is claimed. Evidence: evidence/watchtower-stage1-2026-10-18.md.
+
+
+## 18 October 2026 — dashboard mascots, network checkpoints and extension corrections
+
+Request: publish the owner's current desktop, network and extension changes together on the v3 collection branch.
+
+- Desktop: page-appropriate mascot cutouts with shared soft shadows on Console, Scan & Detect, Watchtower, USB Guard, Passwords, Quarantine and Threat Log. Responsive sizing; decorative images do not communicate a security verdict. Default focus changes keep the dashboard visible while clearing displayed vault secrets. Native tray lifecycle still passes.
+- Watchtower: bounded hostname combinations, passive Wi-Fi/topology changes and sampled connection/DNS-name behavior; explicit opt-in browser hostname/field-presence ingress and default-off reputation/RDAP/TLS providers. Desktop acknowledgement/trust preferences, with persistent bounded explicit trust only. No actual Windows Firewall/hosts/DNS enforcement, managed undo, app upload-rate or NXDOMAIN query-rate provider.
+- Extension: toolbar injects a transparent host-page wrapper with hanging mascots and embedded extension-origin controls. No toolbar fallback/navigation handler opens a tab; Settings/Passwords switch in the embedded card. Restricted pages cannot accept injection and get a toolbar error badge. Web-accessible control frame is a changed security boundary needing independent review.
+- Scam detection: prize + claim alone is insufficient; formatted payment demands (10k, 10$, $10, rupees/INR) and reward activation/release fees add supporting evidence. No school/contact whitelist. Configurable policy version 2; extension version 0.2.15.
+- Download: downloads/sentinel-extension-scam-fix-v19.zip and SHA256 receipt, built from 80bc880. Superseded local ZIPs/extracted folders are not included in this publication.
+
+Checks: 136 extension tests passed; extension build/parity and ZIP file hashes passed; desktop UI typecheck/production build passed; native build and tray lifecycle passed. Native smoke outside the restricted execution sandbox passed navigation, Console readiness, local runtime and inspection bridge. Earlier sandboxed launches failed initialization; process existence alone was insufficient. See desktop-launch-audit-2026-10-18.md.
+
+Accuracy: 16 targeted synthetic payment/class cases improved from FP5/FN2 to FP0/FN0. Existing unchanged 80-case message corpus changed from FP1/FN0 to FP0/FN4; four bare reward claims remain explicitly counted as misses. Watchtower's frozen public-domain local-only holdout remains FP0/50 legitimate and FN50/50 phishing. No production accuracy claim. See message-payment-context-2026-10-18.json and watchtower-stage1 through stage4 evidence.
+
+Remaining: independent authority/privacy review, installed browser/frame/CSP/provider acceptance, complete network enforcement/undo and unavailable traffic providers. Publish to the owned v3 branch/PR75 only; no merge, release or claim that all network protection is complete.
