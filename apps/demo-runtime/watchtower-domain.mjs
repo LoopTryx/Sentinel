@@ -4,8 +4,8 @@ import {isIP} from 'node:net';
 import {inspectMessageLink} from '../extension/src/message-detector.js';
 import {messageDetectorConfig} from '../extension/data/message-detector-config.js';
 export const watchtowerConfig=JSON.parse(readFileSync(new URL('./watchtower-config.json',import.meta.url),'utf8'));
-const groups={lookalike:'identity',mixedScript:'identity',brandSubdomain:'identity',suspiciousTld:'hosting',ipHost:'hosting',internationalized:'international',shortener:'redirect',hyphens:'structure',longName:'structure',subdomains:'structure',entropy:'structure'};
-const descriptions={lookalike:'The hostname resembles a known brand outside its official domains.',mixedScript:'A hostname label mixes Latin and Cyrillic or Greek characters.',brandSubdomain:'A known brand appears as a subdomain of an unrelated hostname.',suspiciousTld:'The top-level domain is on the editable caution list.',ipHost:'The destination is a raw IP address; legitimate services also use these.',internationalized:'The hostname uses internationalized encoding.',shortener:'A link shortener hides the final destination, which is not inspected.',hyphens:'The hostname contains several hyphens.',longName:'A hostname label is unusually long.',subdomains:'The hostname has many nested labels.',entropy:'A long label has a random-looking character distribution.'};
+const groups={reputationListed:'reputation',expiredCertificate:'certificate',futureCertificate:'certificate',mismatchedCertificate:'certificate',selfSignedCertificate:'certificate',untrustedCertificate:'certificate',newCertificate:'certificate',newDomain:'registration',lookalike:'identity',mixedScript:'identity',brandSubdomain:'identity',suspiciousTld:'hosting',ipHost:'hosting',internationalized:'international',shortener:'redirect',hyphens:'structure',longName:'structure',subdomains:'structure',entropy:'structure'};
+const descriptions={reputationListed:'This hostname occurs in the OpenPhish URL feed. It does not establish that every page on the host is malicious.',expiredCertificate:'The server certificate has expired.',futureCertificate:'The server certificate is not valid yet.',mismatchedCertificate:'The certificate does not match this hostname.',selfSignedCertificate:'The diagnostic TLS connection returned a self-signed certificate.',untrustedCertificate:'The certificate chain was not trusted by this runtime.',newCertificate:'A brand lookalike uses a recently issued certificate.',newDomain:'RDAP reports a recently registered domain.',lookalike:'The hostname resembles a known brand outside its official domains.',mixedScript:'A hostname label mixes Latin and Cyrillic or Greek characters.',brandSubdomain:'A known brand appears as a subdomain of an unrelated hostname.',suspiciousTld:'The top-level domain is on the editable caution list.',ipHost:'The destination is a raw IP address; legitimate services also use these.',internationalized:'The hostname uses internationalized encoding.',shortener:'A link shortener hides the final destination, which is not inspected.',hyphens:'The hostname contains several hyphens.',longName:'A hostname label is unusually long.',subdomains:'The hostname has many nested labels.',entropy:'A long label has a random-looking character distribution.'};
 const under=(host,domain)=>host===domain||host.endsWith('.'+domain);
 export function normalizeDomain(value){
  if(typeof value!=='string'||value.length>253||!value)return null;
@@ -17,7 +17,7 @@ export function normalizeDomain(value){
  return ascii;
 }
 function entropy(label){const counts=new Map();for(const char of label)counts.set(char,(counts.get(char)||0)+1);return [...counts.values()].reduce((n,count)=>n-count/label.length*Math.log2(count/label.length),0);}
-export function assessDomain(input,{firstSeen=true}={},config=watchtowerConfig){
+export function assessDomain(input,{firstSeen=true,external=null}={},config=watchtowerConfig){
  const domain=normalizeDomain(input);if(!domain)return null;
  const raw=domainToUnicode(domain),labels=domain.split('.'),clues=inspectMessageLink('https://'+domain),codes=new Set(clues.codes.filter(code=>Object.hasOwn(groups,code)));
  const folded=[...raw].map(c=>config.confusables[c]??c).join('');if(folded!==raw&&inspectMessageLink('https://'+folded).official)codes.add('lookalike');
@@ -28,12 +28,15 @@ export function assessDomain(input,{firstSeen=true}={},config=watchtowerConfig){
  if(labels.some(label=>(label.match(/-/g)||[]).length>=config.naming.hyphens))codes.add('hyphens');
  if(labels.length>=config.naming.subdomains)codes.add('subdomains');
  if(labels.some(label=>label.length>=config.naming.entropyMinLength&&entropy(label)>=config.naming.entropy))codes.add('entropy');
+ if(external?.reputation?.status==='checked'&&external.reputation.listed===true)codes.add('reputationListed');
+ if(external?.age?.status==='checked'&&external.age.days<config.naming.newDomainDays)codes.add('newDomain');
+ if(external?.tls?.status==='checked'){for(const code of external.tls.codes??[])if(Object.hasOwn(groups,code))codes.add(code);if(codes.has('lookalike')&&external.tls.issuedDays<config.naming.newCertificateDays)codes.add('newCertificate');}
  const categories=new Set([...codes].map(code=>groups[code]));let score=[...codes].reduce((n,code)=>n+(config.weights[code]??0),0);
  if(categories.has('identity')&&categories.has('hosting'))score+=config.bonuses.brandAndHosting;
  if(categories.size>=3)score+=config.bonuses.threeCategories;
  if(firstSeen&&codes.size)score+=config.bonuses.firstSeen;
  const trusted=clues.official||[...config.popularDomains,...config.trustedDomains].some(entry=>under(domain,entry));
  const minimum=config.thresholds.minimumCategories;const suspicious=trusted?config.thresholds.trustedSuspicious:config.thresholds.suspicious,likely=trusted?config.thresholds.trustedLikely:config.thresholds.likely;
- const tier=categories.size<minimum?'Safe':score>=likely?'Likely Malicious':score>=suspicious?'Suspicious':'Safe';
- return {domain,tier,score,reasons:[...codes].map(code=>({code,category:groups[code],text:descriptions[code]})),trusted,firstSeen,coverage:'hostname_only',reputationChecked:false,tlsChecked:false,ageChecked:false};
+ const tier=categories.size<minimum&&!codes.has('reputationListed')?'Safe':score>=likely?'Likely Malicious':score>=suspicious?'Suspicious':'Safe';
+ return {domain,tier,score,reasons:[...codes].map(code=>({code,category:groups[code],text:descriptions[code]})),trusted,firstSeen,coverage:'hostname_only',reputationChecked:external?.reputation?.status==='checked',tlsChecked:external?.tls?.status==='checked',ageChecked:external?.age?.status==='checked',external};
 }

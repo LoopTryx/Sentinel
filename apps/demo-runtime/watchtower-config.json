@@ -23,7 +23,15 @@
     "longName": 1,
     "subdomains": 1,
     "shortener": 1,
-    "internationalized": 1
+    "internationalized": 1,
+    "reputationListed": 12,
+    "expiredCertificate": 3,
+    "futureCertificate": 2,
+    "mismatchedCertificate": 4,
+    "selfSignedCertificate": 3,
+    "untrustedCertificate": 2,
+    "newCertificate": 1,
+    "newDomain": 2
   },
   "bonuses": {
     "brandAndHosting": 3,
@@ -35,7 +43,9 @@
     "hyphens": 3,
     "subdomains": 5,
     "entropyMinLength": 18,
-    "entropy": 3.8
+    "entropy": 3.8,
+    "newDomainDays": 30,
+    "newCertificateDays": 7
   },
   "popularDomains": [
     "cloudfront.net",

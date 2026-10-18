@@ -1,3 +1,4 @@
+import {installWatchtowerSharing} from './watchtower-share.js';
 import {installFloatingControl} from './floating-control.js';
 import {navigationWarningStatus,setNavigationWarnings} from './navigation-policy.js';
 import {whatsAppStatus,setWhatsAppWarnings} from './whatsapp-control.js';
@@ -7,6 +8,7 @@ import {demoRequest} from './demo-transport.js';
 import {autoConnect} from './auto-connect.js';
 import {installEmailControl} from './email/control.js';
 installEmailControl(chrome);
+installWatchtowerSharing(chrome);
 installFloatingControl(chrome);
 
 const STATUS_KEY = 'harnessStatus';
