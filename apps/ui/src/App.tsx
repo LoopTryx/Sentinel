@@ -158,7 +158,7 @@ function Shell() {
           style={{ position: "relative", zIndex: 1, background: "transparent" }}
         >
           {view === "dashboard" && <Dashboard onNavigate={setView} onViewAll={() => setView("log")} onOpenUsb={() => setView("usb")} />}
-          {view === "scan" && <ScanView />}
+          {view === "scan" && <ScanView onOpenVault={()=>setView("quarantine")} />}
           {view === "watchtower" && <WatchtowerView />}
           {view === "usb" && <UsbGuardView />}
           {view === "password" && <PasswordManagerView />}

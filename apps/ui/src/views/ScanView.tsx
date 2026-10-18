@@ -6,7 +6,7 @@ import ScanTargetPanel from '../components/ScanTargetPanel';
 import './glm-pages.css';
 const completedQuarantines=new Set<string>();
 let acceptedSelection:{id:string;kind:string}|null=null;
-export default function ScanView(){
+export default function ScanView({onOpenVault}:{onOpenVault?:()=>void}={}){
  const {state,error}=useDemoState();
  const {snapshot,inspectionError,resetScan,resetConsole}=useThreat();
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState('');
@@ -22,7 +22,7 @@ export default function ScanView(){
   const r=await demoCall(restore?'restore.request':'quarantine.request',restore?{actionRef:reference}:{reportRef:reference});
   if(r.type==='quarantine_receipt'&&r.data?.state==='quarantined'&&typeof r.data.actionRef==='string'&&/^[A-Za-z0-9_-]{1,64}$/.test(r.data.actionRef)){
    if(snapshot){const key=snapshot.jobRef+':'+reference;completedQuarantines.add(key);setQuarantined(new Set(completedQuarantines));}
-   resetConsole();
+   resetConsole();resetScan();
    setNotice('File quarantined. It is now in the Quarantine Vault and remains available after restarting.');
   }else if(r.type==='quarantine_receipt'&&r.data?.state==='original_retained'){acceptedSelection=null;setSelection(null);setNotice('Encrypted copy saved, but the original remains. Review the Vault; the file is not contained.');
   }else if(r.type==='restore_receipt'&&r.data?.state==='restored'){
@@ -31,6 +31,7 @@ export default function ScanView(){
  }catch(e){setNotice(e instanceof Error?e.message:'Native operation unavailable');}finally{setBusy(false);}}
  return <section className="panel glm-page scan-page"><div className="glm-page-heading"><div><h1 className="page-title">Scan & Detect</h1></div><span className="badge">{state?'Connected · partial coverage':'Scanner disconnected'}</span></div>
  {hasFindings&&<div className="scan-finding-summary" role="alert"><strong>{signatureFound?'Threat signature detected':'Suspicious file detected'}</strong><p>{inspectionError?"Last available finding; scanner unavailable.":"Review the file below before taking action."}</p></div>}
+ {quarantined.size>0&&onOpenVault&&<button className="btn" onClick={onOpenVault}>Open Quarantine Vault</button>}
  <ScanTargetPanel running={running} disabled={!state||busy||running} onChoose={kind=>void select(kind)}/>
  <div className="glm-toolbar"><span role="status">{busy?'Working…':running?'Inspection running':state?.scan?.status==='failed'?'Scan failed · choose another file to retry':snapshot?'Choose another file to scan':state?'Ready to inspect':'Scanner unavailable · open the desktop app'}</span><button className="btn ghost" disabled={busy||!running} onClick={()=>void demoCall('cancel').catch(e=>setNotice(e.message))}>Cancel inspection</button></div>
  <details className="glm-details"><summary>Coverage & limits</summary><p>Local byte inspection finds signatures and suspicious patterns. Findings need review; quarantine is manual.</p><p>8 MiB per file · 64 files · 256 entries · four directory levels. Larger files receive partial reports with no full-file hash. Links are refused. Quarantine requires a complete selected-file report and native confirmation. Stored recovery remains available after app restart.</p></details>

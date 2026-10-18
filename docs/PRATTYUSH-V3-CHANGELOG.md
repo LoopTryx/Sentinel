@@ -130,3 +130,5 @@ Owner requested revert of a92bdf5: restored the prior blue glass material, top c
 18 October: all desktop page and card headings use shared deep navy ink on a light-blue highlight, with a forced-colors fallback. UI build passed.
 
 18 October correction: light-blue highlight limited to explicit page titles; card headings and the home SENTINEL wordmark retain their previous treatment.
+
+18 October: successful quarantine clears the active scan snapshot/alert, adds a direct Open Quarantine Vault action, and the Vault automatically selects an actionable stored file. Restore and Destroy regressions pass with native confirmation routes preserved.
