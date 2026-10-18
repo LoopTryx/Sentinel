@@ -1,0 +1,82 @@
+[
+  {
+    "id": "class-prize",
+    "label": "legitimate",
+    "text": "claim the prize for your excellence in the class today"
+  },
+  {
+    "id": "casual-prize",
+    "label": "legitimate",
+    "text": "come claim the prize papi"
+  },
+  {
+    "id": "taunt-prize",
+    "label": "legitimate",
+    "text": "come claim the prize for your stupidity"
+  },
+  {
+    "id": "quiz-prize",
+    "label": "legitimate",
+    "text": "Congrats man, you have been selected to quiz finals and the cash prize is $200, so prepare well."
+  },
+  {
+    "id": "class-cash",
+    "label": "legitimate",
+    "text": "Come claim your cash prize of $200 in class today."
+  },
+  {
+    "id": "bare-claim",
+    "label": "legitimate",
+    "text": "claim"
+  },
+  {
+    "id": "class-award",
+    "label": "legitimate",
+    "text": "Please claim your award at the school assembly."
+  },
+  {
+    "id": "payment-notice",
+    "label": "legitimate",
+    "text": "Your 10k rupees payment was received. Congratulations on winning the quiz."
+  },
+  {
+    "id": "negated-payment",
+    "label": "legitimate",
+    "text": "Never send me 10k rupees to activate a prize."
+  },
+  {
+    "id": "money-draw-k",
+    "label": "scam",
+    "text": "Hello Alex, You have won 1 lakh rupees in the SBI money draw, so send me 10k rupees to activate this. yea so send"
+  },
+  {
+    "id": "money-draw-dollar",
+    "label": "scam",
+    "text": "Hello Alex, You have won 1000$ in the SBI money draw, so send me 10$ rupees to activate this. yea so send"
+  },
+  {
+    "id": "advance-fee-inr",
+    "label": "scam",
+    "text": "You have won a prize. Transfer me INR 500 to release your winnings."
+  },
+  {
+    "id": "advance-fee-rupee",
+    "label": "scam",
+    "text": "You have won a cash prize. Pay me \u20b9500 to activate it."
+  },
+  {
+    "id": "school-not-whitelist",
+    "label": "scam",
+    "text": "Claim your class prize today. Send me 10k rupees to activate it."
+  },
+  {
+    "id": "reward-otp",
+    "label": "scam",
+    "text": "Claim your prize and send me your OTP."
+  },
+  {
+    "id": "no-link-fee",
+    "label": "scam",
+    "text": "You won a reward. Send me 500 rupees to unlock your reward."
+  }
+]

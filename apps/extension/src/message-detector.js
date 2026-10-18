@@ -85,8 +85,11 @@ export function assessMessage(input,context={}) {
  }
  const categories=signals.map(s=>s.category),has=c=>categories.includes(c);
  const directRequest=config.requestPatterns.some(pattern=>find(pattern,text).length>0)||config.numericRequestPatterns.some(pattern=>find(pattern,numericText).length>0);
+ const moneyRequest=config.numericRequestPatterns.some(pattern=>find(pattern,numericText).length>0)||config.moneyRequestPatterns.some(pattern=>find(pattern,text).length>0);
+ const advanceFee=has('reward')&&moneyRequest&&config.advanceFeePatterns.some(pattern=>find(pattern,text).length>0);
+ if(advanceFee)score+=config.bonuses.advanceFee;
  const entities=prose.normalize('NFKC').replace(/[٠-٩۰-۹]/gu,c=>String(c.charCodeAt(0)-(c<='٩'?1632:1776)));
- const amount=/(?:[$€£]\s*\d+(?:[.,]\d+)?|\d+(?:[.,]\d+)?\s*(?:[$€£]|usd\b|aed\b|omr\b|ريال|درهم))/iu.test(entities);
+ const amount=/(?:[$€£₹]\s*\d+(?:[.,]\d+)?|\d+(?:[.,]\d+)?\s*(?:[$€£₹]|(?:k|lakhs?|crores?)?\s*(?:usd|aed|omr|inr|rs|rupees?|dollars?)\b|ريال|درهم))/iu.test(entities);
  const phone=/(?<!\d)(?:\+?\d[\d ()-]{7,18}\d)(?!\d)/u.test(entities);
  if(categories.length>=2){
   score+=config.bonuses.crossCategory;
@@ -104,11 +107,13 @@ export function assessMessage(input,context={}) {
  const thresholds=config.thresholds[policy];
  // Known contacts can be compromised. Trust never suppresses a direct request for secrets/money.
  const strongSaved=directRequest||(has('link')&&unverifiedLink&&has('credentials'))||(has('reward')&&has('action')&&(has('urgency')||has('credentials')));
- const eligible=categories.length>=2&&((senderStatus!=='saved'&&context.trusted!==true)||strongSaved);
+ const supportedRewardAction=!config.combinationPolicy.rewardActionRequiresSupport||!has('reward')||!has('action')||config.combinationPolicy.supportCategories.some(has);
+ const eligible=supportedRewardAction&&categories.length>=2&&((senderStatus!=='saved'&&context.trusted!==true)||strongSaved);
  const threshold=directRequest&&context.trusted===true?config.thresholds.saved.suspicious:thresholds.suspicious;
  const flagged=eligible&&score>=threshold;
  const tier=flagged?(score>=thresholds.likely?'Likely Scam':'Suspicious'):'Safe';
  const reasons=flagged?[...signals]:[];
+ if(flagged&&advanceFee)reasons.push({code:'advance_fee',category:'context',text:'A payment is requested to activate or release a promised reward. Verify independently before sending money.'});
  if(flagged&&directRequest&&(senderStatus==='saved'||context.trusted===true))reasons.push({code:'contact_request',category:'context',text:'Known contacts can be compromised. Verify this money/code/password request through a separate channel; no message history was collected.'});
  if(flagged&&context.firstTime===true)reasons.push({code:'first_time',category:'context',text:'You marked this as a first-time sender; combined wording clues lowered the warning threshold.'});
  if(flagged&&context.foreignCountryCode===true)reasons.push({code:'foreign_code',category:'context',text:'You marked an unfamiliar country code. This is only a weak supporting clue, not evidence of fraud.'});

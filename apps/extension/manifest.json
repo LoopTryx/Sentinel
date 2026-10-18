@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Sentinel Browser Companion",
-  "version": "0.2.14",
+  "version": "0.2.15",
   "host_permissions": [
     "http://127.0.0.1/*"
   ],
