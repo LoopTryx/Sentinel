@@ -22,7 +22,7 @@ export default function UsbGuardView(){
  }
  const connected=!!state;const status=!connected?'Desktop disconnected':stale?'Update needed':!snapshot?.verified?'Access not verified':snapshot.active?`Active until ${new Date(snapshot.deadline!).toLocaleTimeString()}`:'Protection session inactive';
  return <section className="usb-guard usb-minimal" aria-labelledby="usb-heading">
-  <div className="usb-page-heading"><h2 id="usb-heading">USB Guard</h2><span className="usb-mode">{status}</span></div>
+  <div className="usb-page-heading"><h2 className="page-title" id="usb-heading">USB Guard</h2><span className="usb-mode">{status}</span></div>
   {notice&&<p role="status" className="usb-action-status">{notice}</p>}
   <section className="panel glass-card glass-card--panel usb-inline-devices"><div className="usb-toolbar"><h3>Connected devices</h3><button className="btn ghost" disabled={!connected||!!busy} onClick={()=>setRefresh(n=>n+1)}>Refresh</button></div>
    {connected&&snapshot?<div className="usb-device-list">{snapshot.devices.map(device=><article key={device.ref} data-usb-device className="usb-device-card usb-inline-row">

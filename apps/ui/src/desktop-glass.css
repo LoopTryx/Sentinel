@@ -119,14 +119,10 @@ html[data-glass-effects=off] #root :is(.glass-card,.panel,.stat)::before{content
 #root .password-manager{--pm-muted:#c3d3e8}
 #root .glm-page :is(summary,time),#root .scan-page .glm-toolbar{color:#d2dcf0}
 
-/* Shared heading treatment across every desktop page. */
-#root :is(h1,h2,h3,h4,h5,h6,.panel-title,.dashboard-title),
-#root :is(.panel,.glass-card,.stat) :is(h1,h2,h3,h4,h5,h6,.panel-title){
+/* Only page-identifying headings receive the highlight. */
+#root .page-title,#root .panel .page-title{
  color:var(--heading-ink)!important;background:var(--heading-highlight);width:fit-content;max-width:100%;
  padding:.14em .4em;border:0;border-radius:8px;text-shadow:none;font-weight:800!important;
  box-decoration-break:clone;-webkit-box-decoration-break:clone;
 }
-@media(forced-colors:active){
- #root :is(h1,h2,h3,h4,h5,h6,.panel-title,.dashboard-title),
- #root :is(.panel,.glass-card,.stat) :is(h1,h2,h3,h4,h5,h6,.panel-title){color:HighlightText!important;background:Highlight}
-}
+@media(forced-colors:active){#root .page-title,#root .panel .page-title{color:HighlightText!important;background:Highlight}}

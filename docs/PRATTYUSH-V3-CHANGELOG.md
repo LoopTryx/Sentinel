@@ -128,3 +128,5 @@ Owner requested revert of a92bdf5: restored the prior blue glass material, top c
 18 October UI follow-up: compact Scan & Detect result cards and alert, highlighted page headings for Scan/Threat Log/Quarantine/Watchtower, brighter shared secondary text, rounded Vault controls with red destroy/blue restore icon animations, faster220ms sidebar width and60ms label delay. Successful native quarantine acknowledges the alert and returns the background to normal; declined/failed actions keep the warning. Sidebar navigation sound is decoded before interaction and leading silence trimmed, with an existing audio fallback. Focused regression coverage includes decline/success alert behavior; device audio latency remains listening acceptance.
 
 18 October: all desktop page and card headings use shared deep navy ink on a light-blue highlight, with a forced-colors fallback. UI build passed.
+
+18 October correction: light-blue highlight limited to explicit page titles; card headings and the home SENTINEL wordmark retain their previous treatment.
