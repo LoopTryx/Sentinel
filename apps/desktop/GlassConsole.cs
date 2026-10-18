@@ -41,7 +41,6 @@ public sealed class SentinelGlassConsole : Window
     readonly StackPanel loadingSurface=new StackPanel { HorizontalAlignment=HorizontalAlignment.Center, VerticalAlignment=VerticalAlignment.Center };
     readonly string assets, evidence;
     readonly bool smoke;
-    readonly bool displayCheck;
     readonly DispatcherTimer deadline = new DispatcherTimer();
     bool backdrop;
     bool closing;
@@ -119,7 +118,7 @@ public sealed class SentinelGlassConsole : Window
 
     public SentinelGlassConsole(string assets, string evidence, bool smoke, bool demo, bool displayCheck=false)
     {
-        this.demo = demo; this.displayCheck=displayCheck;
+        this.demo = demo;
         this.assets = assets; this.evidence = evidence; this.smoke = smoke;
         Title = "Sentinel";
         Width = Math.Min(1080,SystemParameters.WorkArea.Width); Height = Math.Min(740,SystemParameters.WorkArea.Height);
@@ -173,7 +172,8 @@ public sealed class SentinelGlassConsole : Window
             tray.ContextMenuStrip=menu;
             tray.MouseClick += delegate(object sender,System.Windows.Forms.MouseEventArgs e) { if(e.Button==System.Windows.Forms.MouseButtons.Left)Dispatcher.Invoke(new Action(OpenFromTray)); };
             Closing += delegate(object sender,System.ComponentModel.CancelEventArgs e) { if(!quitting) { e.Cancel=true; HideToTray(); } };
-            if(!displayCheck) Deactivated += delegate { Dispatcher.BeginInvoke(new Action(delegate { if(!IsActive&&!dragging&&!actionDialog&&!selectionRequest&&!quitting&&!UsbAdmissionControl.IsOpen) HideToTray(); }),DispatcherPriority.Background); };
+            // Keep the dashboard visible when switching apps; still revoke displayed secrets.
+            Deactivated += delegate { Dispatcher.BeginInvoke(new Action(delegate { if(!IsActive&&!dragging&&!actionDialog&&!selectionRequest&&!quitting&&!UsbAdmissionControl.IsOpen) ClearVisibleSecrets(); }),DispatcherPriority.Background); };
             duckyPolicyTimer.Interval=TimeSpan.FromSeconds(2);
             duckyPolicyTimer.Tick+=delegate{var state=DuckyPolicyControl.Read();if(lastDuckyPolicyState!=null&&lastDuckyPolicyState!=state.State){if(state.State=="driver_unavailable")NotifyDucky("The profiled Ducky has no installed driver while its hold is armed.");else if(state.State=="off"&&(lastDuckyPolicyState=="armed"||lastDuckyPolicyState=="driver_unavailable"))NotifyDucky("Ducky hold rule removed. Reconnect the device.");}lastDuckyPolicyState=state.State;};
             duckyPolicyTimer.Start();
@@ -184,7 +184,8 @@ public sealed class SentinelGlassConsole : Window
         Closed += delegate { closing = true; deadline.Stop(); duckyPolicyTimer.Stop(); openTimer.Stop(); openSignal.Dispose(); if(tray!=null) tray.Dispose(); runtimeClient.Dispose(); view.Dispose(); };
     }
 
-    void HideToTray() { try{if(view.CoreWebView2!=null)view.CoreWebView2.PostWebMessageAsJson("{\"kind\":\"vault-clear\"}");}catch{}ShowInTaskbar=false; Hide(); }
+    void ClearVisibleSecrets() { try{if(view.CoreWebView2!=null)view.CoreWebView2.PostWebMessageAsJson("{\"kind\":\"vault-clear\"}");}catch{} }
+    void HideToTray() { ClearVisibleSecrets(); ShowInTaskbar=false; Hide(); }
     void NotifyDucky(string text){if(tray!=null&&!closing)tray.ShowBalloonTip(5000,"Sentinel USB Guard",text,System.Windows.Forms.ToolTipIcon.Info);}
     async void OpenDuckyControl(){
         if(actionDialog||selectionRequest)return;
@@ -333,7 +334,7 @@ public sealed class SentinelGlassConsole : Window
                         }
                     }
                     }
-                }finally{actionDialog=false;requests--;if(!IsActive)HideToTray();}
+                }finally{actionDialog=false;requests--;if(!IsActive)ClearVisibleSecrets();}
                 return;
             } else if (method == "quarantine.list" || method == "quarantine.restore" || method == "quarantine.destroy") {
                 var input = data as Dictionary<string,object>;
