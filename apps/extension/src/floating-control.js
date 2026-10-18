@@ -9,11 +9,11 @@ export function installFloatingControl(api){
   if(!tabId(tab?.id)||!http(tab.url)){void fallback().catch(()=>{});return;}
   if(injecting.has(tab.id)||injecting.size>=4)return;
   injecting.add(tab.id);
-  // Request immediately in the toolbar-click gesture; activeTab is temporary.
-  let grant;try{grant=api.permissions.request({permissions:['scripting']});}catch{grant=Promise.resolve(false);}
-  void Promise.resolve(grant).then(async allowed=>{
-   if(!allowed){await fallback();return;}
-   await api.scripting.executeScript({target:{tabId:tab.id,frameIds:[0]},world:'ISOLATED',files:['src/floating-panel.js']});
+  void Promise.resolve().then(async()=>{
+   const target={tabId:tab.id,frameIds:[0]};
+   await api.scripting.removeCSS({target,files:['src/ui-overlay.css']});
+   await api.scripting.insertCSS({target,files:['src/ui-overlay.css']});
+   await api.scripting.executeScript({target,world:'ISOLATED',files:['src/ui-overlay.js']});
   }).catch(()=>fallback().catch(()=>{})).finally(()=>injecting.delete(tab.id));
  });
  api.runtime.onMessage.addListener((message,sender,respond)=>{

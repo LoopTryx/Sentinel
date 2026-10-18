@@ -2,9 +2,6 @@
   "manifest_version": 3,
   "name": "Sentinel Browser Companion",
   "version": "0.2.14",
-  "optional_permissions": [
-    "scripting"
-  ],
   "host_permissions": [
     "http://127.0.0.1/*"
   ],
@@ -18,16 +15,14 @@
     "declarativeNetRequest",
     "storage",
     "nativeMessaging",
-    "activeTab"
+    "activeTab",
+    "scripting"
   ],
   "background": {
     "service_worker": "src/service-worker.js",
     "type": "module"
   },
-  "action": {
-    "default_title": "Sentinel Browser Companion",
-    "default_popup": "popup.html"
-  },
+  "action": {},
   "declarative_net_request": {
     "rule_resources": [
       {
@@ -94,7 +89,8 @@
     {
       "resources": [
         "src/assets/blue-ledge-v1.png",
-        "src/assets/red-peeking-v1.png"
+        "src/assets/red-peeking-v1.png",
+        "src/ui-overlay.css"
       ],
       "matches": [
         "http://*/*",

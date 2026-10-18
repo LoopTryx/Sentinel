@@ -139,5 +139,5 @@ test('manifest limits native connection network access to local loopback', async
   const manifest = JSON.parse(await readFile(new URL('manifest.json', root), 'utf8'));
   assert.ok(manifest.permissions.includes('nativeMessaging'));
   assert.deepEqual(manifest.host_permissions, ['http://127.0.0.1/*']);
-  assert.deepEqual(manifest.permissions, ['declarativeNetRequest', 'storage', 'nativeMessaging', 'activeTab']);
+  assert.deepEqual(manifest.permissions, ['declarativeNetRequest', 'storage', 'nativeMessaging', 'activeTab', 'scripting']);
 });
