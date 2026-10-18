@@ -1,3 +1,4 @@
+import PageMascot from '../components/PageMascot';
 import GlassActionButton from "../components/GlassActionButton";
 import {useDemoState} from '../demo-bridge';
 import { useThreat } from "../state";
@@ -92,9 +93,9 @@ export default function Dashboard({ onViewAll, onNavigate }: { onViewAll: () => 
               {demo?'Local file checks · partial coverage · shared demo accounts':'No live protection is installed — learning and presentation preview'}
             </div>
           </div>
-          <div className="protection-pill" style={{ flexShrink: 0, alignSelf: "flex-start" }}>
+          <div className="page-mascot-aside"><div className="protection-pill" style={{ flexShrink: 0, alignSelf: "flex-start" }}>
             <span className="led" /> {demo?'Connected · partial coverage':statusLabel[level] ?? statusLabel.preview}
-          </div>
+          </div><PageMascot page="dashboard"/></div>
         </div>
       </section>
 

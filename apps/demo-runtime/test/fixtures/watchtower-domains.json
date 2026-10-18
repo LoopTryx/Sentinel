@@ -1,0 +1,641 @@
+{
+  "provenance": {
+    "feed": "https://raw.githubusercontent.com/openphish/public_feed/refs/heads/main/feed.txt",
+    "retrieved": "2026-10-18",
+    "selection": "first 50 unique hostnames, no target visited",
+    "limitations": "Source labels refer to URLs. Hostname-only classifier cannot detect compromised legitimate hosts or malicious path content.",
+    "sourceSha256": "ea1689008852f11257fb02d84954bb277f843592e8b749ddcd9584b25dbe2607"
+  },
+  "cases": [
+    {
+      "domain": "roblox.com.et",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "danaid.httpz.biz.id",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "vinted-check.com",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "intokken.com",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "rbcode.net",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "stone15-nest.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "www.roblox.ly",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "www.c5e2eebc14e3af5a3ec7a62e74c65e93.vercel.app",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "coppermingle.shop",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "my-robux10000.blogspot.com",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "www.roblox.com.ml",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "www.alldomainsept-two.vercel.app",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "trustledgeraml.vercel.app",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "prime-asset-recovery.com",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "super-duper-octo-eureka--tsccoeste.replit.app",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "www.roblox.com.bn",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "alldomainsept-two.vercel.app",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "1najrn1.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "newzealand24login1ird.blogspot.com",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "www.roblox.com.gr",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "kanzlei-theisen.de",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "97ee3.ralind.at",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "s.teams-rd.com",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "atuaistributos.com",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "g5.lu",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "www.roblox.rw",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "gsht-4be-nmp-78pe-9y6f9k.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "h2z5j-brf9p-60fg8-833ip2.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "sp24ct-taki-biz-melor-zuna.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "sp20ct10-tavmiko-biz-lorenu.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "sp20ct10-melviro-biz-zakumi.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "qernavi-zxt-zervela-a4x3dp16.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "net16ct-vemu-biz-zari-koto.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "sp22ct-kemik-biz-zori-lavu-7sd.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "bermela-zxt-zenqora-a2x7dw56.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "bermora-zxt-qanvani-a3x7fc15.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "sp24ct-telo-biz-nurak-fazi.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "qorzemi-kxt-felveta-r6t2dp93.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "dravelo-kxt-farqela-c5x1dw76.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "sp20ct10-tavleko-biz-munari.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "net16ct-vek-biz-zuno-keli.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "velzuno-mpt-faqrali-p2x8me64.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "sp24ct-lavi-biz-moren-zuko.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "sp20ct10-lavmiko-biz-renatu.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "sp20ct10-vemliro-biz-danuko.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "bexlori-mpt-qazfanu-h7x4me86.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "telqumi-zxt-beloravi-r8t4fc73.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "sp20ct10-dorveta-biz-nuliko.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "sp20ct-delqor-biz-hersam-pranik.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "sp33ct-farako-biz-vuneli-zudaro.pages.dev",
+      "label": "malicious",
+      "source": "OpenPhish community feed URL hostname; URL-level label does not imply every page on host is malicious",
+      "split": "holdout"
+    },
+    {
+      "domain": "google.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "microsoft.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "apple.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "amazon.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "paypal.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "stripe.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "bankofamerica.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "chase.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "capitalone.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "hsbc.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "barclays.co.uk",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "wise.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "revolut.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "mastercard.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "visa.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "americanexpress.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "github.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "github.io",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "gitlab.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "cloudflare.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "cloudfront.net",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "amazonaws.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "akamai.net",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "akamaized.net",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "fastly.net",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "googleapis.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "gstatic.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "bit.ly",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "t.co",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "tinyurl.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "aka.ms",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "amzn.to",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "goo.gle",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "youtu.be",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "lnkd.in",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "microsoftonline.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "live.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "outlook.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "office.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "zoom.us",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "slack.com",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "notion.so",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "vercel.app",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "netlify.app",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "new-startup.example",
+      "label": "legitimate",
+      "source": "Invented legitimate startup control in the reserved .example namespace",
+      "split": "holdout"
+    },
+    {
+      "domain": "new-product-launch.example",
+      "label": "legitimate",
+      "source": "Invented legitimate startup control in the reserved .example namespace",
+      "split": "holdout"
+    },
+    {
+      "domain": "gov.uk",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "nhs.uk",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "bbc.co.uk",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "xn--bcher-kva.de",
+      "label": "legitimate",
+      "source": "Official service hostname or invented legitimate startup control (not a live reputation assertion)",
+      "split": "holdout"
+    },
+    {
+      "domain": "paypa1-login.top",
+      "label": "malicious",
+      "source": "invented hostname-only control",
+      "split": "synthetic"
+    },
+    {
+      "domain": "paypal.account.confirmation.example.top",
+      "label": "malicious",
+      "source": "invented hostname-only control",
+      "split": "synthetic"
+    },
+    {
+      "domain": "microsoft-secure-login.click",
+      "label": "malicious",
+      "source": "invented hostname-only control",
+      "split": "synthetic"
+    },
+    {
+      "domain": "apple-support-account-verify.xyz",
+      "label": "malicious",
+      "source": "invented hostname-only control",
+      "split": "synthetic"
+    },
+    {
+      "domain": "bank-identity-check.example.com",
+      "label": "legitimate",
+      "source": "invented hostname-only control",
+      "split": "synthetic"
+    }
+  ]
+}

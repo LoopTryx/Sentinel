@@ -1,12 +1,15 @@
+import {installWatchtowerSharing} from './watchtower-share.js';
 import {installFloatingControl} from './floating-control.js';
 import {navigationWarningStatus,setNavigationWarnings} from './navigation-policy.js';
 import {whatsAppStatus,setWhatsAppWarnings} from './whatsapp-control.js';
 import {installOmnibox} from './omnibox.js';
 import { FIXTURE_RULESET_ID, computeStatus } from './status.js';
 import {demoRequest} from './demo-transport.js';
+import {messageAiRequest,messageAiError} from './message-ai-transport.js';
 import {autoConnect} from './auto-connect.js';
 import {installEmailControl} from './email/control.js';
 installEmailControl(chrome);
+installWatchtowerSharing(chrome);
 installFloatingControl(chrome);
 
 const STATUS_KEY = 'harnessStatus';
@@ -99,6 +102,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) {
     return false;
   }
+  if(message?.kind==='message_ai'){messageAiRequest(message,sender).then(sendResponse).catch(error=>{const failure=messageAiError(error);console.warn('SentinelAI connection:',failure.error);sendResponse(failure);});return true;}
   if(message?.kind==='whatsapp_content_status'){
     if(sender.frameId!==0||!Number.isInteger(sender.tab?.id)||!sender.url?.startsWith('https://web.whatsapp.com/'))return false;
     whatsAppStatus(chrome).then(sendResponse).catch(()=>sendResponse({enabled:false}));return true;

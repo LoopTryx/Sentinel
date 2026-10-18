@@ -17,13 +17,18 @@ internal sealed partial class UsbAdmissionWindow {
  }
  Task<string> DispatchTab(string raw){
   var completion=new TaskCompletionSource<string>();
-  try{BeginInvoke(new Action(async()=>{try{completion.SetResult(await TabRequest(raw));}catch{completion.SetResult("{\"error\":\"usb_action_unverified\"}");}}));}catch{completion.TrySetResult("{\"error\":\"operator_unavailable\"}");}return completion.Task;
+  try{BeginInvoke(new Action(async()=>{try{completion.SetResult(await TabRequest(raw));}
+#if SENTINEL_USB_HID_ADMISSION_LIVE_REVIEWED
+catch(UsbHidAdmissionOperations.OperationFailure error){if(error.RecoveryRequired){completion.SetResult("{\"error\":\"usb_recovery_required\"}");return;}completion.SetResult("{\"error\":\"usb_failed_"+error.Stage+"_"+error.NativeHResult.ToString("X8")+"\",\"hresult\":\""+error.NativeHResult.ToString("X8")+"\"}");}
+#endif
+catch(InvalidOperationException error){completion.SetResult(error.Message=="An interrupted USB decision requires recovery"?"{\"error\":\"usb_recovery_required\"}":"{\"error\":\"usb_action_unverified\"}");}catch{completion.SetResult("{\"error\":\"usb_action_unverified\"}");}}));}catch{completion.TrySetResult("{\"error\":\"operator_unavailable\"}");}return completion.Task;
  }
  async Task<string> TabRequest(string raw){
   if(raw==null||raw.Length>4096||busy||UsbOwnerVerification.HasPending)return "{\"error\":\"action_busy\"}";
   var json=new JavaScriptSerializer{MaxJsonLength=32768,RecursionLimit=8};var request=json.Deserialize<Dictionary<string,object>>(raw);
   object operation; if(request==null||!request.TryGetValue("action",out operation)||!(operation is string))return "{\"error\":\"invalid_request\"}";
   string action=(string)operation;
+  if(action=="connect"){if(request.Count!=1)return "{\"error\":\"invalid_request\"}";action="snapshot";request["action"]="snapshot";}
 #if SENTINEL_USB_HID_ADMISSION_LIVE_REVIEWED
   if(UsbHidAdmissionCapability.IsInstalled())return await HidTabRequest(request,action,json);
 #endif

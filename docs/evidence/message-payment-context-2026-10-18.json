@@ -1,0 +1,56 @@
+{
+  "date": "2026-10-18",
+  "baseline": "e4ad009",
+  "note": "Synthetic regression and existing fixed-corpus comparisons, not production accuracy. Screenshot examples anonymized. Original corpus labels unchanged; ambiguous reward-only claims remain counted as false negatives.",
+  "regressions": {
+    "before": {
+      "total": 16,
+      "legitimate": 9,
+      "scam": 7,
+      "falsePositive": 5,
+      "falseNegative": 2,
+      "wrongIds": [
+        "class-prize",
+        "casual-prize",
+        "taunt-prize",
+        "class-cash",
+        "negated-payment",
+        "money-draw-k",
+        "money-draw-dollar"
+      ]
+    },
+    "after": {
+      "total": 16,
+      "legitimate": 9,
+      "scam": 7,
+      "falsePositive": 0,
+      "falseNegative": 0,
+      "wrongIds": []
+    }
+  },
+  "existingCorpus": {
+    "before": {
+      "total": 80,
+      "legitimate": 40,
+      "scam": 40,
+      "falsePositive": 1,
+      "falseNegative": 0,
+      "wrongIds": [
+        "h15"
+      ]
+    },
+    "after": {
+      "total": 80,
+      "legitimate": 40,
+      "scam": 40,
+      "falsePositive": 0,
+      "falseNegative": 4,
+      "wrongIds": [
+        "t23",
+        "t24",
+        "t38",
+        "h35"
+      ]
+    }
+  }
+}

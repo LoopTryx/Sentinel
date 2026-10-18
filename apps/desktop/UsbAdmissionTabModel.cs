@@ -16,6 +16,6 @@ internal static class UsbAdmissionTabModel {
   foreach(var group in Groups(inventory)){string name="USB input device";foreach(var subject in inventory.Subjects){if(subject!=null&&subject.Input!=null&&group.Value.Exists(id=>string.Equals(id,subject.Input.Instance,StringComparison.OrdinalIgnoreCase))){name=subject.DisplayName;break;}}
    rows.Add(new Dictionary<string,object>{{"ref",Reference(sessionSalt,group.Key)},{"name",UsbAdmissionInventory.Display(name)},{"access","unverified"},{"canChange",complete},{"canBlock",exactAvailable&&complete},{"canScan",false}});
   }
-  return new{schemaVersion=1,verified=false,active=false,deadline=(string)null,topology=complete?inventory.Preflight.TopologyToken:null,devices=rows,message=""};
+  return new{schemaVersion=1,verified=false,canConnect=true,active=false,deadline=(string)null,topology=complete?inventory.Preflight.TopologyToken:null,devices=rows,message=""};
  }
 }

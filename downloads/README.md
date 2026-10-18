@@ -27,3 +27,10 @@ The v17 build enlarges the navy popup and replaces the black alpha fallback with
 The v18 toolbar opens a transparent floating navigation panel on ordinary HTTP(S) pages, with the page visible around the navy card and hanging mascot. Allow optional scripting when asked. Refresh a webpage after loading the extension, then click Sentinel. Settings and Passwords open secure extension tabs; restricted pages fall back to secure Settings. Only two public mascot images are exposed to webpages. No page text or credentials are read by the panel. Actual installed Chrome appearance still needs manual acceptance; source/DOM checks do not establish browser compositing behavior.
 
 The v19 build restores the native toolbar popup. Red and blue mascots overlap the inner navy card; Chrome still owns a rectangular outer popup. Trust this sender now saves the current observed email sender directly, with same-tab/document bounds, provider opt-in, expiry, user-click and storage acknowledgement checks. Strong-risk warnings remain, and sender removal is available in Settings. Installed Chrome/Gmail/Outlook acceptance and independent review remain pending.
+
+
+### Latest contextual scam/overlay test build — 18 October 2026
+
+[sentinel-extension-scam-fix-v19.zip](sentinel-extension-scam-fix-v19.zip) — extension 0.2.15, source 80bc880. SHA256: `42b40b887876ff6c113c9860487ba70f0c86e8626bc0229b87d4e6c4af3b373d`.
+
+Includes the in-page transparent mascot overlay and formatted advance-fee payment detection fixes. Extract and load the folder via Chrome/Edge Extensions > Developer mode > Load unpacked, then refresh the test page. Chrome internal pages cannot receive overlays. This is an experimental test build; installed-browser/embedding acceptance and independent review remain pending. No desktop installation is included.

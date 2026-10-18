@@ -1,5 +1,9 @@
+import {watchtowerPreferences} from './watchtower-observe.mjs';
+import {rememberBrowserDomain,forgetBrowserDomains} from './watchtower-browser.mjs';
 import http from 'node:http';
 import {createAiHandoff} from './sentinel-ai.mjs';
+import {createLocalQueue} from './local-ai-queue.mjs';
+import {createLocalAi} from './local-ai.mjs';
 import {observeWifi} from './wifi.mjs';
 import {observeUsb} from './usb-observe.mjs';
 import {createObservationMonitor} from './observation-monitor.mjs';
@@ -41,8 +45,21 @@ const allowedCodes=new Set(['http','credentials','ip','internationalized','port'
 function equal(a,b){return typeof a==='string'&&/^[a-f0-9]{64}$/.test(a)&&a.length===b.length&&timingSafeEqual(Buffer.from(a),Buffer.from(b));}
 function keys(body,list){return body&&typeof body==='object'&&!Array.isArray(body)&&Object.keys(body).every(k=>list.includes(k));}
 
-export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=null,nativeAppDir=null,autoObserve=false}={}) {
+export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=null,nativeAppDir=null,autoObserve=false,localExplanations=autoObserve}={}) {
  const aiHandoff=createAiHandoff();
+ const localAi=createLocalAi();const chatAi=createLocalAi({profile:'chat'});if(autoObserve)void localAi.warm().catch(()=>{});
+ const chatQueue=createLocalQueue(chatAi);const runChat=(...args)=>chatQueue.run(...args);
+ const localRequests=new Map();let localTail=Promise.resolve(),localPending=0,activeLocalRef=null;
+ function startLocalExplanation(handoff){
+  for(const [ref,row]of localRequests)if(row.expiresAt<=Date.now())localRequests.delete(ref);
+  if(localRequests.has(handoff.finding.ref)&&!localRequests.get(handoff.finding.ref).error)return;
+  if(localPending>=8)return;
+  localPending++;
+  const row={question:handoff.question.slice(0,512),expiresAt:handoff.expiresAt,error:null,promise:null,cancelled:false};
+  row.promise=localTail.then(async()=>{if(closed)throw Error('local_model_unavailable');if(row.cancelled)throw Error('local_cancelled_or_timed_out');activeLocalRef=handoff.finding.ref;const result=handoff.finding.source.endsWith('_message')?await runChat('Assess whether this message is likely to be a scam using the supplied context.',handoff.finding,{classification:true}):await localAi.answer(row.question,handoff.finding);if(row.cancelled)throw Error('local_cancelled_or_timed_out');aiHandoff.publishQuick(handoff.finding.ref,result);return result;}).catch(error=>{row.error=['local_model_unavailable','local_cancelled_or_timed_out','local_response_unavailable','local_model_busy'].includes(error.message)?error.message:'local_response_unavailable';throw error;}).finally(()=>{if(activeLocalRef===handoff.finding.ref)activeLocalRef=null;localPending--;});
+  localTail=row.promise.catch(()=>{});localRequests.set(handoff.finding.ref,row);
+ }
+
  const wifiMonitor=autoObserve?createObservationMonitor({collect:observeWifi,intervalMs:30000}):null;
  const usbMonitor=autoObserve?createObservationMonitor({collect:observeUsb,intervalMs:15000}):null;
  const desktopToken=randomBytes(32).toString('hex');
@@ -59,7 +76,7 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
  function state(){return {revision,mode:'synthetic_demo',connected:true,unlocked,extensionId,accounts:accounts.map(({password,...a})=>({...a,...auditPassword(password),reused:accounts.filter(b=>b.password===password).length>1})),events,scan:scan?Object.fromEntries(Object.entries(scan).filter(([k])=>k!=='cancel')):null};}
  let nativeSnapshot=null;
  let nativeService=null;
- const outstandingQuarantines=new Set();
+
  let nativeActionInFlight=false;
  async function runNativeScan(path,current){
   try{
@@ -150,17 +167,34 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
   const desktop=equal(credential,desktopToken)&&!origin;
   const browser=browserToken&&equal(credential,browserToken)&&req.headers['x-sentinel-extension']===extensionId&&(!origin||origin===browserOrigin);
   if(req.method!=='POST'||(!desktop&&!browser))return respond(403,{error:'forbidden'});
-  req.setTimeout(5000,()=>req.destroy());
+  req.setTimeout(req.url==='/ai-chat'?65000:req.url==='/ai-quick'?40000:5000,()=>req.destroy());
   let body;
-  const bodyLimit=req.url==='/ai-answer'&&desktop&&equal(req.headers['x-sentinel-native-action'],nativeActionToken)?24000:4096;
+  const bodyLimit=req.url==='/ai-answer'&&desktop&&equal(req.headers['x-sentinel-native-action'],nativeActionToken)?24000:req.url==='/ai-message'&&browser?12000:4096;
   try{let size=0;const chunks=[];for await(const c of req){size+=c.length;if(size>bodyLimit)return respond(413,{error:'request_too_large'});chunks.push(c);}body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{return respond(400,{error:'invalid_request'});}
-  if(req.url==='/ai-handoff'||req.url==='/ai-inbox'||req.url==='/ai-finding'||req.url==='/ai-answer'||req.url==='/ai-result'){
+  if(req.url==='/ai-chat'||req.url==='/ai-chat-status'||req.url==='/ai-chat-cancel'){
+   if(!desktop||!equal(req.headers['x-sentinel-native-action'],nativeActionToken))return respond(403,{error:'forbidden'});
+   if(req.url==='/ai-chat-status'&&Object.keys(body).length===0)return respond(200,chatAi.status());
+   if(req.url==='/ai-chat-cancel'&&Object.keys(body).length===0){chatQueue.cancelConsole();return respond(200,{ok:true});}
+   if(req.url==='/ai-chat'&&Object.keys(body).sort().join(',')==='findingRef,question')try{const finding=body.findingRef===null?null:aiHandoff.resolve(body.findingRef);return respond(200,await runChat(body.question,finding));}catch(error){return respond(400,{error:['quick_question_too_long','local_model_busy','local_model_unavailable','local_cancelled_or_timed_out','finding_unknown_or_expired'].includes(error.message)?error.message:'local_response_unavailable'});}
+   return respond(400,{error:'invalid_request'});
+  }
+  if(req.url==='/ai-local-status'||req.url==='/ai-quick'||req.url==='/ai-quick-cancel'){
+   if(!desktop)return respond(403,{error:'forbidden'});
+   if(req.url==='/ai-local-status'&&Object.keys(body).length===0)return respond(200,localAi.status());
+   if(req.url==='/ai-quick-cancel'){if(Object.keys(body).length===0){localAi.cancel();return respond(200,{ok:true});}if(Object.keys(body).join(',')==='findingRef'&&(body.findingRef===null||typeof body.findingRef==='string'&&/^[a-f0-9]{32}$/.test(body.findingRef))){const row=localRequests.get(body.findingRef);if(row)row.cancelled=true;if(activeLocalRef===body.findingRef)localAi.cancel();return respond(200,{ok:true});}return respond(400,{error:'invalid_request'});}
+   if(req.url==='/ai-quick'&&Object.keys(body).sort().join(',')==='findingRef,question'){
+    try{const finding=body.findingRef===null?null:aiHandoff.resolve(body.findingRef);const prepared=localRequests.get(body.findingRef);const result=prepared&&prepared.question===body.question?await prepared.promise:await localAi.answer(body.question,finding);if(body.findingRef!==null)aiHandoff.publishQuick(body.findingRef,result);return respond(200,result);}catch(error){return respond(400,{error:['quick_question_too_long','local_model_busy','local_model_unavailable','local_cancelled_or_timed_out','local_response_unavailable','finding_unknown_or_expired'].includes(error.message)?error.message:'local_response_unavailable'});}
+   }return respond(400,{error:'invalid_request'});
+  }
+  if(req.url==='/ai-open'||req.url==='/ai-message'||req.url==='/ai-handoff'||req.url==='/ai-inbox'||req.url==='/ai-finding'||req.url==='/ai-answer'||req.url==='/ai-result'){
    try{
+    if(req.url==='/ai-open'){if(!browser||Object.keys(body).join(',')!=='ref')return respond(403,{error:'forbidden'});return respond(200,aiHandoff.open(body.ref));}
+    if(req.url==='/ai-message'){if(!browser)return respond(403,{error:'forbidden'});const handoff=aiHandoff.createMessage(body);if(localExplanations)startLocalExplanation(handoff);return respond(200,handoff);}
     if(req.url==='/ai-handoff'){
      if(!browser)return respond(403,{error:'forbidden'});
-     return respond(200,aiHandoff.create(body));
+     const handoff=aiHandoff.create(body);if(localExplanations)startLocalExplanation(handoff);return respond(200,handoff);
     }
-    if(req.url==='/ai-result'&&browser&&Object.keys(body).length===1)return respond(200,{result:aiHandoff.answer(body.ref)});
+    if(req.url==='/ai-result'&&browser&&Object.keys(body).length===1)return respond(200,{result:aiHandoff.answer(body.ref),quick:aiHandoff.quick(body.ref),localError:localRequests.get(body.ref)?.error??null});
     if(req.url==='/ai-answer'){
      if(!desktop||!equal(req.headers['x-sentinel-native-action'],nativeActionToken))return respond(403,{error:'forbidden'});
      if(Object.keys(body).sort().join(',')!=='ref,result')return respond(400,{error:'invalid_request'});
@@ -199,6 +233,8 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
    if(!password)return respond(503,{error:'generation_unavailable'});
    const id='account_'+randomBytes(8).toString('hex');accounts.push({id,name:body.name.trim(),user:body.user.trim(),host:body.host.toLowerCase(),password});revision++;event('desktop','account_added');return respond(200,{ok:true,id});
   }
+  if(req.url==='/watchtower-domain'){if(!browser)return respond(403,{error:'forbidden'});if(keys(body,['host'])&&Object.keys(body).length===1&&body.host===null){forgetBrowserDomains();return respond(200,{ok:true});}if(!keys(body,['host','codes'])||(body.codes!==undefined&&(!Array.isArray(body.codes)||body.codes.length>2||!body.codes.every(code=>['portal_credentials','portal_payment'].includes(code))))||!rememberBrowserDomain(body.host,Date.now(),body.codes??[]))return respond(400,{error:'invalid_request'});return respond(200,{ok:true});}
+  if(req.url==='/watchtower-preference'){if(!desktop)return respond(403,{error:'forbidden'});if(!keys(body,['host','risk'])||Object.keys(body).length!==2)return respond(400,{error:'invalid_request'});try{return respond(200,await watchtowerPreferences.change(body.host,body.risk));}catch{return respond(503,{error:'preferences_unavailable'});}}
   if(req.url==='/wifi'){
    if(!desktop)return respond(403,{error:'forbidden'});
    if(!keys(body,[]))return respond(400,{error:'invalid_request'});
@@ -225,8 +261,8 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
    nativeActionInFlight=true;
    try{
     const result=await operation(body[key]);
-    if(result.type==='quarantine_receipt'&&result.data.state==='quarantined')outstandingQuarantines.add(result.data.actionRef);
-    if(result.type==='restore_receipt'&&result.data.state==='restored')outstandingQuarantines.delete(result.data.quarantine.actionRef);
+
+
     return respond(200,result);
    }finally{nativeActionInFlight=false;}
   }
@@ -251,7 +287,7 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
   if(req.url==='/cancel'&&desktop&&keys(body,[])){if(scan?.status==='running')scan.cancel=true;nativeService?.cancel();return respond(200,{ok:true});}
   if(req.url==='/scan'&&desktop&&keys(body,['path'])){
    if(nativeActionInFlight)return respond(409,{error:'action_busy'});
-   if(outstandingQuarantines.size)return respond(409,{error:'restore_required_before_new_scan'});
+   // Authenticated on-disk journals now retain recovery independently of this scan session.
    if(scan?.status==='running')return respond(409,{error:'scan_busy'});
    const ordinaryPath=typeof body.path==='string'&&(process.platform==='win32'?/^[a-df-z]:[\\/]/i.test(body.path):/^\/(?!\/)/.test(body.path));
    if(!ordinaryPath||body.path.length>1024||/^E:/i.test(body.path)||body.path.includes('\0'))return respond(400,{error:'selection_unsupported'});
@@ -265,7 +301,7 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
  });
  server.maxConnections=8;server.requestTimeout=5000;server.headersTimeout=5000;
  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});
- function close(){if(!closing){closed=true;if(scan)scan.cancel=true;closing=(async()=>{await Promise.all([wifiMonitor?.close(),usbMonitor?.close()]);server.closeAllConnections();await new Promise(resolve=>server.close(resolve));if(nativeService)await nativeService.close();await activeScan;})();}return closing;}
+ function close(){if(!closing){closed=true;if(scan)scan.cancel=true;closing=(async()=>{chatQueue.close();await Promise.all([wifiMonitor?.close(),usbMonitor?.close(),localAi.close(),chatAi.close()]);server.closeAllConnections();await new Promise(resolve=>server.close(resolve));if(nativeService)await nativeService.close();await activeScan;})();}return closing;}
  return {desktopToken,nativeActionToken,url:'http://127.0.0.1:'+server.address().port,port:server.address().port,close};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){

@@ -18,11 +18,17 @@ function Copy-DemoFile([string]$Source,[string]$Relative){
  New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
  Copy-Item -LiteralPath $Source -Destination $destination
 }
-foreach($entry in @('apps\ui\dist','apps\extension\dist','apps\demo-runtime')){
+foreach($entry in @('apps\ui\dist','apps\extension\dist','apps\extension\src','apps\extension\data','apps\demo-runtime')){
  $destination=Join-Path $stage $entry
  New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
  Copy-Item -LiteralPath (Join-Path $repo $entry) -Destination $destination -Recurse
 }
+# Ship only pinned model/runtime assets, never ephemeral session API-key files.
+$ai=Join-Path $repo 'artifacts/local-ai'
+$aiStage=Join-Path $stage 'artifacts/local-ai'
+New-Item -ItemType Directory -Path $aiStage -Force | Out-Null
+foreach($name in @('manifest.json','SmolLM2-135M-Instruct-Q4_K_M.gguf','qwen2.5-1.5b-instruct-q4_k_m.gguf')){Copy-DemoFile (Join-Path $ai $name) ('artifacts/local-ai/'+$name)}
+foreach($name in @('runtime','licenses')){Copy-Item -LiteralPath (Join-Path $ai $name) -Destination (Join-Path $aiStage $name) -Recurse}
 foreach($file in Get-ChildItem -LiteralPath (Join-Path $repo 'apps\desktop\console-build') -File){
  if($file.Extension -in @('.exe','.dll')){Copy-DemoFile $file.FullName ('apps\desktop\console-build\'+$file.Name)}
 }
@@ -38,6 +44,7 @@ Copy-DemoFile (Join-Path $repo '.local-handoff\clamav-1.5.4\databases\daily.cvd'
 }
 Copy-DemoFile (Join-Path $repo 'tools\launch-demo.ps1') 'tools\launch-demo.ps1'
 Copy-DemoFile (Join-Path $repo 'tools\install-desktop.ps1') 'tools\install-desktop.ps1'
+Copy-DemoFile (Join-Path $repo 'tools\extension-identity.ps1') 'tools\extension-identity.ps1'
 Copy-DemoFile (Join-Path $repo 'apps\desktop\console-build\Sentinel.exe') 'Sentinel.exe'
 Copy-DemoFile (Join-Path $repo 'apps\desktop\console-build\Setup.exe') 'Setup.exe'
 Copy-DemoFile (Join-Path $repo 'apps\desktop\console-build\Sentinel.NativeConnect.exe') 'apps\desktop\console-build\Sentinel.NativeConnect.exe'
@@ -45,7 +52,7 @@ Copy-DemoFile (Join-Path $repo 'tools\usb\read-inventory.ps1') 'tools\usb\read-i
 foreach($labFile in @('README.md','duck-code.py','test-guard.ps1','Start-Typing-Test.ps1')){
  Copy-DemoFile (Join-Path $repo ('tools\usb\lab\'+$labFile)) ('tools\usb\lab\'+$labFile)
 }
-Copy-DemoFile (Join-Path $repo 'apps\extension\src\password-generator.js') 'apps\extension\src\password-generator.js'
+# Shared extension source is already copied above with its runtime dependencies.
 Copy-DemoFile (Join-Path $repo 'docs\today-demo.md') 'DEMO-GUIDE.md'
 New-Item -ItemType Directory -Path (Join-Path $stage 'samples') -Force | Out-Null
 'Harmless Sentinel demo file. Select this file to rehearse quarantine and exact-byte restore.' | Set-Content -LiteralPath (Join-Path $stage 'samples\Safe-Rehearsal.txt') -Encoding utf8
@@ -57,21 +64,16 @@ $ErrorActionPreference='Stop'
 & (Join-Path $PSScriptRoot 'tools\launch-demo.ps1')
 '@ | Set-Content -LiteralPath (Join-Path $stage 'Start-Sentinel-Demo.ps1') -Encoding utf8
 @'
-Sentinel desktop candidate.
-Requires Windows, Windows PowerShell 5.1 or PowerShell 7, .NET Framework and installed WebView2 runtime.
-Double-click Setup.exe to install for your Windows user and create a desktop shortcut.
-Double-click Sentinel.exe to run directly from this complete folder.
-The fixed-size window hides in the system tray when minimized or closed. Use its tray menu to Open or Quit.
-Load/reload apps/extension/dist in Chrome, then rerun Setup.exe if the extension was not detected on first setup.
-The registered native bridge connects the extension automatically. Manual pairing remains available as a fallback.
-Dummy accounts reset on restart.
-Automatic URL warnings require explicit Chrome site-access opt-in.
-The launched desktop uses bounded Rust byte inspection; reports remain partial coverage.
-No malware or EICAR is included. Quarantine requests are disabled pending recovery beyond native worker expiry. Visible consent and designated peer acceptance are still pending.
-Legacy ClamAV is optional and is not used by the launched Rust inspection path.
-Persistent encrypted vault and cloud explanations,
-download scanning and automatic desktop redirect logging remain incomplete. Opted-in WhatsApp Web wording warnings are supported for bounded rendered messages. See DEMO-GUIDE.md.
-V2 desktop work candidate; not a completed protection release. Refer to repository evidence for publication status.
+Sentinel v3 local preview
+Windows x64, .NET Framework, WebView2 Runtime and Windows Hello are required.
+Setup creates a desktop shortcut and registers the native Chrome connector.
+Chrome requires one-time approval: chrome://extensions > Developer mode > Load unpacked. Select the ChromeExtension folder shown by setup.
+F11 toggles fullscreen. Enter sends a chat; Shift+Enter starts a new line.
+Chats are encrypted for the current Windows user. Local CPU chat needs no NVIDIA key.
+NVIDIA is optional. Message warnings require site-specific enablement.
+USB Guard remains off by default. This installer does not activate any USB policy or install the development machine's protected enrollment onto another laptop.
+General USB enforcement and built-in-input exclusions are not yet qualified across laptops. HID plus storage is a review signal, not proof of a keystroke injector.
+No guarantee of interception before first input, malware detection or instant device recovery.
 '@ | Set-Content -LiteralPath (Join-Path $stage 'README.txt') -Encoding utf8
 $hashes=Get-ChildItem -LiteralPath $stage -Recurse -File | ForEach-Object {
  [pscustomobject]@{path=$_.FullName.Substring($stage.Length+1);sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}

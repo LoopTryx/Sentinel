@@ -27,3 +27,5 @@
 #presentation-scenarios { margin-top:20px; }
 #presentation-scenarios[hidden] { display:none; }
 @media(max-width: 700px) { .glm-page { padding: 20px; } .glm-watchtower .feed-line { grid-template-columns: 24px minmax(0, 1fr); } .glm-watchtower .feed-ts { grid-column: 2; } .glm-scan-actions { width: 100%; } .glm-scan-actions .btn { flex: 1 1 160px; } }
+
+.quarantine-item{cursor:pointer;border-top:1px solid var(--grid-line);font-size:14px}.quarantine-item>span:first-child{display:flex;align-items:center;gap:10px;overflow-wrap:anywhere}.quarantine-item input{accent-color:#74b3f5}.quarantine-item:has(:checked){background:rgba(116,179,245,.12)}.quarantine-item time{font-size:12px;overflow-wrap:anywhere}

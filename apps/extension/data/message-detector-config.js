@@ -1,6 +1,6 @@
 /** Editable local scoring policy. Rebuild and run scripts/evaluate-messages.mjs after changes. Scores are clues, not probabilities; domains are not certified safe. */
 export const messageDetectorConfig = {
-  "version": 1,
+  "version": 2,
   "limits": {
     "characters": 4096,
     "urls": 12,
@@ -33,7 +33,8 @@ export const messageDetectorConfig = {
     "linkPressure": 6,
     "directRequest": 5,
     "firstTime": 1,
-    "foreignCode": 1
+    "foreignCode": 1,
+    "advanceFee": 6
   },
   "proximityWords": 8,
   "borderlineMargin": 2,
@@ -191,12 +192,13 @@ export const messageDetectorConfig = {
     "(?:حول|حوّل|ادفع) (?:لي )?(?:مبلغ|مال|\\d+)"
   ],
   "numericRequestPatterns": [
-    "(?:send|transfer|lend|pay) (?:me |us |your |the |my |a |some )*\\d+",
+    "(?:send|transfer|lend|pay|deposit) (?:me |us |your |the |my |a |some )*(?:(?:rs|inr|s|aed|omr|usd) ?)?\\d+(?: ?(?:k|lakhs?|crores?|s))?(?: (?:rupees?|rs|inr|usd|dollars?|aed|omr))?",
     "(?:ارسل|أرسل|حول|ادفع) (?:لي )?\\d+"
   ],
   "negatedRequests": [
     "(?:do not|dont|never) (?:ever )?(?:send|share|give|reply|tell|forward|provide|enter|confirm) (?:anyone |me |us |your |the |my |a |this )*(?:otp|password|pin|cvv|verification code|security code|login code|code|bank details|money|\\d+)",
-    "(?:لا ترسل|لا تشارك) (?:رمز التحقق|كلمة المرور|كلمة السر|المال)"
+    "(?:لا ترسل|لا تشارك) (?:رمز التحقق|كلمة المرور|كلمة السر|المال)",
+    "(?:do not|dont|never) (?:ever )?(?:send|transfer|lend|pay|deposit) (?:me |us |your |the |my |a |some )*(?:(?:rs|inr|s|aed|omr|usd) ?)?\\d+(?: ?(?:k|lakhs?|crores?|s))?(?: (?:rupees?|rs|inr|usd|dollars?|aed|omr))?"
   ],
   "shorteners": [
     "bit.ly",
@@ -264,5 +266,22 @@ export const messageDetectorConfig = {
     "urgency": "pressure",
     "credentials": "credentials",
     "link": "link"
-  }
+  },
+  "combinationPolicy": {
+    "rewardActionRequiresSupport": true,
+    "supportCategories": [
+      "urgency",
+      "credentials",
+      "authority",
+      "link"
+    ]
+  },
+  "advanceFeePatterns": [
+    "(?:activate|unlock|release|receive|collect|redeem) (?:it|this|your|the|my|a|prize|reward|winnings)",
+    "(?:activation|processing|registration|release) fee",
+    "(?:before|first|upfront)"
+  ],
+  "moneyRequestPatterns": [
+    "(?:send|transfer|lend|pay) (?:me |us |your |the |my |a |some )*(?:money|cash|funds)"
+  ]
 };

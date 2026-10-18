@@ -120,3 +120,38 @@ Owner requested revert of a92bdf5: restored the prior blue glass material, top c
 17 October: five owner-supplied local MP3 effects for opening,button/navigation clicks,scan completion and error/alert transitions. Quiet16/22% volumes,one active clip,repeat-error suppression,autoplay denial handling and persistent top-bar Sound on/off control. Assets bundled locally; no uploads/network playback.
 
 17 October audio follow-up: eager preload/reuse MP3 clips; pointer-down playback and keyboard-click fallback remove click-release/loading delay. Opening sound attempts at startup,unlocks on a background gesture if autoplay denied without replacing navigation sounds. New flagged scan fingerprints trigger an alert even when already red; low-priority clicks cannot interrupt error/alert clips. Refresh button reloads the complete UI/background while leaving the runtime and scan evidence intact. Focused tests/build pass; actual device audio latency needs listening acceptance.
+
+17 October: adopted Engineer A PR74 source at0d8509e onto v3,retaining B UI/sounds/extension and Input activity. Inline external-device list,native bridge and recovery containment included. Block remains gated; unsupported HID/storage Scan disabled. Full local verifier55 UI tests/native build/six focused native checks pass. No policy activation/operator installation or hardware proof. Evidence: evidence/usb-v3-integration-2026-10-17.md. Quarantine durable recovery/inventory-first plan: proposals/quarantine-v3-delivery-plan.md.
+
+18 October: connected manual native-confirmed quarantine to Scan & Detect and the existing Vault UI. Durable authenticated inventory, fresh-process restore/delete, interrupted quarantine recovery, hash-bound actions and occupied-destination protection. Harmless Rust/runtime/UI/native boundary regressions added. Single selected files up to8MiB; independent security review and actual native-dialog acceptance remain release gates. Evidence: evidence/quarantine-v3-integration-2026-10-18.md.
+
+18 October UI follow-up: compact Scan & Detect result cards and alert, highlighted page headings for Scan/Threat Log/Quarantine/Watchtower, brighter shared secondary text, rounded Vault controls with red destroy/blue restore icon animations, faster220ms sidebar width and60ms label delay. Successful native quarantine acknowledges the alert and returns the background to normal; declined/failed actions keep the warning. Sidebar navigation sound is decoded before interaction and leading silence trimmed, with an existing audio fallback. Focused regression coverage includes decline/success alert behavior; device audio latency remains listening acceptance.
+
+18 October: all desktop page and card headings use shared deep navy ink on a light-blue highlight, with a forced-colors fallback. UI build passed.
+
+18 October correction: light-blue highlight limited to explicit page titles; card headings and the home SENTINEL wordmark retain their previous treatment.
+
+18 October: successful quarantine clears the active scan snapshot/alert, adds a direct Open Quarantine Vault action, and the Vault automatically selects an actionable stored file. Restore and Destroy regressions pass with native confirmation routes preserved.
+
+18 October: restored GLM's existing HoldButton for Vault Destroy:1400ms red wave fill, rounded shape, keyboard hold and reduced-motion support. Completion opens the current native confirmation; no premature Deleted claim. Typecheck, three Vault regressions and UI build pass.
+
+18 October: Restore now uses the same1400ms GLM wave-fill HoldButton in blue. Hold completion opens native restore confirmation. Tests verify both actions require the hold; typecheck, three Vault tests and UI build passed.
+
+18 October Watchtower stage1 checkpoint: bounded local DNS-cache/connection collection, shared domain scoring/config, tiered reasons, current-report UI and105-case offline set/evaluator. Nine backend tests and UI test/typecheck/build pass; actual local collector availability/counts validated. Public-feed hostname-only detection is0/50, so website protection remains incomplete. No reputation/TLS/age provider, browser URL bridge, rogue-hotspot or traffic-behavior detector, or blocking is claimed. Evidence: evidence/watchtower-stage1-2026-10-18.md.
+
+
+## 18 October 2026 — dashboard mascots, network checkpoints and extension corrections
+
+Request: publish the owner's current desktop, network and extension changes together on the v3 collection branch.
+
+- Desktop: page-appropriate mascot cutouts with shared soft shadows on Console, Scan & Detect, Watchtower, USB Guard, Passwords, Quarantine and Threat Log. Responsive sizing; decorative images do not communicate a security verdict. Default focus changes keep the dashboard visible while clearing displayed vault secrets. Native tray lifecycle still passes.
+- Watchtower: bounded hostname combinations, passive Wi-Fi/topology changes and sampled connection/DNS-name behavior; explicit opt-in browser hostname/field-presence ingress and default-off reputation/RDAP/TLS providers. Desktop acknowledgement/trust preferences, with persistent bounded explicit trust only. No actual Windows Firewall/hosts/DNS enforcement, managed undo, app upload-rate or NXDOMAIN query-rate provider.
+- Extension: toolbar injects a transparent host-page wrapper with hanging mascots and embedded extension-origin controls. No toolbar fallback/navigation handler opens a tab; Settings/Passwords switch in the embedded card. Restricted pages cannot accept injection and get a toolbar error badge. Web-accessible control frame is a changed security boundary needing independent review.
+- Scam detection: prize + claim alone is insufficient; formatted payment demands (10k, 10$, $10, rupees/INR) and reward activation/release fees add supporting evidence. No school/contact whitelist. Configurable policy version 2; extension version 0.2.15.
+- Download: downloads/sentinel-extension-scam-fix-v19.zip and SHA256 receipt, built from 80bc880. Superseded local ZIPs/extracted folders are not included in this publication.
+
+Checks: 136 extension tests passed; extension build/parity and ZIP file hashes passed; desktop UI typecheck/production build passed; native build and tray lifecycle passed. Native smoke outside the restricted execution sandbox passed navigation, Console readiness, local runtime and inspection bridge. Earlier sandboxed launches failed initialization; process existence alone was insufficient. See desktop-launch-audit-2026-10-18.md.
+
+Accuracy: 16 targeted synthetic payment/class cases improved from FP5/FN2 to FP0/FN0. Existing unchanged 80-case message corpus changed from FP1/FN0 to FP0/FN4; four bare reward claims remain explicitly counted as misses. Watchtower's frozen public-domain local-only holdout remains FP0/50 legitimate and FN50/50 phishing. No production accuracy claim. See message-payment-context-2026-10-18.json and watchtower-stage1 through stage4 evidence.
+
+Remaining: independent authority/privacy review, installed browser/frame/CSP/provider acceptance, complete network enforcement/undo and unavailable traffic providers. Publish to the owned v3 branch/PR75 only; no merge, release or claim that all network protection is complete.

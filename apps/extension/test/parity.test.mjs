@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 
 const extensionRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const COPIED_ENTRIES = ['manifest.json', 'popup.html', 'xray.html', 'warning.html', 'data', 'third-party', 'rules', 'src', 'scripts'];
+const COPIED_ENTRIES = ['manifest.json', 'popup.html', 'xray.html', 'warning.html', 'continue.html', 'data', 'third-party', 'rules', 'src', 'scripts'];
 const RUN_TIMEOUT_MS = 30000;
 
 function runNode(scriptRelative, cwd) {

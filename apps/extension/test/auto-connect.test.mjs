@@ -9,3 +9,7 @@ test('wrong-extension credentials are never stored',async()=>{
  let stored=false;globalThis.chrome={runtime:{id:'c'.repeat(32),sendNativeMessage:async()=>({port:12345,token:'a'.repeat(64),extensionId:'d'.repeat(32)})},storage:{session:{set:async()=>{stored=true;}}}};
  try{await assert.rejects(autoConnect(),/connection_unavailable/);assert.equal(stored,false);}finally{delete globalThis.chrome;}
 });
+test('simultaneous startup connections share one native handshake',async()=>{
+ let calls=0;globalThis.chrome={runtime:{id:'c'.repeat(32),sendNativeMessage:async()=>{calls++;await new Promise(ok=>setTimeout(ok,10));return {port:12345,token:'a'.repeat(64),extensionId:'c'.repeat(32)};}},storage:{session:{set:async()=>{}}}};
+ try{await Promise.all([autoConnect(),autoConnect(),autoConnect()]);assert.equal(calls,1);}finally{delete globalThis.chrome;}
+});

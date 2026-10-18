@@ -32,7 +32,7 @@ public sealed class SentinelAiNative {
   var panel=new StackPanel{Margin=new Thickness(22)};dialog.Content=panel;
   panel.Children.Add(new TextBlock{Text="NVIDIA API key",Margin=new Thickness(0,0,0,8)});
   var secret=new PasswordBox{MaxLength=2500};panel.Children.Add(secret);
-  panel.Children.Add(new TextBlock{Text="Leave blank to keep the saved key. Keys stay in Windows Credential Manager.",TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,8,0,14)});
+  panel.Children.Add(new TextBlock{Text="Leave blank to keep your key. Chat and flagged-message explanations use NVIDIA.",TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,8,0,14)});
   panel.Children.Add(new TextBlock{Text="Chat-completions model identifier"});
   var input=new TextBox{Text=model,MaxLength=120,Margin=new Thickness(0,8,0,12)};panel.Children.Add(input);
   panel.Children.Add(new TextBlock{Text="Request timeout (10–90 seconds)"});var seconds=new TextBox{Text=timeout.ToString(),MaxLength=2};panel.Children.Add(seconds);
@@ -44,23 +44,13 @@ public sealed class SentinelAiNative {
  public async Task<object> Send(Window owner,string question,object finding,bool test){
   if(active!=null)throw new SentinelAiException("request_busy");
   if(question==null||question.Length<1||question.Length>2000)throw new SentinelAiException("invalid_question");
-  // Obtain the key only after native consent; immutable payload is the exact request body shown.
+  // Build the bounded request in native code; no credential reaches the renderer.
   var context=new{question=question,finding=finding};string payload=SentinelNim.Payload(model,context);
   string chosenModel=model;int generation=epoch;
   var refs=new List<string>();var f=finding as Dictionary<string,object>;
   if(f!=null){var signals=f["signals"] as IList;if(signals!=null)foreach(Dictionary<string,object> s in signals)refs.Add((string)s["code"]);}
-  var dialog=new Window{Owner=owner,Title="Send to NVIDIA?",Width=650,Height=560,WindowStartupLocation=WindowStartupLocation.CenterOwner};
-  var grid=new DockPanel{Margin=new Thickness(18)};dialog.Content=grid;
-  var buttons=new StackPanel{Orientation=Orientation.Horizontal,HorizontalAlignment=HorizontalAlignment.Right,Margin=new Thickness(0,12,0,0)};DockPanel.SetDock(buttons,Dock.Bottom);grid.Children.Add(buttons);
-  var no=new Button{Content="Keep local",Padding=new Thickness(12,8,12,8),Margin=new Thickness(0,0,12,0)};var yes=new Button{Content=test?"Approve connection test":"Approve this request",Padding=new Thickness(12,8,12,8)};buttons.Children.Add(no);buttons.Children.Add(yes);no.Click+=delegate{dialog.DialogResult=false;};yes.Click+=delegate{dialog.DialogResult=true;};
-  var text=new TextBlock{Text="Destination: "+SentinelNim.Endpoint+"\nProvider: NVIDIA NIM · Model: "+chosenModel+"\nBelow is the exact JSON body. No earlier conversation is included.\nProvider usage limits may apply.",TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,0,0,12)};DockPanel.SetDock(text,Dock.Top);grid.Children.Add(text);
-  grid.Children.Add(new TextBox{Text=payload,IsReadOnly=true,TextWrapping=TextWrapping.Wrap,VerticalScrollBarVisibility=ScrollBarVisibility.Auto});
-  var consentWatch=System.Diagnostics.Stopwatch.StartNew();
-  var consentTimer=new System.Windows.Threading.DispatcherTimer{Interval=TimeSpan.FromSeconds(120)};
-  consentTimer.Tick+=delegate{consentTimer.Stop();dialog.DialogResult=false;};
-  consentTimer.Start();bool consent=false;try{consent=dialog.ShowDialog()==true;}finally{consentTimer.Stop();}
-  if(consentWatch.Elapsed>=TimeSpan.FromSeconds(120))throw new SentinelAiException("consent_expired");
-  if(!consent)throw new SentinelAiException("consent_declined");
+  // Owner-requested automatic AI flow. The fixed native endpoint, key boundary,
+  // cancellation and bounded payload validation remain enforced.
   if(generation!=epoch)throw new SentinelAiException("configuration_changed");
   string key=Read(Target);if(key==null)throw new SentinelAiException("key_not_configured");
   active=new CancellationTokenSource(TimeSpan.FromSeconds(timeout));

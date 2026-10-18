@@ -11,12 +11,18 @@ foreach ($file in @($core, $wpf, $loader)) {
 }
 New-Item -ItemType Directory -Path $output -Force | Out-Null
 $references = @($core, $wpf, (Join-Path $framework 'WPF\PresentationFramework.dll'), (Join-Path $framework 'WPF\PresentationCore.dll'), (Join-Path $framework 'WPF\WindowsBase.dll'), (Join-Path $framework 'System.Xaml.dll'), (Join-Path $framework 'System.Drawing.dll'))
+$brandIcon=Join-Path $PSScriptRoot 'assets/sentinel.ico'
 $arguments = @('/nologo', '/target:winexe', '/platform:x64', ('/out:' + (Join-Path $output 'Sentinel.Glass.exe')))
+$arguments += @(('/win32icon:'+$brandIcon), ('/resource:'+$brandIcon+',Sentinel.Brand.ico'))
 $references += @((Join-Path $framework 'System.Net.Http.dll'), (Join-Path $framework 'System.Web.Extensions.dll'), (Join-Path $framework 'System.Windows.Forms.dll'))
 $arguments += $references | ForEach-Object { "/reference:$_" }
 $arguments += Join-Path $PSScriptRoot 'GlassConsole.cs'
 $arguments += Join-Path $PSScriptRoot 'SentinelNim.cs'
 $arguments += Join-Path $PSScriptRoot 'SentinelAiNative.cs'
+$arguments += Join-Path $PSScriptRoot 'SentinelAiHistory.cs'
+$arguments += Join-Path $PSScriptRoot 'HelloStartup.cs'
+$arguments += '/reference:System.Security.dll'
+$arguments += Join-Path $PSScriptRoot 'StoredQuarantine.cs'
 $arguments += Join-Path $PSScriptRoot 'DuckyPolicyControl.cs'
 $arguments += Join-Path $PSScriptRoot 'DuckyInputHealth.cs'
 $arguments += Join-Path $PSScriptRoot 'DuckyPolicyEnrollment.cs'
@@ -43,21 +49,21 @@ $arguments += Join-Path $PSScriptRoot 'ProtectedUsbJournal.cs'
 $arguments += '/reference:'+(Join-Path $framework 'System.Runtime.WindowsRuntime.dll')
 & (Join-Path $framework 'csc.exe') $arguments
 if ($LASTEXITCODE -ne 0) { throw 'GLM glass console build failed' }
-& (Join-Path $framework 'csc.exe') /nologo /target:winexe /platform:x64 /define:SENTINEL_DUCKY_POLICY_LAB ('/out:'+(Join-Path $output 'Sentinel.DuckyPolicy.exe')) ('/win32manifest:'+(Join-Path $PSScriptRoot 'password-approval.manifest')) ('/reference:'+(Join-Path $framework 'System.Web.Extensions.dll')) ('/resource:'+(Join-Path $PSScriptRoot '../../tools/usb/DuckyPolicyEntry.cs')+',Sentinel.Ducky.Entry') ('/resource:'+(Join-Path $PSScriptRoot '../../tools/usb/DuckyLocalGpo.cs')+',Sentinel.Ducky.Gpo') (Join-Path $PSScriptRoot 'DuckyPolicyHost.cs') (Join-Path $PSScriptRoot 'DuckyInputHealth.cs') (Join-Path $PSScriptRoot 'DuckyPolicyEnrollment.cs') (Join-Path $PSScriptRoot '../../tools/usb/DuckyPolicyEntry.cs') (Join-Path $PSScriptRoot '../../tools/usb/DuckyPolicyJournal.cs') (Join-Path $PSScriptRoot '../../tools/usb/DuckyLocalGpo.cs')
+& (Join-Path $framework 'csc.exe') /nologo /target:winexe /platform:x64 ('/win32icon:'+$brandIcon) /define:SENTINEL_DUCKY_POLICY_LAB ('/out:'+(Join-Path $output 'Sentinel.DuckyPolicy.exe')) ('/win32manifest:'+(Join-Path $PSScriptRoot 'password-approval.manifest')) ('/reference:'+(Join-Path $framework 'System.Web.Extensions.dll')) ('/resource:'+(Join-Path $PSScriptRoot '../../tools/usb/DuckyPolicyEntry.cs')+',Sentinel.Ducky.Entry') ('/resource:'+(Join-Path $PSScriptRoot '../../tools/usb/DuckyLocalGpo.cs')+',Sentinel.Ducky.Gpo') (Join-Path $PSScriptRoot 'DuckyPolicyHost.cs') (Join-Path $PSScriptRoot 'DuckyInputHealth.cs') (Join-Path $PSScriptRoot 'DuckyPolicyEnrollment.cs') (Join-Path $PSScriptRoot '../../tools/usb/DuckyPolicyEntry.cs') (Join-Path $PSScriptRoot '../../tools/usb/DuckyPolicyJournal.cs') (Join-Path $PSScriptRoot '../../tools/usb/DuckyLocalGpo.cs')
 if($LASTEXITCODE -ne 0){throw 'Profiled USB policy helper build failed'}
 foreach ($file in @($core, $wpf, $loader)) { Copy-Item -LiteralPath $file -Destination $output -Force }
 Write-Output ('Built ' + (Join-Path $output 'Sentinel.Glass.exe'))
-& (Join-Path $framework 'csc.exe') /nologo /target:exe /platform:x64 ('/out:'+(Join-Path $output 'Sentinel.NativeConnect.exe')) ('/reference:'+(Join-Path $framework 'System.Net.Http.dll')) ('/reference:'+(Join-Path $framework 'System.Web.Extensions.dll')) ('/reference:'+(Join-Path $framework 'System.Windows.Forms.dll')) (Join-Path $PSScriptRoot 'NativeConnect.cs') (Join-Path $PSScriptRoot 'VaultApproval.cs')
+& (Join-Path $framework 'csc.exe') /nologo /target:exe /platform:x64 ('/win32icon:'+$brandIcon) ('/out:'+(Join-Path $output 'Sentinel.NativeConnect.exe')) ('/reference:'+(Join-Path $framework 'System.Net.Http.dll')) ('/reference:'+(Join-Path $framework 'System.Web.Extensions.dll')) ('/reference:'+(Join-Path $framework 'System.Windows.Forms.dll')) (Join-Path $PSScriptRoot 'NativeConnect.cs') (Join-Path $PSScriptRoot 'VaultApproval.cs')
 if($LASTEXITCODE -ne 0){throw 'Native connection bridge build failed'}
-& (Join-Path $framework 'csc.exe') /nologo /target:winexe /platform:x64 ('/out:'+(Join-Path $output 'Sentinel.PasswordApproval.exe')) ('/win32manifest:'+(Join-Path $PSScriptRoot 'password-approval.manifest')) (Join-Path $PSScriptRoot 'PasswordApproval.cs')
+& (Join-Path $framework 'csc.exe') /nologo /target:winexe /platform:x64 ('/win32icon:'+$brandIcon) ('/out:'+(Join-Path $output 'Sentinel.PasswordApproval.exe')) ('/win32manifest:'+(Join-Path $PSScriptRoot 'password-approval.manifest')) (Join-Path $PSScriptRoot 'PasswordApproval.cs')
 if($LASTEXITCODE -ne 0){throw 'Password approval helper build failed'}
-& (Join-Path $framework 'csc.exe') /nologo /target:winexe /platform:x64 ('/out:'+(Join-Path $output 'Sentinel.exe')) ('/reference:'+(Join-Path $framework 'System.Windows.Forms.dll')) (Join-Path $PSScriptRoot 'AppLauncher.cs')
+& (Join-Path $framework 'csc.exe') /nologo /target:winexe /platform:x64 ('/win32icon:'+$brandIcon) ('/out:'+(Join-Path $output 'Sentinel.exe')) ('/reference:'+(Join-Path $framework 'System.Windows.Forms.dll')) (Join-Path $PSScriptRoot 'AppLauncher.cs')
 if($LASTEXITCODE -ne 0){throw 'Desktop launcher build failed'}
-& (Join-Path $framework 'csc.exe') /nologo /target:winexe /platform:x64 ('/out:'+(Join-Path $output 'Setup.exe')) ('/reference:'+(Join-Path $framework 'System.Windows.Forms.dll')) (Join-Path $PSScriptRoot 'SetupLauncher.cs')
+& (Join-Path $framework 'csc.exe') /nologo /target:winexe /platform:x64 ('/win32icon:'+$brandIcon) ('/out:'+(Join-Path $output 'Setup.exe')) ('/reference:'+(Join-Path $framework 'System.Windows.Forms.dll')) (Join-Path $PSScriptRoot 'SetupLauncher.cs')
 if($LASTEXITCODE -ne 0){throw 'Setup launcher build failed'}
 foreach($hostName in @('UsbBootstrap','UsbRecoveryHost')){
  $binary=if($hostName -eq 'UsbBootstrap'){'Sentinel.UsbBootstrap.exe'}else{'Sentinel.UsbBroker.exe'}
- & (Join-Path $framework 'csc.exe') /nologo /target:exe /platform:x64 ('/out:'+(Join-Path $output $binary)) ('/win32manifest:'+(Join-Path $PSScriptRoot 'password-approval.manifest')) (Join-Path $PSScriptRoot ($hostName+'.cs')) (Join-Path $PSScriptRoot 'ProtectedUsbJournal.cs') (Join-Path $PSScriptRoot 'UsbJournalTransport.cs')
+ & (Join-Path $framework 'csc.exe') /nologo /target:exe /platform:x64 ('/win32icon:'+$brandIcon) ('/out:'+(Join-Path $output $binary)) ('/win32manifest:'+(Join-Path $PSScriptRoot 'password-approval.manifest')) (Join-Path $PSScriptRoot ($hostName+'.cs')) (Join-Path $PSScriptRoot 'ProtectedUsbJournal.cs') (Join-Path $PSScriptRoot 'UsbJournalTransport.cs')
  if($LASTEXITCODE -ne 0){throw 'USB recovery host build failed'}
 }
 & (Join-Path $PSScriptRoot '..\..\tools\build-usb-broker.ps1')

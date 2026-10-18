@@ -4,10 +4,12 @@
  --glass-fill:rgba(14,20,42,var(--glass-opacity));--glass-solid:rgba(14,20,42,.92);
  --glass-border:rgba(255,255,255,.08);--glass-border-hover:rgba(255,255,255,.16);--glass-highlight:rgba(255,255,255,.12);
  --glass-shadow:0 20px 60px rgba(0,0,40,.45);--glass-radius:28px;--glass-tile-radius:22px;--glass-padding:24px;
- --glass-heading:#1b1e4a;--glass-text:#fff;--glass-body:#aeb6d0;--glass-muted:#8e97b5;--glass-placeholder:#75809f;
+ --glass-heading:#1b1e4a;--glass-text:#fff;--glass-body:#d2dcf0;--glass-muted:#b8c9e4;--glass-placeholder:#75809f;
  --glass-blue:#2b6bff;--glass-link:#80a8ff;--glass-cyan:#4dd9ff;--glass-success:#3ddc6b;--glass-warning:#ffb020;--glass-danger:#ff5a5f;
  --glass-bloom-blue:rgba(43,107,255,.30);--glass-bloom-indigo:rgba(87,64,210,.28);--glass-bloom-blur:50px;
  --glass-button-radius:14px;--glass-button-border:rgba(255,255,255,.14);--glass-divider:rgba(255,255,255,.06);
  --glass-ease:cubic-bezier(.2,.65,.3,1);--glass-duration:200ms;--glass-stagger:40ms;--glass-bloom-duration:20s;
  --glass-font:"Space Grotesk","Inter","Segoe UI",sans-serif;
 }
+
+:root{--heading-ink:#1b1e4a;--heading-highlight:#a5d8ff}

@@ -15,6 +15,7 @@ import TextLoop from "./components/ui/TextLoop";
 import "./components/text-loop.css";
 import GradientASCII from "./components/ui/GradientASCII";
 import Icon from "./components/Icon";
+import sentinelLogo from "./assets/brand/sentinel.png";
 import LiquidSidebar from "./components/LiquidSidebar";
 import "./theme.css";
 import "./readability.css";
@@ -30,7 +31,7 @@ type ViewId =
   | "log";
 
 const NAV: { id: ViewId; label: string; icon: string }[] = [
-  { id: "ai", label: "SentinelAI", icon: "shield" },
+  { id: "ai", label: "SentinelAI", icon: "chat" },
   { id: "dashboard", label: "Console", icon: "shield" },
   { id: "scan", label: "Scan & Detect", icon: "scan" },
   { id: "watchtower", label: "Watchtower", icon: "wifi" },
@@ -53,14 +54,13 @@ const VIEW_TITLES: Record<ViewId, string> = {
 
 function Shell() {
   const {state:demo}=useDemoState();
-  const [sidebarCollapsed,setSidebarCollapsed]=useState(false);
+  useEffect(()=>{const fullscreen=(e:KeyboardEvent)=>{if(e.key==='F11'&&!e.repeat){e.preventDefault();void demoCall('window.fullscreen').catch(()=>{});}};window.addEventListener('keydown',fullscreen);return()=>window.removeEventListener('keydown',fullscreen);},[]);
+  const [sidebarCollapsed,setSidebarCollapsed]=useState(true);
   const [view, setView] = useState<ViewId>("dashboard");
+  const [aiFocus,setAiFocus]=useState<string|null>(null);
+  useEffect(()=>{const open=(e:Event)=>{setAiFocus((e as CustomEvent<string>).detail);setView("ai");};window.addEventListener("sentinel-ai-focus",open);return()=>window.removeEventListener("sentinel-ai-focus",open);},[]);
   const [aiContext,setAiContext]=useState<{finding:AiFinding;question:string}|null>(null);
-  const [pendingAiContext,setPendingAiContext]=useState<{finding:AiFinding;question:string}|null>(null);
-  const [aiBusy,setAiBusy]=useState(false);
-  const aiGate=useRef({busy:false,pending:false,context:false});
-  const changeAiBusy=(busy:boolean)=>{aiGate.current.busy=busy;setAiBusy(busy);};
-  useEffect(()=>{let live=true,busy=false;const timer=setInterval(()=>{if(busy||aiGate.current.busy||aiGate.current.pending)return;busy=true;void demoCall('ai.inbox').then(r=>{if(live&&r.handoff){const context={finding:r.handoff.finding,question:r.handoff.question};if(aiGate.current.busy||aiGate.current.context){aiGate.current.pending=true;setPendingAiContext(context);}else{aiGate.current.context=true;setAiContext(context);setView('ai');}}}).catch(()=>{}).finally(()=>{busy=false;});},2000);return()=>{live=false;clearInterval(timer);};},[]);
+  useEffect(()=>{let live=true,busy=false;const timer=setInterval(()=>{if(busy)return;busy=true;void demoCall('ai.inbox').then(r=>{if(live&&r.handoff){setAiContext({finding:r.handoff.finding,question:r.handoff.question});setView('ai');}}).catch(()=>{}).finally(()=>{busy=false;});},2000);return()=>{live=false;clearInterval(timer);};},[]);
   const { level, scanAlert,inspectionError,snapshot } = useThreat();
   const [soundEnabled,setSoundEnabled]=useState(uiSoundsEnabled);
   const previousSoundState=useRef({level,error:'',completed:'',flagged:''});
@@ -119,7 +119,7 @@ function Shell() {
       <LiquidSidebar collapsed={sidebarCollapsed} onToggle={()=>setSidebarCollapsed(value=>!value)}>
         <div className="brand">
           <div className="brand-mark">
-            <Icon name="shield" size={18} />
+            <img src={sentinelLogo} alt="" aria-hidden="true" style={{width:30,height:30,objectFit:"contain"}} />
             <span className="brand-dot" />
           </div>
           <div className="brand-name">SENTINEL</div>
@@ -168,14 +168,13 @@ function Shell() {
           style={{ position: "relative", zIndex: 1, background: "transparent" }}
         >
           {view === "dashboard" && <Dashboard onNavigate={setView} onViewAll={() => setView("log")} onOpenUsb={() => setView("usb")} />}
-          {view === "scan" && <ScanView />}
+          {view === "scan" && <ScanView onOpenVault={()=>setView("quarantine")} />}
           {view === "watchtower" && <WatchtowerView />}
           {view === "usb" && <UsbGuardView />}
           {view === "password" && <PasswordManagerView />}
           {view === "quarantine" && <QuarantineView />}
           {view === "log" && <ThreatLogView />}
-          {pendingAiContext&&<button disabled={aiBusy} onClick={()=>{aiGate.current.pending=false;aiGate.current.context=true;setAiContext(pendingAiContext);setPendingAiContext(null);setView('ai');}}>Open new browser question</button>}
-          <div hidden={view!=="ai"}><SentinelAiView context={aiContext} onBusyChange={changeAiBusy}/></div>
+          <div hidden={view!=="ai"}><SentinelAiView context={aiContext} focusRef={aiFocus}/></div>
 
         </div>
 

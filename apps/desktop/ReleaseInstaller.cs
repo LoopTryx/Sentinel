@@ -17,7 +17,7 @@ public static class ReleaseInstaller {
     string name=entry.FullName.Replace('/',Path.DirectorySeparatorChar);if(Path.IsPathRooted(name)||name.IndexOf(':')>=0||Array.Exists(name.Split(Path.DirectorySeparatorChar),p=>p==".."||p=="."))throw new IOException("Invalid package path.");
     if(((entry.ExternalAttributes>>16)&0xF000)==0xA000)throw new IOException("Links are not supported.");
     string target=Path.GetFullPath(Path.Combine(root,name));if(!target.StartsWith(root,StringComparison.OrdinalIgnoreCase))throw new IOException("Invalid package destination.");
-    total+=entry.Length;if(total>536870912||entry.Length>268435456)throw new IOException("Package exceeds size limits.");
+    total+=entry.Length;if(total>3221225472L||entry.Length>1610612736L)throw new IOException("Package exceeds size limits.");
     if(entry.FullName.EndsWith("/")){Directory.CreateDirectory(target);continue;}
     Directory.CreateDirectory(Path.GetDirectoryName(target));using(var input=entry.Open())using(var output=new FileStream(target,FileMode.CreateNew,FileAccess.Write))input.CopyTo(output);
    }
@@ -31,14 +31,14 @@ public static class ReleaseInstaller {
   bool test=args.Length==2&&args[0]=="--extract-only";
   try{
    if(!test&&args.Length!=0)throw new ArgumentException("Unsupported setup arguments.");
-   if(!test&&MessageBox.Show("Install Sentinel v2 for this Windows user? Chrome will need one-time approval to load the included extension.","Sentinel v2 Setup",MessageBoxButtons.OKCancel,MessageBoxIcon.Information)!=DialogResult.OK)return 1;
+   if(!test&&MessageBox.Show("Install Sentinel v3 for this Windows user? Chrome will need one-time approval to load the included extension.","Sentinel v3 Setup",MessageBoxButtons.OKCancel,MessageBoxIcon.Information)!=DialogResult.OK)return 1;
    string root=Extract(test?args[1]:Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Sentinel","InstallerCache",Guid.NewGuid().ToString("N")));
    if(test)return 0;
    string script=Path.Combine(root,"tools","install-desktop.ps1");
    var info=new ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"WindowsPowerShell","v1.0","powershell.exe"),"-NoProfile -NonInteractive -ExecutionPolicy Bypass -File \""+script+"\""){UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=root,RedirectStandardOutput=true,RedirectStandardError=true};
-   using(var p=Process.Start(info)){var output=p.StandardOutput.ReadToEndAsync();var errors=p.StandardError.ReadToEndAsync();if(!p.WaitForExit(120000)){try{p.Kill();}catch{}throw new IOException("Setup timed out.");}if(p.ExitCode!=0)throw new IOException(errors.Result);}
+   using(var p=Process.Start(info)){var output=p.StandardOutput.ReadToEndAsync();var errors=p.StandardError.ReadToEndAsync();if(!p.WaitForExit(600000)){try{p.Kill();}catch{}throw new IOException("Setup timed out.");}if(p.ExitCode!=0)throw new IOException(errors.Result);}
    string extension=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Sentinel","ChromeExtension");
-   MessageBox.Show("Sentinel is installed. In Chrome, enable Developer mode, choose Load unpacked and select:\n\n"+extension+"\n\nThe desktop connection is already registered.","Sentinel v2 Setup");
+   MessageBox.Show("Sentinel is installed. In Chrome, enable Developer mode, choose Load unpacked and select:\n\n"+extension+"\n\nThe desktop connection is already registered.","Sentinel v3 Setup");
    Process.Start(new ProcessStartInfo("explorer.exe","\""+extension+"\""){UseShellExecute=true});
    string chrome=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"Google","Chrome","Application","chrome.exe");
    if(!File.Exists(chrome))chrome=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Google","Chrome","Application","chrome.exe");

@@ -19,7 +19,7 @@ export function boundedText(root,max,truncated,field){
  const walker=root.ownerDocument.createTreeWalker(root,4);let text='',visited=0,node;
  while((node=walker.nextNode())){
   if(++visited>limits.textNodes){truncated.add(field);break;}
-  if(node.parentElement?.closest('script,style,noscript,input,textarea,select,[hidden],[aria-hidden="true"],[data-sentinel-email]')||!visible(node.parentElement))continue;
+  if(node.parentElement?.closest('script,style,noscript,input,textarea,select,[contenteditable="true"],[hidden],[aria-hidden="true"],[data-sentinel-email],[data-sentinel-scam],[data-sentinel-ai]')||!visible(node.parentElement))continue;
   const value=node.nodeValue||'';
   if(text.length+value.length+1>max){text+=(text?' ':'')+value.slice(0,Math.max(0,max-text.length-1));truncated.add(field);break;}
   text+=(text?' ':'')+value;

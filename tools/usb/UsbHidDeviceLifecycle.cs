@@ -28,7 +28,7 @@ internal sealed class UsbHidDeviceLifecycle {
   if(request.Action=="allow"){
    var source=links.Source(request.Digest);var ledger=new UsbHidCommittedDisableLedger(source,fence);
    for(int i=0;i<plans.Length;i++){
-    var plan=plans[i];var node=native.Read(plan);if(UsbHidPnpTransaction.CanDisable(node.Status,node.Problem)||node.Problem==48)continue;
+    var plan=plans[i];var node=native.Read(plan);if(UsbHidPnpTransaction.CanDisable(node.Status,node.Problem)||node.Problem==48||UsbHidSetupApi.IsUninstalled(node))continue;
     Require(node.Problem==22);var snapshot=source.ReadCurrentCommittedPolicy();var receipt=Array.Find(snapshot.Receipts,r=>string.Equals(r.Instance,plan.Instance,StringComparison.OrdinalIgnoreCase));Require(receipt!=null&&ledger.OwnsDisabled(plan.Instance,receipt.Tree));
     var old=source.ReadAuthenticatedPnpJournal(receipt.PnpDigest);var entry=Array.Find(old.Entries,e=>string.Equals(e.Plan.Instance,plan.Instance,StringComparison.OrdinalIgnoreCase));Require(entry!=null&&entry.Plan.RecoveryConnector==plan.RecoveryConnector&&!string.IsNullOrEmpty(entry.Plan.RecoveryTree));
     var recovery=native as UsbHidPnpTransaction.IRecoveryPnp;Require(recovery!=null);var observed=recovery.ReadRecovery(entry.Plan,fence);Require(UsbHidSetupApi.TreeBinding(observed)==plan.Tree);

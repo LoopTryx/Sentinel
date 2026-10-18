@@ -6,16 +6,23 @@ const root = new URL('../', import.meta.url);
 const json = async (path) => JSON.parse(await readFile(new URL(path, root), 'utf8'));
 const read = (path) => readFile(new URL(path, root), 'utf8');
 
-test('manifest requests only fixture-blocking capability', async () => {
+test('manifest keeps bounded capabilities and enables toolbar injection', async () => {
   const manifest = await json('manifest.json');
   assert.equal(manifest.manifest_version, 3);
   assert.equal(manifest.name, 'Sentinel Browser Companion');
-  assert.deepEqual(manifest.permissions, ['declarativeNetRequest', 'storage', 'nativeMessaging', 'activeTab']);
+  assert.deepEqual(manifest.permissions, ['declarativeNetRequest', 'storage', 'nativeMessaging', 'activeTab', 'scripting']);
   assert.deepEqual(manifest.host_permissions, ['http://127.0.0.1/*']);
   assert.deepEqual(manifest.optional_host_permissions,['http://127.0.0.1/*','http://*/*','https://*/*']);
   assert.equal(manifest.background.service_worker, 'src/service-worker.js');
   assert.equal(manifest.background.type, 'module');
-  assert.equal(manifest.action.default_popup, 'popup.html'); // Native toolbar popup, including on restricted pages.
+  assert.equal(manifest.action.default_popup, undefined); // Toolbar opens a transparent webpage overlay.
+  assert.deepEqual(manifest.action.default_icon, manifest.icons);
+  for (const size of [16, 32, 48, 128]) {
+    const png = await readFile(new URL(manifest.icons[size], root));
+    assert.equal(png.readUInt32BE(16), size);
+    assert.equal(png.readUInt32BE(20), size);
+  }
+  assert.ok(manifest.permissions.includes('scripting'));
 });
 
 test('enabled packaged rule blocks only the synthetic fixture host', async () => {

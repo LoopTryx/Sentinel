@@ -22,15 +22,17 @@ if(location.hash.startsWith('#url=')){
   document.getElementById('classification').textContent='LOCAL URL EVIDENCE';
  }catch{}
 }
-const section=document.querySelector('.warning-copy'),box=document.createElement('section');box.className='ai-warning';
-const question=document.createElement('textarea');question.maxLength=1000;question.value='Why is this link concerning, and what should I do?';question.setAttribute('aria-label','Question for SentinelAI');
-const button=document.createElement('button');button.textContent='Ask SentinelAI';button.className='warning-action';button.disabled=!original;
-const status=document.createElement('p');status.setAttribute('role','status');
-const preview=document.createElement('pre');preview.style.whiteSpace='pre-wrap';preview.style.overflowWrap='anywhere';
-box.append(question,preview,button,status);section.append(box);
-function updatePreview(){try{const input=handoffInput(original,question.value);preview.textContent='Transfer to your local Sentinel console (not NVIDIA):\n'+JSON.stringify({url:input.url,question:input.question},null,2);}catch{preview.textContent='Original URL unavailable. Re-enable navigation warnings to install the updated rules.';}}
-question.addEventListener('input',updatePreview);updatePreview();
-let answerTimer=null;
-button.addEventListener('click',async()=>{if(button.disabled)return;button.disabled=true;try{const handoff=await sendAiHandoff(handoffInput(original,question.value));status.textContent='Question delivered. Open Sentinel → SentinelAI. Cloud analysis still requires a separate approval.';if(answerTimer)clearInterval(answerTimer);let polling=false;answerTimer=setInterval(async()=>{if(Date.now()>handoff.expiresAt){clearInterval(answerTimer);return;}if(polling)return;polling=true;try{const response=await chrome.runtime.sendMessage({kind:'demo_call',method:'ai-result',data:{ref:handoff.finding.ref}});const result=response?.data?.result;if(result){clearInterval(answerTimer);const answer=document.createElement('section');answer.className='ai-provider-answer';const title=document.createElement('h2');title.textContent='SentinelAI · NVIDIA interpretation';const explanation=document.createElement('p');explanation.textContent=result.answer.explanation;const uncertainty=document.createElement('p');uncertainty.textContent=result.answer.uncertainty;answer.append(title,explanation,uncertainty);for(const tip of result.answer.recommendations){const p=document.createElement('p');p.textContent=tip;answer.append(p);}box.append(answer);status.textContent='Approved AI response received. Your local detection result is unchanged.';}}catch{}finally{polling=false;}},2000);}catch(e){status.textContent=e.message;}finally{button.disabled=!original;}});
+const section=document.querySelector('.warning-copy'),box=document.createElement('section');box.className='ai-warning';box.hidden=!original;
+const button=document.createElement('button');button.textContent='Learn more in Sentinel';button.className='warning-action';button.disabled=!original;
+const status=document.createElement('p');status.setAttribute('role','status');box.append(status,button);section.append(box);
+let answerTimer=null,handoff=null;
+async function explain(){
+ try{
+  handoff=await sendAiHandoff(handoffInput(original,'Why is this link concerning, and what should I do?'));
+  status.textContent='Preparing an explanation…';let polling=false;
+  answerTimer=setInterval(async()=>{if(Date.now()>handoff.expiresAt){clearInterval(answerTimer);return;}if(polling)return;polling=true;try{const response=await chrome.runtime.sendMessage({kind:'demo_call',method:'ai-result',data:{ref:handoff.finding.ref}});const quick=response?.data?.quick;if(quick){clearInterval(answerTimer);status.textContent=quick.text;}}catch{}finally{polling=false;}},1000);
+ }catch{status.textContent='Open Sentinel to connect your assistant.';}
+}
+button.addEventListener('click',async()=>{if(button.disabled)return;button.disabled=true;try{if(!handoff)await explain();if(handoff){await chrome.tabs.create({url:chrome.runtime.getURL('continue.html')+'#'+handoff.finding.ref});}}catch{status.textContent='Open Sentinel to continue.';}finally{button.disabled=!original;}});
 window.addEventListener('pagehide',()=>{if(answerTimer)clearInterval(answerTimer);});
-void pendingAiHandoff().then(pending=>{if(pending&&pending.url===handoffInput(original||pending.url,question.value).url){question.value=pending.question;updatePreview();status.textContent='A pending question can be retried.';}}).catch(()=>{});
+if(original&&['listed','keywords'].includes(assessNavigation(original).kind))void explain();

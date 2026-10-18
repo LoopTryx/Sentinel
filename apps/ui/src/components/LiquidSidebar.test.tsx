@@ -31,3 +31,5 @@ it('collapsed glass tooltip escapes the scrollport and preserves navigation, ari
  }finally{await act(()=>root.unmount());host.remove();vi.restoreAllMocks();vi.unstubAllGlobals();}
  expect(disconnected).toBe(1);expect(tipDisconnections).toBe(tipObservers);expect(document.querySelector('[role=tooltip]')).toBeNull();
 });
+
+it('exposes hover expansion while preserving the same navigation',async()=>{const host=document.createElement('div'),root=createRoot(host);try{await act(()=>root.render(<LiquidSidebar collapsed={true} onToggle={()=>{}}><nav>Pages</nav></LiquidSidebar>));expect(host.querySelector('aside')?.dataset.hoverExpand).toBe('true');}finally{await act(()=>root.unmount());}});

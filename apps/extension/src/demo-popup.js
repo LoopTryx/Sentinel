@@ -23,8 +23,6 @@ function filter(){const query=$('account-search').value.toLowerCase();for(const 
 $('account-search').addEventListener('input',filter);
 $('check-accounts').onclick=()=>{checking=!checking;paint();};
 for(const tab of document.querySelectorAll('[data-view]'))tab.addEventListener('click',()=>{checking=false;paint();});
-$('demo-extension-id').textContent=chrome.runtime.id;
-$('copy-extension-id').onclick=async()=>{await navigator.clipboard.writeText(chrome.runtime.id);$('copy-extension-id').textContent='Copied';};
 $('demo-reconnect').onclick=()=>{lastSignature='';void refresh();};
 window.addEventListener('pagehide',()=>{checking=false;});
 void refresh();setInterval(()=>{if(!document.hidden)void refresh();},1500);

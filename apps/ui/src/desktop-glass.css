@@ -86,3 +86,45 @@ html[data-glass-effects=off] #root :is(.glass-card,.panel,.stat)::before{content
 #root .sound-toggle{margin-left:auto;padding:8px 12px;border-radius:12px;border:1px solid rgba(165,216,255,.3);background:rgba(10,16,32,.72);color:#a5d8ff;font:600 12px var(--font-body);cursor:pointer}#root .sound-toggle:focus-visible{outline:2px solid #a5d8ff;outline-offset:3px}
 
 #root .app-refresh{display:inline-flex;align-items:center;gap:7px;margin-left:auto;padding:8px 12px;border-radius:12px;border:1px solid rgba(165,216,255,.3);background:rgba(10,16,32,.72);color:#a5d8ff;font:600 12px var(--font-body);cursor:pointer}#root .app-refresh:focus-visible{outline:2px solid #a5d8ff;outline-offset:3px}#root .sound-toggle{margin-left:0}
+
+/* Readable page hierarchy and compact scan evidence. */
+#root{--text-dim:#d2dcf0;--text-faint:#b8c9e4}
+#root .page-title{display:table;margin:0 0 18px;padding:5px 0 9px;color:#c5e7ff;font:800 clamp(25px,2.5vw,34px)/1.2 var(--font-display);letter-spacing:-.025em;border-bottom:3px solid #8dccff;text-shadow:0 2px 16px #12304c}
+#root .glm-page-heading .page-title{margin-bottom:0}
+#root :is(.small,.glm-caption,.pm-eyebrow,.eyebrow,.scan-target-caption){color:#c0d0e8}
+#root .scan-finding-summary{display:flex;align-items:center;gap:16px;padding:12px 16px;margin:18px 0;border:0;border-left:3px solid #ff7883;border-radius:0 12px 12px 0;background:rgba(45,14,24,.8);box-shadow:none}
+#root .scan-finding-summary strong{font:700 17px/1.4 var(--font-body);color:#ffe8eb}
+#root .scan-finding-summary p{margin:0;color:#efd1d7;font-size:14px}
+#root .scan-results-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:22px 0 12px}
+#root .scan-results-heading h2{margin:0;font:750 21px var(--font-display);color:#c5e7ff}
+#root .scan-results-heading span{font-size:14px;color:#d2dcf0}
+#root .scan-result-card{margin:12px 0;padding:20px;border:1px solid rgba(197,220,255,.2);border-radius:20px;background:rgba(9,15,31,.7)}
+#root .scan-result-card>strong{display:block;color:#ffce83;font:750 18px var(--font-body)}
+#root .scan-result-card[data-contained=true]>strong{color:#8de4be}
+#root .scan-result-card p{margin:10px 0;color:#d2dcf0;line-height:1.6}
+#root .scan-result-card .glm-details{margin:12px 0;padding:12px 0;border-top:1px solid #ffffff18}
+#root .scan-result-card .btn,#root .glm-vault-actions .btn,#root .glm-segments button{border-radius:999px;min-height:44px;padding:10px 20px}
+#root .vault-action{--action-ink:#a5d8ff;display:inline-flex;align-items:center;gap:9px;color:var(--action-ink);border-color:color-mix(in srgb,var(--action-ink) 40%,transparent);background:color-mix(in srgb,var(--action-ink) 8%,transparent)}
+#root .vault-destroy{--action-ink:#ff8b96}
+#root .vault-action:not(:disabled):is(:hover,:focus-visible){color:var(--action-ink);background:color-mix(in srgb,var(--action-ink) 16%,transparent);box-shadow:0 4px 18px color-mix(in srgb,var(--action-ink) 16%,transparent)}
+.vault-action-lid{transform-origin:6px 7px;transition:transform 180ms ease}
+.vault-action:not(:disabled):is(:hover,:focus-visible) .vault-action-lid{transform:translateY(-2px) rotate(-12deg)}
+.vault-action:not(:disabled):is(:hover,:focus-visible) .vault-action-paper{animation:vault-paper-out 650ms ease both}
+.vault-destroy:not(:disabled):is(:hover,:focus-visible) .vault-action-paper{animation-name:vault-paper-in}
+@keyframes vault-paper-in{0%{transform:translateY(-7px);opacity:0}35%{opacity:1}100%{transform:translateY(0);opacity:1}}
+@keyframes vault-paper-out{0%{transform:translateY(2px);opacity:.2}100%{transform:translateY(-3px);opacity:1}}
+@media(max-width:600px){#root .scan-finding-summary{display:block}#root .scan-finding-summary p{margin-top:4px}}
+@media(prefers-reduced-motion:reduce){.vault-action-lid,.vault-action-paper{animation:none!important;transition:none!important;transform:none!important}}
+
+#root .password-manager{--pm-muted:#c3d3e8}
+#root .glm-page :is(summary,time),#root .scan-page .glm-toolbar{color:#d2dcf0}
+
+/* Only page-identifying headings receive the highlight. */
+#root .page-title,#root .panel .page-title{
+ color:var(--heading-ink)!important;background:var(--heading-highlight);width:fit-content;max-width:100%;
+ padding:.14em .4em;border:0;border-radius:8px;text-shadow:none;font-weight:800!important;
+ box-decoration-break:clone;-webkit-box-decoration-break:clone;
+}
+@media(forced-colors:active){#root .page-title,#root .panel .page-title{color:HighlightText!important;background:Highlight}}
+
+#root .watchtower-domain{margin:12px 0;padding:14px 16px;background:rgba(8,15,30,.7);border:1px solid #ffffff20;border-radius:16px}#root .watchtower-domain summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer}#root .watchtower-domain code{overflow-wrap:anywhere;min-width:0;color:#d2e8ff}#root .watchtower-domain [data-risk="Suspicious"]{color:#ffd391}#root .watchtower-domain [data-risk="Likely Malicious"]{color:#ff9ea7}

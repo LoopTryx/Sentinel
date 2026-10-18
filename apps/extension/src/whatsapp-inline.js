@@ -1,3 +1,5 @@
+import {isMessageCandidate,priorVisibleText} from './message-candidates.js';
+import {mountMessageAi} from './message-ai-inline.js';
 import {explainMessage} from './local-checks.js';
 const STYLE=`
 :host{display:block;margin:8px 0 0;font: 16px/1.45 system-ui,sans-serif;color:#eee9dc}
@@ -8,7 +10,7 @@ button:focus-visible{outline:3px solid #8ac7ff;outline-offset:3px}
 p{margin:0}.muted{margin-top:6px;color:#c0bfb4;font-size:14px}
 @media(forced-colors:active){button,.detail{background:Canvas;color:CanvasText;border-color:CanvasText}.muted{color:CanvasText}}
 `;
-export function mountWhatsAppWarnings(doc){
+export function mountWhatsAppWarnings(doc,api=globalThis.chrome){
  const win=doc.defaultView;
  // The direct child badge owns the outline: recycled/cleared messages lose it automatically.
  // Outline does not resize WhatsApp bubbles or overwrite page inline styles.
@@ -16,7 +18,7 @@ export function mountWhatsAppWarnings(doc){
  bubbleStyle.textContent='[data-pre-plain-text]:has(> [data-sentinel-flagged]){outline:2px solid #e51c2a;outline-offset:5px;border-radius:8px}@media(forced-colors:active){[data-pre-plain-text]:has(> [data-sentinel-flagged]){outline-color:CanvasText}}';
  doc.head.append(bubbleStyle);
  const records=new Map();let timer=null,stopped=false;
- function clearRecord(node){records.get(node)?.badge?.remove();records.delete(node);}
+ function clearRecord(node){records.get(node)?.cleanup?.();records.get(node)?.badge?.remove();records.delete(node);}
  function refresh(){
   if(stopped)return;
   // Latest 100 supported rendered text bubbles; confirmed outgoing is excluded.
@@ -42,11 +44,11 @@ export function mountWhatsAppWarnings(doc){
    const textNodes=node.querySelectorAll('.selectable-text');
    if(!textNodes.length){clearRecord(node);continue;}
    let text='';for(const part of textNodes){text+=(part.textContent||'').slice(0,4097-text.length);if(text.length>4096)break;}
-   const direction=directions.get(node);
-   if(records.get(node)?.text===text&&records.get(node)?.direction===direction)continue;
-   clearRecord(node);records.set(node,{text,direction,badge:null});
+   const direction=directions.get(node),history=priorVisibleText(all,node,'.selectable-text'),historyKey=JSON.stringify(history);
+   if(records.get(node)?.text===text&&records.get(node)?.direction===direction&&records.get(node)?.historyKey===historyKey)continue;
+   clearRecord(node);records.set(node,{text,direction,historyKey,badge:null});
    if(text.length>4096)continue;
-   const result=explainMessage(text);if(result.risk!=='suspicious')continue;
+   const result=explainMessage(text);if(result.risk!=='suspicious'&&!isMessageCandidate(text))continue;
    const badge=doc.createElement('span');badge.dataset.sentinelScam='';
    const shadow=badge.attachShadow({mode:'open'});
    const style=doc.createElement('style');style.textContent=STYLE;shadow.append(style);
@@ -57,10 +59,11 @@ export function mountWhatsAppWarnings(doc){
    const summary=doc.createElement('p');
    summary.textContent=`${result.signals.map(signal=>signal.label).join(' · ')}. Verify independently.`;
    const limits=doc.createElement('p');limits.className='muted';
-   limits.textContent=direction==='unknown'?'Direction unknown · Local clues, not proof of fraud.':'Local clues, not proof of fraud · No AI upload';
+   limits.textContent=direction==='unknown'?'Direction unknown · Local clues, not proof of fraud.':'Verify unusual requests through another channel.';
    detail.append(summary,limits);
    button.onclick=()=>{detail.hidden=!detail.hidden;button.setAttribute('aria-expanded',String(!detail.hidden));};
-   shadow.append(button,detail);node.append(badge);records.set(node,{text,direction,badge});
+   shadow.append(button,detail);badge.hidden=!!api?.runtime?.sendMessage;node.append(badge);records.set(node,{text,direction,historyKey,badge});
+   if(api?.runtime?.sendMessage){const cleanup=mountMessageAi(detail,text,api,{history,candidateOnly:true,onVerdict:verdict=>{if(node.isConnected&&records.get(node)?.text===text){badge.hidden=verdict!=='likely';button.textContent='Potential scam';}},isCurrent:()=>node.isConnected&&records.get(node)?.text===text&&records.get(node)?.historyKey===historyKey});records.set(node,{text,direction,historyKey,badge,cleanup});detail.hidden=false;button.setAttribute('aria-expanded','true');}
   }
  }
  function schedule(mutations){

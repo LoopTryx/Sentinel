@@ -11,7 +11,9 @@ const dist = resolve(root, 'dist');
 
 const requiredFiles = [
   'src/floating-control.js',
-  'src/floating-panel.js',
+  'src/ui-overlay.js',
+  'src/ui-overlay.css',
+  'src/overlay-controls.css',
   'src/readability.css',
   'src/assets/blue-ledge-v1.png',
   'src/assets/red-peeking-v1.png',
@@ -71,7 +73,9 @@ const requiredFiles = [
 // static assets.
 const mirroredFromSource = [
   'src/floating-control.js',
-  'src/floating-panel.js',
+  'src/ui-overlay.js',
+  'src/ui-overlay.css',
+  'src/overlay-controls.css',
   'src/readability.css',
   'src/assets/blue-ledge-v1.png',
   'src/assets/red-peeking-v1.png',

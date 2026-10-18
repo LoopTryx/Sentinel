@@ -73,3 +73,48 @@ html[data-glass-effects=off] .sidebar-glass-tooltip{backdrop-filter:none}
 #root .liquid-sidebar .nav-btn.active{background:linear-gradient(135deg,#2f89e3,#2265b5);border-color:#80b7eb;box-shadow:inset 0 1px 0 #cfe8ff40;color:#fff;text-shadow:none}
 #root .liquid-sidebar .nav-btn.active:hover{box-shadow:inset 0 1px 0 #cfe8ff40,var(--sidebar-active-glow)}
 @media(forced-colors:active){#root .liquid-sidebar .nav-btn:not(.active){background:Canvas;color:ButtonText;border-color:ButtonText}#root .liquid-sidebar .nav-btn.active{background:Highlight;color:HighlightText;border-color:Highlight;box-shadow:none}}
+
+/* Compact console rail: quiet glass, aligned labels and one active marker. */
+#root .liquid-sidebar{--sidebar-expanded-width:226px;border-radius:18px;border-color:#9bb8dc1c;background:linear-gradient(165deg,#15243beb,#0d192ee8);box-shadow:0 12px 36px #030a1938;padding:12px;gap:6px;max-height:calc(100dvh - 24px)}
+#root .shell{--sidebar-expanded-width:250px;--sidebar-collapsed-width:88px}
+#root .liquid-sidebar .brand{padding:3px 6px 17px;gap:10px}
+#root .liquid-sidebar .brand-name{font-size:14px;letter-spacing:.15em;background:none}
+#root .liquid-sidebar .nav-btn{min-height:40px;border-radius:7px;padding:9px 12px;gap:12px;font-size:12px;box-shadow:none;border-color:transparent;position:relative;transition:background-color .15s,color .15s}
+#root .liquid-sidebar .nav-btn:not(.active){border-color:transparent;color:#b8c8df}
+#root .liquid-sidebar .nav-btn:not(.active):hover{background:#8ab9eb10;box-shadow:none;color:#eef6ff}
+#root .liquid-sidebar .nav-btn.active{background:linear-gradient(100deg,#3c96db26,#3988d110);border-color:#6cb8f12a;box-shadow:none;color:#d9efff}
+#root .liquid-sidebar .nav-btn.active:before{content:'';position:absolute;left:-6px;top:12px;bottom:12px;width:3px;border-radius:2px;background:#7bc5fb;box-shadow:0 0 10px #6fb5ff40}
+#root .liquid-sidebar .nav-label{font-size:9px;letter-spacing:.13em;color:#91a5c0;padding:17px 12px 7px;background:none}
+#root .liquid-sidebar .sidebar-toggle{width:28px;height:28px;border-radius:6px;border-color:#9bb8dc20;opacity:.8}
+#root .liquid-sidebar .nav-icon-slot{width:20px;min-width:20px}
+#root .liquid-sidebar .brand-dot{box-shadow:none}
+@media(prefers-reduced-motion:reduce){#root .liquid-sidebar .nav-btn{transition:none}}
+@media(forced-colors:active){#root .liquid-sidebar,#root .liquid-sidebar .nav-btn{background:Canvas;color:CanvasText}#root .liquid-sidebar .nav-btn.active{background:Highlight;color:HighlightText}}
+
+/* Stable rail height and equal row geometry in both navigation modes. */
+#root .liquid-sidebar{height:calc(100dvh - 100px);max-height:calc(100dvh - 100px);align-self:start;box-sizing:border-box}
+#root .liquid-sidebar .liquid-sidebar-content{flex:1 1 auto;padding-top:6px;padding-bottom:6px}
+#root .liquid-sidebar .nav-btn{height:42px;min-height:42px;flex-shrink:0;box-sizing:border-box}
+#root .liquid-sidebar .nav-label{height:32px;min-height:32px;box-sizing:border-box;display:flex;align-items:end;padding:0 12px 5px}
+#root .sidebar-collapsed .liquid-sidebar .nav-label{height:32px;min-height:32px;margin:0;padding:0 0 5px;font-size:0;visibility:visible}
+#root .sidebar-collapsed .liquid-sidebar .brand{height:50px;min-height:50px;padding:3px 0 17px;justify-content:center}
+#root .sidebar-collapsed .liquid-sidebar .nav-btn{padding:9px 0;justify-content:center;gap:0;width:100%}
+#root .sidebar-collapsed .liquid-sidebar .nav-icon-slot{display:grid;place-items:center;width:20px;min-width:20px;margin:0;transform:none}
+#root .sidebar-collapsed .liquid-sidebar .nav-btn .nav-item-label{display:none}
+#root .sidebar-collapsed .liquid-sidebar .sidebar-toggle{align-self:center}
+@media(hover:hover){
+ #root .shell.sidebar-collapsed:has(.liquid-sidebar:hover){grid-template-columns:var(--sidebar-expanded-width) minmax(0,1fr)}
+ #root .sidebar-collapsed .liquid-sidebar:hover .nav-btn{justify-content:flex-start;padding:9px 12px;gap:12px}
+ #root .sidebar-collapsed .liquid-sidebar:hover .nav-item-label{display:inline;opacity:1;width:auto;max-width:none;visibility:visible}
+ #root .sidebar-collapsed .liquid-sidebar:hover .brand-name{display:block;opacity:1;width:auto;max-width:none;visibility:visible}
+ #root .sidebar-collapsed .liquid-sidebar:hover .brand{justify-content:flex-start;padding:3px 6px 17px}
+ #root .sidebar-collapsed .liquid-sidebar:hover .nav-label{font-size:9px;justify-content:flex-start;padding:0 12px 5px}
+ #root .sidebar-collapsed .liquid-sidebar:hover .sidebar-toggle{align-self:flex-end}
+}
+
+#root .liquid-sidebar .nav-label{background:transparent!important;box-shadow:none;border:0;border-radius:0}
+#root .sidebar-collapsed .liquid-sidebar:not(:hover) .nav-label{color:transparent;opacity:.45}
+
+#root .liquid-sidebar .nav-icon-slot{flex:0 0 20px;width:20px;min-width:20px;height:20px;line-height:20px;align-self:center}
+#root .liquid-sidebar .nav-item-label{display:flex;align-items:center;align-self:center;height:20px;line-height:20px;padding:0;margin:0;transform:none;animation:none}
+#root .sidebar-collapsed .liquid-sidebar:hover .nav-item-label{display:flex}
