@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {createAiHandoff} from './sentinel-ai.mjs';
 import {observeWifi} from './wifi.mjs';
 import {observeUsb} from './usb-observe.mjs';
 import {createObservationMonitor} from './observation-monitor.mjs';
@@ -41,6 +42,7 @@ function equal(a,b){return typeof a==='string'&&/^[a-f0-9]{64}$/.test(a)&&a.leng
 function keys(body,list){return body&&typeof body==='object'&&!Array.isArray(body)&&Object.keys(body).every(k=>list.includes(k));}
 
 export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=null,nativeAppDir=null,autoObserve=false}={}) {
+ const aiHandoff=createAiHandoff();
  const wifiMonitor=autoObserve?createObservationMonitor({collect:observeWifi,intervalMs:30000}):null;
  const usbMonitor=autoObserve?createObservationMonitor({collect:observeUsb,intervalMs:15000}):null;
  const desktopToken=randomBytes(32).toString('hex');
@@ -150,7 +152,26 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
   if(req.method!=='POST'||(!desktop&&!browser))return respond(403,{error:'forbidden'});
   req.setTimeout(5000,()=>req.destroy());
   let body;
-  try{let size=0;const chunks=[];for await(const c of req){size+=c.length;if(size>4096)return respond(413,{error:'request_too_large'});chunks.push(c);}body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{return respond(400,{error:'invalid_request'});}
+  const bodyLimit=req.url==='/ai-answer'&&desktop&&equal(req.headers['x-sentinel-native-action'],nativeActionToken)?24000:4096;
+  try{let size=0;const chunks=[];for await(const c of req){size+=c.length;if(size>bodyLimit)return respond(413,{error:'request_too_large'});chunks.push(c);}body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{return respond(400,{error:'invalid_request'});}
+  if(req.url==='/ai-handoff'||req.url==='/ai-inbox'||req.url==='/ai-finding'||req.url==='/ai-answer'||req.url==='/ai-result'){
+   try{
+    if(req.url==='/ai-handoff'){
+     if(!browser)return respond(403,{error:'forbidden'});
+     return respond(200,aiHandoff.create(body));
+    }
+    if(req.url==='/ai-result'&&browser&&Object.keys(body).length===1)return respond(200,{result:aiHandoff.answer(body.ref)});
+    if(req.url==='/ai-answer'){
+     if(!desktop||!equal(req.headers['x-sentinel-native-action'],nativeActionToken))return respond(403,{error:'forbidden'});
+     if(Object.keys(body).sort().join(',')!=='ref,result')return respond(400,{error:'invalid_request'});
+     aiHandoff.publish(body.ref,body.result);return respond(200,{ok:true});
+    }
+    if(!desktop)return respond(403,{error:'forbidden'});
+    if(req.url==='/ai-inbox'&&Object.keys(body).length===0)return respond(200,{handoff:aiHandoff.take()});
+    if(req.url==='/ai-finding'&&Object.keys(body).length===1&&typeof body.ref==='string')return respond(200,{finding:aiHandoff.resolve(body.ref)});
+    return respond(400,{error:'invalid_request'});
+   }catch(error){return respond(400,{error:['replayed_handoff','handoff_capacity','finding_unknown_or_expired'].includes(error.message)?error.message:'invalid_handoff'});}
+  }
   if(!keys(body,['id','path','extensionId','risk','codes','reportRef','actionRef','restoreRef','name','user','host','password']))return respond(400,{error:'invalid_request'});
   if(req.url==='/account-update'){
    if(!desktop||!equal(req.headers['x-sentinel-native-action'],nativeActionToken))return respond(403,{error:'native_approval_required'});

@@ -10,6 +10,7 @@ import QuarantineView from "./views/QuarantineView";
 import ThreatLogView from "./views/ThreatLogView";
 import WatchtowerView from "./views/WatchtowerView";
 import UsbGuardView from "./features/usb/UsbGuardView";
+import SentinelAiView,{type AiFinding} from './views/SentinelAiView';
 import TextLoop from "./components/ui/TextLoop";
 import "./components/text-loop.css";
 import GradientASCII from "./components/ui/GradientASCII";
@@ -19,6 +20,7 @@ import "./theme.css";
 import "./readability.css";
 
 type ViewId =
+  | "ai"
   | "dashboard"
   | "scan"
   | "watchtower"
@@ -28,6 +30,7 @@ type ViewId =
   | "log";
 
 const NAV: { id: ViewId; label: string; icon: string }[] = [
+  { id: "ai", label: "SentinelAI", icon: "shield" },
   { id: "dashboard", label: "Console", icon: "shield" },
   { id: "scan", label: "Scan & Detect", icon: "scan" },
   { id: "watchtower", label: "Watchtower", icon: "wifi" },
@@ -38,6 +41,7 @@ const NAV: { id: ViewId; label: string; icon: string }[] = [
 ];
 
 const VIEW_TITLES: Record<ViewId, string> = {
+  ai: "SentinelAI",
   dashboard: "Console",
   scan: "Scan & Detect",
   watchtower: "Watchtower",
@@ -51,6 +55,12 @@ function Shell() {
   const {state:demo}=useDemoState();
   const [sidebarCollapsed,setSidebarCollapsed]=useState(false);
   const [view, setView] = useState<ViewId>("dashboard");
+  const [aiContext,setAiContext]=useState<{finding:AiFinding;question:string}|null>(null);
+  const [pendingAiContext,setPendingAiContext]=useState<{finding:AiFinding;question:string}|null>(null);
+  const [aiBusy,setAiBusy]=useState(false);
+  const aiGate=useRef({busy:false,pending:false,context:false});
+  const changeAiBusy=(busy:boolean)=>{aiGate.current.busy=busy;setAiBusy(busy);};
+  useEffect(()=>{let live=true,busy=false;const timer=setInterval(()=>{if(busy||aiGate.current.busy||aiGate.current.pending)return;busy=true;void demoCall('ai.inbox').then(r=>{if(live&&r.handoff){const context={finding:r.handoff.finding,question:r.handoff.question};if(aiGate.current.busy||aiGate.current.context){aiGate.current.pending=true;setPendingAiContext(context);}else{aiGate.current.context=true;setAiContext(context);setView('ai');}}}).catch(()=>{}).finally(()=>{busy=false;});},2000);return()=>{live=false;clearInterval(timer);};},[]);
   const { level, scanAlert,inspectionError,snapshot } = useThreat();
   const [soundEnabled,setSoundEnabled]=useState(uiSoundsEnabled);
   const previousSoundState=useRef({level,error:'',completed:'',flagged:''});
@@ -164,6 +174,8 @@ function Shell() {
           {view === "password" && <PasswordManagerView />}
           {view === "quarantine" && <QuarantineView />}
           {view === "log" && <ThreatLogView />}
+          {pendingAiContext&&<button disabled={aiBusy} onClick={()=>{aiGate.current.pending=false;aiGate.current.context=true;setAiContext(pendingAiContext);setPendingAiContext(null);setView('ai');}}>Open new browser question</button>}
+          <div hidden={view!=="ai"}><SentinelAiView context={aiContext} onBusyChange={changeAiBusy}/></div>
 
         </div>
 

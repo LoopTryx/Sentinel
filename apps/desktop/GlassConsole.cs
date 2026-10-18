@@ -36,6 +36,7 @@ public sealed class SentinelGlassConsole : Window
     [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr window,int message,IntPtr wParam,IntPtr lParam);
     bool dragging, nativeCorners;
     readonly UsbInputMonitor inputMonitor=new UsbInputMonitor();
+    readonly SentinelAiNative sentinelAi=new SentinelAiNative();
     UsbGuardArrival usbArrival;
     readonly WebView2 view = new WebView2();
     readonly StackPanel loadingSurface=new StackPanel { HorizontalAlignment=HorizontalAlignment.Center, VerticalAlignment=VerticalAlignment.Center };
@@ -256,6 +257,30 @@ public sealed class SentinelGlassConsole : Window
             id = request["id"] as string;
             string method = request["method"] as string;
             if (id == null || !System.Text.RegularExpressions.Regex.IsMatch(id, "^[a-zA-Z0-9_-]{1,64}$")) return;
+            if(method!=null&&method.StartsWith("ai.")){
+                var aiData=request["data"] as Dictionary<string,object>;
+                if(aiData==null)throw new InvalidOperationException();
+                if(method=="ai.status"&&aiData.Count==0){Reply(id,sentinelAi.Status());return;}
+                if(method=="ai.cancel"&&aiData.Count==0){sentinelAi.Cancel();Reply(id,new{ok=true});return;}
+                if(method=="ai.remove"&&aiData.Count==0&&IsVisible&&IsActive){try{Reply(id,sentinelAi.Remove());}catch(SentinelAiException failure){Reply(id,new{error=failure.Code});}return;}
+                if(method=="ai.inbox"&&aiData.Count==0){Reply(id,await NativeActionCall("ai-inbox",new{}));return;}
+                if(!IsVisible||!IsActive||actionDialog||selectionRequest){Reply(id,new{error="action_unavailable"});return;}
+                actionDialog=true;
+                try{
+                    if(method=="ai.settings"&&aiData.Count==0)Reply(id,sentinelAi.Settings(this));
+                    else if(method=="ai.remove"&&aiData.Count==0)Reply(id,sentinelAi.Remove());
+                    else if(method=="ai.test"&&aiData.Count==0)Reply(id,await sentinelAi.Send(this,"Explain why verifying the official website is useful.",null,true));
+                    else if(method=="ai.send"&&aiData.Count==2&&aiData.ContainsKey("question")&&aiData.ContainsKey("findingRef")){
+                        string question=aiData["question"] as string;object finding=null;
+                        if(aiData["findingRef"]!=null){string reference=aiData["findingRef"] as string;if(reference==null||!System.Text.RegularExpressions.Regex.IsMatch(reference,"^[a-f0-9]{32}$"))throw new SentinelAiException("invalid_finding");var resolved=await NativeActionCall("ai-finding",new{@ref=reference});finding=resolved["finding"];}
+                        var answer=await sentinelAi.Send(this,question,finding,false);
+                        if(finding!=null){try{await NativeActionCall("ai-answer",new{@ref=(string)aiData["findingRef"],result=answer});}catch{/* A failed return handoff never changes the detector or hides a valid desktop response. */}}
+                        Reply(id,answer);
+                    }else throw new SentinelAiException("invalid_request");
+                }catch(SentinelAiException aiError){Reply(id,new{error=aiError.Code});}
+                finally{actionDialog=false;}
+                return;
+            }
             if(method=="usb.admission.snapshot"||method=="usb.admission.action"){
                 var payload=request["data"] as Dictionary<string,object>;bool change=method=="usb.admission.action";
                 if(payload==null)throw new InvalidOperationException();

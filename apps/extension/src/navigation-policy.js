@@ -20,16 +20,17 @@ export function assessNavigation(input,feed=snapshot){
  const reason=listed?{code:'risk_list',text:'This host matches the bundled uBlock Origin Badware risks subset. This is a reported risk, not a fresh malware scan.'}:keywords?{code:'reward_payment',text:'The URL path combines reward bait and a payment request. Verify the offer independently before opening it.'}:null;
  return {...local,kind:listed?'listed':keywords?'keywords':'unknown',risk:listed||keywords?'suspicious':local.risk,listState:listState(feed),listSource:feed.source,listDate:feed.capturedAt,reputationChecked:true,reasons:reason?[reason,...local.reasons.filter(r=>r.code!==reason.code)]:local.reasons};
 }
-export function makeNavigationRules(feed=snapshot){
+export function makeNavigationRules(feed=snapshot,warningUrl=null){
+ const redirect=kind=>warningUrl?{regexSubstitution:warningUrl+'#url=\\0'}:{extensionPath:'/warning.html#'+kind};
  return [
-  {id:9001,priority:20,action:{type:'redirect',redirect:{extensionPath:'/warning.html#listed'}},condition:{requestDomains:feed.hosts,resourceTypes:['main_frame']}},
-  ...BAIT_REGEXES.map((regexFilter,index)=>({id:9002+index,priority:10,action:{type:'redirect',redirect:{extensionPath:'/warning.html#keywords'}},condition:{regexFilter,isUrlFilterCaseSensitive:false,resourceTypes:['main_frame']}})),
+  {id:9001,priority:20,action:{type:'redirect',redirect:redirect('listed')},condition:{...(warningUrl?{regexFilter:'^https?://.*'}:{}),requestDomains:feed.hosts,resourceTypes:['main_frame']}},
+  ...BAIT_REGEXES.map((regexFilter,index)=>({id:9002+index,priority:10,action:{type:'redirect',redirect:redirect('keywords')},condition:{regexFilter:warningUrl?regexFilter+'.*':regexFilter,isUrlFilterCaseSensitive:false,resourceTypes:['main_frame']}})),
  ];
 }
 export async function setNavigationWarnings(api,enabled){
  if(enabled&&!await api.permissions.contains({origins:['http://*/*','https://*/*']}))throw new Error('Site access is required for automatic navigation warnings.');
  if(enabled){for(const regex of BAIT_REGEXES){const supported=await api.declarativeNetRequest.isRegexSupported({regex,isCaseSensitive:false});if(!supported.isSupported)throw new Error('This Chrome build does not support the keyword rule.');}}
- await api.declarativeNetRequest.updateDynamicRules({removeRuleIds:RULE_IDS,addRules:enabled?makeNavigationRules():[]});
+ await api.declarativeNetRequest.updateDynamicRules({removeRuleIds:RULE_IDS,addRules:enabled?makeNavigationRules(snapshot,api.runtime?.getURL('warning.html')??null):[]});
  return navigationWarningStatus(api);
 }
 export async function navigationWarningStatus(api){

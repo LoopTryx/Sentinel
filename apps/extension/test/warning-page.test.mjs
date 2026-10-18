@@ -7,9 +7,10 @@ import {listState} from '../src/navigation-policy.js';
 
 const source=(await readFile(new URL('../src/warning.js',import.meta.url),'utf8')).replace(/^import .*;\r?\n/gm,'');
 function render(hash){
+ const element=()=>({textContent:'',style:{},children:[],append(...children){this.children.push(...children);},setAttribute(){},addEventListener(){}});
  const nodes=new Map(['classification','summary','reasons','list-status','list-source'].map(id=>[id,{textContent:'',hidden:false,children:[],append(child){this.children.push(child);}}]));
- const document={body:{dataset:{}},getElementById:id=>nodes.get(id),createElement:()=>({textContent:''})};
- runInNewContext(source,{document,location:{hash},snapshot,listState});
+ const document={body:{dataset:{}},getElementById:id=>nodes.get(id),querySelector:()=>element(),createElement:()=>element()};
+ runInNewContext(source,{document,window:{addEventListener(){}},location:{hash},snapshot,listState,pendingAiHandoff:async()=>null,handoffInput:()=>{throw Error('Original URL unavailable');}});
  return {nodes,document};
 }
 test('keyword warnings do not imply domain-list coverage or a proven fraud verdict',()=>{

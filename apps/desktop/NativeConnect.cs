@@ -24,6 +24,7 @@ public static class SentinelNativeConnect {
             var request=Json.Deserialize<Dictionary<string,object>>(Encoding.UTF8.GetString(ReadExact(input,length)));
             string id=args[0].Substring(19,32);
             if(request.Count==1&&request.ContainsKey("operation")&&(string)request["operation"]=="connect")reply=Pair(id);
+            else if(request.Count==1&&request.ContainsKey("operation")&&(string)request["operation"]=="open-ai"){using(var signal=EventWaitHandle.OpenExisting("Local\\SentinelDesktopOpen"))signal.Set();reply=new{ok=true};}
             else if(request.Count==2&&request.ContainsKey("operation")&&request.ContainsKey("id")&&((string)request["operation"]=="copy"||(string)request["operation"]=="rotate"))reply=PasswordAction((string)request["operation"],request["id"] as string);
             else throw new InvalidOperationException();
         } catch { reply=new {error="connection_unavailable"}; }

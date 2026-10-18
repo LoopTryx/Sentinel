@@ -7,5 +7,6 @@ pub mod quarantine_action;
 pub mod restore_action;
 pub mod rpc;
 pub mod selected_scan;
+pub mod sentinel_ai;
 pub mod status;
 pub mod usb_activity;

@@ -1,9 +1,10 @@
 const KEY='sentinelDemoConnection';
 import {autoConnect} from './auto-connect.js';
-const actions=new Set(['state','unlock','lock','event','vault.copy','vault.rotate']);
+const actions=new Set(['state','unlock','lock','event','vault.copy','vault.rotate','ai-handoff','ai-result']);
 export async function demoRequest(message,sender) {
  const page=sender.url?.split(/[?#]/)[0];
- if(sender.id!==chrome.runtime.id || ![chrome.runtime.getURL('popup.html'),chrome.runtime.getURL('xray.html')].includes(page))throw new Error('forbidden');
+ if(sender.id!==chrome.runtime.id || ![chrome.runtime.getURL('popup.html'),chrome.runtime.getURL('xray.html'),chrome.runtime.getURL('warning.html')].includes(page))throw new Error('forbidden');
+ if(page===chrome.runtime.getURL('warning.html')&&!['ai-handoff','ai-result'].includes(message.method))throw new Error('forbidden');
  if(page===chrome.runtime.getURL('xray.html')&&message.method!=='event')throw new Error('forbidden');
  if(!actions.has(message.method))throw new Error('unsupported');
  const data=message.data??{};
@@ -15,7 +16,7 @@ export async function demoRequest(message,sender) {
   return {ok:true};
  }
  let config=(await chrome.storage.session.get(KEY))[KEY];
- if(!config&&page===chrome.runtime.getURL('popup.html'))config=await autoConnect();
+ if(!config&&[chrome.runtime.getURL('popup.html'),chrome.runtime.getURL('warning.html')].includes(page))config=await autoConnect();
  if(!config||!Number.isInteger(config.port)||config.port<1024||config.port>65535||!/^[a-f0-9]{64}$/.test(config.token))throw new Error('Desktop disconnected. Pair in Connection & test controls.');
  const url=`http://127.0.0.1:${config.port}/${message.method}`;
  let response;
@@ -29,5 +30,6 @@ export async function demoRequest(message,sender) {
  const bytes=new Uint8Array(length);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
  const result=JSON.parse(new TextDecoder().decode(bytes));
  if(!response.ok||result.error)throw new Error(result.error||'runtime_unavailable');
+ if(message.method==='ai-handoff'&&typeof chrome.runtime.sendNativeMessage==='function')await chrome.runtime.sendNativeMessage('com.looptryx.sentinel',{operation:'open-ai'}).catch(()=>{});
  return result;
 }
