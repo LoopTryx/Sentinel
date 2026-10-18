@@ -1,3 +1,4 @@
+import PageMascot from '../components/PageMascot';
 import {useEffect,useState} from 'react';
 import {demoCall,useDemoState} from '../demo-bridge';
 import {useThreat} from '../state';
@@ -29,7 +30,7 @@ export default function ScanView({onOpenVault}:{onOpenVault?:()=>void}={}){
    setNotice('Original bytes restored.');
   }else setNotice('Operation not completed: '+(r.data?.code||r.type||'unavailable'));
  }catch(e){setNotice(e instanceof Error?e.message:'Native operation unavailable');}finally{setBusy(false);}}
- return <section className="panel glm-page scan-page"><div className="glm-page-heading"><div><h1 className="page-title">Scan & Detect</h1></div><span className="badge">{state?'Connected · partial coverage':'Scanner disconnected'}</span></div>
+ return <section className="panel glm-page scan-page"><div className="glm-page-heading"><div><h1 className="page-title">Scan & Detect</h1></div><div className="page-mascot-aside"><span className="badge">{state?'Connected · partial coverage':'Scanner disconnected'}</span><PageMascot page="scan"/></div></div>
  {hasFindings&&<div className="scan-finding-summary" role="alert"><strong>{signatureFound?'Threat signature detected':'Suspicious file detected'}</strong><p>{inspectionError?"Last available finding; scanner unavailable.":"Review the file below before taking action."}</p></div>}
  {quarantined.size>0&&onOpenVault&&<button className="btn" onClick={onOpenVault}>Open Quarantine Vault</button>}
  <ScanTargetPanel running={running} disabled={!state||busy||running} onChoose={kind=>void select(kind)}/>
