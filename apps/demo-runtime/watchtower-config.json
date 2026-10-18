@@ -84,5 +84,78 @@
     "\u04cf": "l",
     "\u03bf": "o",
     "\u03c1": "p"
+  },
+  "topology": {
+    "minimumObservations": 3,
+    "signalDifference": 45,
+    "suspicious": 7,
+    "likely": 12,
+    "signals": {
+      "newBssid": {
+        "weight": 3,
+        "category": "wireless_identity",
+        "text": "A previously observed network name is advertising an unfamiliar access-point identity."
+      },
+      "weakerSecurity": {
+        "weight": 4,
+        "category": "wireless_security",
+        "text": "A previously observed network name is advertising weaker wireless security."
+      },
+      "openKnownName": {
+        "weight": 5,
+        "category": "wireless_security",
+        "text": "A network name previously observed with WPA2/WPA3 is now also advertised open."
+      },
+      "signalDifference": {
+        "weight": 1,
+        "category": "radio",
+        "text": "Access points using the same name have widely different signal strengths; this can be normal."
+      },
+      "channelChanged": {
+        "weight": 1,
+        "category": "radio",
+        "text": "A network name is advertised on a channel outside its initial session observations; roaming can explain this."
+      },
+      "gatewayMacChanged": {
+        "weight": 3,
+        "category": "routing",
+        "text": "The cached gateway MAC differs from the initial observation for this network/interface."
+      },
+      "dnsChanged": {
+        "weight": 2,
+        "category": "resolution",
+        "text": "Configured DNS servers differ from the initial network observation."
+      },
+      "duplicateMac": {
+        "weight": 1,
+        "category": "neighbors",
+        "text": "Multiple cached neighbor IPs use one MAC; bridges and proxy ARP can explain this."
+      },
+      "hostsChanged": {
+        "weight": 2,
+        "category": "local_settings",
+        "text": "The hosts file hash changed since the initial observation."
+      },
+      "proxyChanged": {
+        "weight": 2,
+        "category": "local_settings",
+        "text": "Proxy configuration changed since the initial observation."
+      },
+      "portalCredentials": {
+        "weight": 4,
+        "category": "portal",
+        "text": "An opted-in browser page has a password field while Windows reports limited connectivity. It may be a login page, not necessarily a captive portal."
+      },
+      "portalPayment": {
+        "weight": 5,
+        "category": "portal",
+        "text": "An opted-in browser page has a card-number field while connectivity is limited. Verify any access-payment request independently."
+      },
+      "limitedPortal": {
+        "weight": 3,
+        "category": "connectivity",
+        "text": "Windows reports limited connectivity alongside sensitive form fields. A network outage or ordinary login page can also explain this."
+      }
+    }
   }
 }

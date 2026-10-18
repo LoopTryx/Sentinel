@@ -1,3 +1,4 @@
+. (Join-Path $PSScriptRoot 'watchtower-topology.ps1')
 $ErrorActionPreference='Stop'
 $domains=@();$connections=@();$dnsStatus='unavailable';$connectionStatus='unavailable'
 # Read this device's existing metadata only. No DNS requests, reverse lookup,
@@ -13,4 +14,4 @@ try {
  })
  $connectionStatus='available'
 } catch {}
-@{version=1;dnsStatus=$dnsStatus;connectionStatus=$connectionStatus;domains=$domains;connections=$connections} | ConvertTo-Json -Depth 4 -Compress
+@{version=1;dnsStatus=$dnsStatus;connectionStatus=$connectionStatus;domains=$domains;connections=$connections;topology=(Get-SentinelTopology)} | ConvertTo-Json -Depth 6 -Compress
