@@ -9,6 +9,8 @@ use std::time::{Duration, Instant};
 
 #[path = "sentinel-inspect/session.rs"]
 mod session;
+#[path = "sentinel-inspect/stored.rs"]
+mod stored;
 
 fn run() -> Result<(), ()> {
     let mut args = std::env::args_os().skip(1);
@@ -84,7 +86,13 @@ fn run() -> Result<(), ()> {
 }
 
 fn main() {
-    if run().is_err() {
+    let args = std::env::args_os().skip(1).collect::<Vec<_>>();
+    let stored = args
+        .first()
+        .and_then(|s| s.to_str())
+        .is_some_and(|mode| mode.starts_with("--vault-"));
+    let result = if stored { stored::run(args) } else { run() };
+    if result.is_err() {
         println!("{{\"error\":\"inspection_unavailable\"}}");
         std::process::exit(1);
     }

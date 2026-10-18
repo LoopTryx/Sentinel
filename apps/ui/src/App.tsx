@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useState } from "react";
+import {playUiSound,setUiSoundsEnabled,uiSoundsEnabled} from './ui-sounds';
+import { Fragment, useEffect, useRef, useState } from "react";
 import {useDemoState, demoCall} from './demo-bridge';
 import {canDragWindow} from './desktop-interactions';
 import { ThreatProvider, useThreat } from "./state";
@@ -9,9 +10,13 @@ import QuarantineView from "./views/QuarantineView";
 import ThreatLogView from "./views/ThreatLogView";
 import WatchtowerView from "./views/WatchtowerView";
 import UsbGuardView from "./features/usb/UsbGuardView";
-import Dither from "./components/ui/Dither";
+import TextLoop from "./components/ui/TextLoop";
+import "./components/text-loop.css";
+import GradientASCII from "./components/ui/GradientASCII";
 import Icon from "./components/Icon";
+import LiquidSidebar from "./components/LiquidSidebar";
 import "./theme.css";
+import "./readability.css";
 
 type ViewId =
   | "dashboard"
@@ -26,7 +31,7 @@ const NAV: { id: ViewId; label: string; icon: string }[] = [
   { id: "dashboard", label: "Console", icon: "shield" },
   { id: "scan", label: "Scan & Detect", icon: "scan" },
   { id: "watchtower", label: "Watchtower", icon: "wifi" },
-  { id: "usb", label: "USB Guard", icon: "shield" },
+  { id: "usb", label: "USB Guard", icon: "usb" },
   { id: "password", label: "Passwords", icon: "key" },
   { id: "quarantine", label: "Quarantine", icon: "vault" },
   { id: "log", label: "Threat Log", icon: "list" },
@@ -42,117 +47,66 @@ const VIEW_TITLES: Record<ViewId, string> = {
   log: "Threat Log",
 };
 
-/** Dither wave colors follow the global threat state: azure when calm,
- *  soft coral when something is wrong. Azure = theme accent #2f89e3. */
-function ditherColors(level: string): {
-  wave: [number, number, number];
-  bg: [number, number, number];
-} {
-  if (level === "danger")
-    return { wave: [1.0, 0.54, 0.48], bg: [0.09, 0.03, 0.04] };
-  if (level === "warn")
-    return { wave: [1.0, 0.77, 0.42], bg: [0.09, 0.06, 0.02] };
-  return { wave: [0.184, 0.537, 0.89], bg: [0.02, 0.03, 0.1] };
-}
-
-/** MagicBento-style border glow for EVERY panel and stat box: a cyan light
- *  that slides along the nearest box edges as the cursor moves. Drives the
- *  same --glow-x / --glow-y / --glow-intensity custom properties the bento
- *  cards use, so all boxes share one coherent animation. */
-function useBoxGlow() {
-  useEffect(() => {
-    const RADIUS = 300;
-    const proximity = RADIUS * 0.5;
-    const fadeDistance = RADIUS * 0.75;
-    let raf = 0;
-    let x = 0;
-    let y = 0;
-
-    const apply = () => {
-      raf = 0;
-      document.querySelectorAll<HTMLElement>(".panel, .stat").forEach((box) => {
-        const rect = box.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        const distance = Math.max(
-          0,
-          Math.hypot(x - centerX, y - centerY) - Math.max(rect.width, rect.height) / 2
-        );
-        let intensity = 0;
-        if (distance <= proximity) intensity = 1;
-        else if (distance <= fadeDistance)
-          intensity = (fadeDistance - distance) / (fadeDistance - proximity);
-
-        box.style.setProperty("--glow-x", `${((x - rect.left) / rect.width) * 100}%`);
-        box.style.setProperty("--glow-y", `${((y - rect.top) / rect.height) * 100}%`);
-        box.style.setProperty("--glow-intensity", intensity.toFixed(3));
-      });
-    };
-
-    const onMove = (e: MouseEvent) => {
-      x = e.clientX;
-      y = e.clientY;
-      if (!raf) raf = requestAnimationFrame(apply);
-    };
-    const onLeave = () => {
-      document
-        .querySelectorAll<HTMLElement>(".panel, .stat")
-        .forEach((box) => box.style.setProperty("--glow-intensity", "0"));
-    };
-
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseleave", onLeave);
-    return () => {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseleave", onLeave);
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, []);
-}
-
 function Shell() {
   const {state:demo}=useDemoState();
+  const [sidebarCollapsed,setSidebarCollapsed]=useState(false);
   const [view, setView] = useState<ViewId>("dashboard");
-  const { level } = useThreat();
-  useBoxGlow();
+  const { level, scanAlert,inspectionError,snapshot } = useThreat();
+  const [soundEnabled,setSoundEnabled]=useState(uiSoundsEnabled);
+  const previousSoundState=useRef({level,error:'',completed:'',flagged:''});
+  useEffect(()=>{
+    const previous=previousSoundState.current;
+    const completed=snapshot&&['finished','cancelled'].includes(snapshot.state)?snapshot.jobRef:'';
+    const flagged=snapshot&&snapshot.reports.some(report=>report.verdict==='suspicious'||report.verdict==='signature_match')?JSON.stringify([snapshot.jobRef,snapshot.reports.filter(report=>report.verdict==='suspicious'||report.verdict==='signature_match').map(report=>[report.reportRef,report.verdict])]):'';
+    if(flagged&&flagged!==previous.flagged)void playUiSound('alert');
+    else if(inspectionError&&inspectionError!==previous.error)void playUiSound('error');
+    else if(level==='danger'&&previous.level!=='danger')void playUiSound('error');
+    else if(completed&&completed!==previous.completed&&snapshot?.state==='finished')void playUiSound('notification');
+    previousSoundState.current={level,error:inspectionError,completed,flagged};
+  },[level,inspectionError,snapshot]);
+  const shellRef=useRef<HTMLDivElement>(null);
+  useEffect(()=>{if(shellRef.current)shellRef.current.scrollTop=0;},[view]);
 
   const statusLabel =
-    demo ? 'Connected · partial coverage' : level === "danger"
+    scanAlert ? 'Scan finding · review required' : demo ? 'Connected · partial coverage' : level === "danger"
       ? "Preview · scenario alert"
       : level === "warn"
         ? "Preview · scenario attention"
         : "Preview · agent unavailable";
 
-  const { wave, bg } = ditherColors(level);
+
 
   return (
-    <div className={`shell${view === "password" ? " password-shell" : ""}`}>
+    <div ref={shellRef} className={`shell${view === "password" ? " password-shell" : ""}${sidebarCollapsed?" sidebar-collapsed":""}`}>
       <div className="window-actions"><button aria-label="Minimize to tray" onClick={()=>void import('./demo-bridge').then(m=>m.demoCall('window.hide')).catch(()=>{})}>−</button><button aria-label="Close to tray" onClick={()=>void import('./demo-bridge').then(m=>m.demoCall('window.hide')).catch(()=>{})}>×</button></div>
-      {/* Living dither backdrop — spans the WHOLE app (sidebar included) and
-          recolors with the threat state. The sidebar's liquid glass blurs it. */}
+      {/* Owner-supplied ASCII backdrop; decoration never intercepts input. */}
       <div
         className="dither-bg"
         style={{
-          position: "absolute",
+          position: "fixed",
           inset: 0,
           zIndex: 0,
-          opacity: view === "password" ? 0.12 : 0.45,
+          opacity: 0.75,
         }}
       >
-        <Dither
-          waveColor={wave}
-          backgroundColor={bg}
-          palette={["#050a19", "#0c1730", level === "danger" ? "#71322e" : level === "warn" ? "#765526" : "#163e6d", level === "danger" ? "#ff8a7a" : level === "warn" ? "#ffc46b" : "#2f89e3"]}
-          colorNum={4}
-          pixelSize={5}
-          dpr={1}
-          maxFps={24}
-          clickRipple={false}
-          enableMouseInteraction={false}
+        <GradientASCII
+          colors={level === "danger" ? ["#9f1239","#f43f5e","#fda4af","#fff1f2"] : ["#1e3fd8","#f6f8ff","#a5d8ff","#38bdf8"]}
+          style={{background:level === "danger" ? "radial-gradient(ellipse at 50% 100%, #9f1239, #260916 70%, #05081a)" : "radial-gradient(ellipse at 50% 100%, #1e3fd8, #101c49 48%, #05081a 80%)"}}
+          shape="horizon" characters=" =+xX0S8#@" cellSize={18} density={0.8}
+          dpr={1} maxFps={24} mouseInteraction={false} clickEffect="none"
         />
       </div>
 
-      <aside className="sidebar">
+        <header className="topbar" onMouseDown={event => { if(canDragWindow(event.target,event.button)){ event.preventDefault(); void demoCall('window.drag').catch(()=>{}); } }} style={{ position: "relative", zIndex: 2 }}>
+          <h1>{VIEW_TITLES[view]}</h1>
+          <button className="app-refresh" aria-label="Refresh entire app" title="Refresh app and background" onClick={()=>window.location.reload()}><Icon name="refresh" size={16}/>Refresh</button>
+          <button className="sound-toggle" aria-pressed={soundEnabled} aria-label={soundEnabled?"Mute interface sounds":"Enable interface sounds"} onClick={()=>{const next=!soundEnabled;setUiSoundsEnabled(next);setSoundEnabled(next);}}>{soundEnabled?"Sound on":"Sound off"}</button>
+          <div className="protection-pill">
+            <span className="led" /> {statusLabel}
+          </div>
+        </header>
+
+      <LiquidSidebar collapsed={sidebarCollapsed} onToggle={()=>setSidebarCollapsed(value=>!value)}>
         <div className="brand">
           <div className="brand-mark">
             <Icon name="shield" size={18} />
@@ -168,17 +122,18 @@ function Shell() {
           {n.id === "quarantine" && <div className="nav-label">System</div>}
           <button
             key={n.id}
+            aria-label={n.label}
             aria-current={view === n.id ? "page" : undefined} className={`nav-btn${view === n.id ? " active" : ""}`}
             onClick={() => setView(n.id)}
           >
-            <Icon name={n.icon} size={16} />
-            {n.label}
+            <span className="nav-icon-slot"><Icon name={n.icon} size={16} /></span>
+            <span className="nav-item-label">{n.label}</span>
             {n.id === "watchtower" && level !== "preview" && (
-              <span
+              <span className="nav-status"
                 style={{
                   marginLeft: "auto",
                   fontFamily: "var(--font-mono)",
-                  fontSize: 10.5,
+                  fontSize: "0.75rem",
                   padding: "1.5px 7px",
                   borderRadius: 99,
                   background: "var(--state-dim)",
@@ -193,38 +148,29 @@ function Shell() {
           </Fragment>
         ))}</nav>
 
-        <div className="sidebar-footer">
-          <div className="sidebar-footer-text" style={{ color: "rgba(232,241,255,0.55)" }}>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.18em" }}>
-              THINK · PROTECT · DEFEND
-            </div>
-            <div className="sidebar-footer-ver" style={{ marginTop: 4 }}>
-              v0.2 // Y2K CONSOLE BUILD
-            </div>
-          </div>
-        </div>
-      </aside>
+      </LiquidSidebar>
 
       <main className="main">
-        <header className="topbar" onMouseDown={event => { if(canDragWindow(event.target,event.button)){ event.preventDefault(); void demoCall('window.drag').catch(()=>{}); } }} style={{ position: "relative", zIndex: 2 }}>
-          <h1>{VIEW_TITLES[view]}</h1>
-          <div className="protection-pill">
-            <span className="led" /> {statusLabel}
-          </div>
-        </header>
+
+
         <div
           className="content"
           style={{ position: "relative", zIndex: 1, background: "transparent" }}
         >
-          {view === "dashboard" && <Dashboard onViewAll={() => setView("log")} onOpenUsb={() => setView("usb")} />}
-          {view === "scan" && <ScanView />}
+          {view === "dashboard" && <Dashboard onNavigate={setView} onViewAll={() => setView("log")} onOpenUsb={() => setView("usb")} />}
+          {view === "scan" && <ScanView onOpenVault={()=>setView("quarantine")} />}
           {view === "watchtower" && <WatchtowerView />}
           {view === "usb" && <UsbGuardView />}
           {view === "password" && <PasswordManagerView />}
           {view === "quarantine" && <QuarantineView />}
           {view === "log" && <ThreatLogView />}
+
         </div>
+
       </main>
+        <footer className="desktop-ribbon">
+          <TextLoop key={view} fitWidth text="Sentinel" shape="line" speed={135} direction="forward" separator="✦" curviness={90} tilt={0} fontSize={18} fontWeight={800} letterSpacing={1} uppercase ribbon ribbonColor="#414bff" ribbonWidth={30} edgeFade={0} cross={false} crossAngle={14} draggable scrollBoost={0} outline={false} pauseOnHover outlineWidth={1.5} color="#000000"/>
+        </footer>
     </div>
   );
 }

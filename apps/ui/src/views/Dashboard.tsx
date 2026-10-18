@@ -1,38 +1,11 @@
-import UsbCapabilityCard from '../features/usb/UsbCapabilityCard';
+import PageMascot from '../components/PageMascot';
+import GlassActionButton from "../components/GlassActionButton";
 import {useDemoState} from '../demo-bridge';
 import { useThreat } from "../state";
 import Grainient from "../components/ui/Grainient";
 import Icon from "../components/Icon";
 
 /** GLM reference layout with connected demo state; preview remains honest when disconnected. */
-
-/** Shield modules — honest statuses: local lessons and unavailable/planned runtime capabilities. */
-const SHIELD_MODULES: {
-  group: string;
-  modules: { name: string; desc: string; status: "LOCAL LESSON" | "UNAVAILABLE" | "PLANNED" | "BOUNDED DEMO" | "SHARED DEMO" }[];
-}[] = [
-  {
-    group: "CORE",
-    modules: [
-      { name: "Antivirus Engine", desc: "Console adapter unavailable · CLI preview only", status: "UNAVAILABLE" },
-      { name: "Password Lab", desc: "entropy analysis · crypto generator", status: "LOCAL LESSON" },
-    ],
-  },
-  {
-    group: "PERIMETER",
-    modules: [
-      { name: "USB Guard", desc: "manual inventory · HID prevention unavailable", status: "UNAVAILABLE" },
-      { name: "Watchtower", desc: "local text clues · no network monitoring", status: "LOCAL LESSON" },
-    ],
-  },
-  {
-    group: "GATEWAY",
-    modules: [
-      { name: "Web Shield", desc: "link & download inspection", status: "PLANNED" },
-      { name: "Browser Guard", desc: "mail / chat / QR protection", status: "PLANNED" },
-    ],
-  },
-];
 
 const statusLabel =
   ({
@@ -41,10 +14,10 @@ const statusLabel =
     danger: "Preview · scenario alert",
   } as Record<string, string>);
 
-export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => void; onOpenUsb?:()=>void }) {
+export default function Dashboard({ onViewAll, onNavigate }: { onViewAll: () => void; onOpenUsb?:()=>void; onNavigate?:(view:"scan"|"password"|"watchtower"|"usb")=>void }) {
   const {state:demo}=useDemoState();
-  const modules=SHIELD_MODULES.map(g=>({...g,modules:g.modules.map(m=>demo&&m.name==='Antivirus Engine'?{...m,status:'BOUNDED DEMO',desc:'Rust byte inspection · real reports · partial coverage'}:demo&&m.name==='Password Lab'?{...m,name:'Passwords',status:'SHARED DEMO',desc:'Invented shared accounts · weakness/reuse audit · generated replacements'}:m)}));
-  const { level, feed, setLevel, push } = useThreat();
+
+  const { level, feed, setLevel, push, snapshot, resetConsole } = useThreat();
 
   function simulateAttack() {
     setLevel("danger");
@@ -55,9 +28,6 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
       detail: null,
       ts: new Date().toLocaleTimeString(),
     });
-  }
-  function resetConsole() {
-    setLevel("preview");
   }
 
   return (
@@ -91,7 +61,7 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
                 background: "linear-gradient(180deg, #85f0bc, #31cf85)",
                 color: "#04220f",
                 fontFamily: "var(--font-mono)",
-                fontSize: 12.5,
+                fontSize: "0.78125rem",
                 fontWeight: 700,
                 letterSpacing: "0.14em",
                 boxShadow: "0 4px 18px rgba(47, 214, 126, 0.35), 0 0 0 4px rgba(18,18,24,0.55)",
@@ -114,44 +84,49 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
             <div
               style={{
                 fontFamily: "var(--font-mono)",
-                fontSize: 12.5,
+                fontSize: "0.78125rem",
                 letterSpacing: "0.06em",
                 color: "rgba(226,233,246,0.92)",
                 textShadow: "0 1px 8px rgba(10,14,31,0.8)",
               }}
             >
-              {demo?'ClamAV harmless-sample inspection · shared dummy vault · paired browser events':'No live protection is installed — learning and presentation preview'}
+              {demo?'Local file checks · partial coverage · shared demo accounts':'No live protection is installed — learning and presentation preview'}
             </div>
           </div>
-          <div className="protection-pill" style={{ flexShrink: 0, alignSelf: "flex-start" }}>
+          <div className="page-mascot-aside"><div className="protection-pill" style={{ flexShrink: 0, alignSelf: "flex-start" }}>
             <span className="led" /> {demo?'Connected · partial coverage':statusLabel[level] ?? statusLabel.preview}
-          </div>
+          </div><PageMascot page="dashboard"/></div>
         </div>
       </section>
 
 
 
+      <nav className="dashboard-actions" aria-label="Quick actions">
+        <GlassActionButton disabled={!onNavigate} onClick={()=>onNavigate?.('scan')}><Icon name="scan" size={18}/>Scan files</GlassActionButton>
+        <GlassActionButton disabled={!onNavigate} onClick={()=>onNavigate?.('password')}><Icon name="key" size={18}/>Passwords</GlassActionButton>
+        <GlassActionButton disabled={!onNavigate} onClick={()=>onNavigate?.('watchtower')}><Icon name="wifi" size={18}/>Watchtower</GlassActionButton>
+      </nav>
       {/* ── STAT TILES — no backend in this preview, so honest em-dashes ── */}
       <div className="stat-grid dashboard-stats">
-        <div className="stat">
-          <div className="num">{demo?.scan?.checked??'—'}</div>
+        <button type="button" className="stat glass-card glass-card--tile" onClick={()=>onNavigate?.('scan')} disabled={!onNavigate}>
+          <div className={`num${demo?.scan?.checked==null?" is-empty":""}`}>{demo?.scan?.checked??'—'}</div>
           <div className="label">FILES INSPECTED</div>
-        </div>
-        <div className="stat">
-          <div className="num">{demo?.scan?.findings.filter(f=>f.kind==='provider_synthetic_match').length??'—'}</div>
-          <div className="label">CLAMAV TEST MATCHES</div>
-        </div>
-        <div className="stat">
-          <div className="num">{demo?.accounts.length??'—'}</div>
+        </button>
+        <button type="button" className="stat glass-card glass-card--tile" onClick={()=>onNavigate?.('scan')} disabled={!onNavigate}>
+          <div className={`num${!snapshot?" is-empty":""}`}>{snapshot?snapshot.reports.filter(r=>r.verdict==='suspicious'||r.verdict==='signature_match').length:'—'}</div>
+          <div className="label">REVIEW FINDINGS</div>
+        </button>
+        <button type="button" className="stat glass-card glass-card--tile" onClick={()=>onNavigate?.('password')} disabled={!onNavigate}>
+          <div className={`num${demo?.accounts.length==null?" is-empty":""}`}>{demo?.accounts.length??'—'}</div>
           <div className="label">DEMO ACCOUNTS</div>
-        </div>
+        </button>
       </div>
 
-      <UsbCapabilityCard connected={demo!==null} onOpen={onOpenUsb}/>
+
 
       {/* ── MAIN GRID — wide activity feed left, scenario rail right ── */}
       <div className="console-grid">
-        <section className="panel" style={{ display: "flex", flexDirection: "column" }}>
+        <section className="panel glass-card glass-card--panel" style={{ display: "flex", flexDirection: "column" }}>
           <div className="section-head">
             <h3 className="panel-title" style={{ margin: 0 }}>
               ACTIVITY
@@ -163,7 +138,7 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
           <div
             style={{
               fontFamily: "var(--font-mono)",
-              fontSize: 12,
+              fontSize: "0.75rem",
               lineHeight: 1.75,
               overflowY: "auto",
               maxHeight: 300,
@@ -201,7 +176,7 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
                 <span style={{ opacity: 0.55, flexShrink: 0 }}>{l.ts}</span>
                 <span
                   style={{
-                    fontWeight: l.level === "info" ? 400 : 600,
+                    fontWeight: l.level === "info" ? 500 : 600,
                     minWidth: 0,
                     overflowWrap: "anywhere",
                   }}
@@ -214,9 +189,9 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
         </section>
 
         <div className="side-rail">
-          <section className="panel">
+          <section className="panel glass-card glass-card--panel">
             <h3 className="panel-title">ATTACK SIMULATION — SYNTHETIC SCENARIO</h3>
-            <p style={{ color: "var(--text-dim)", fontSize: 13, lineHeight: 1.6, margin: "0 0 14px" }}>
+            <p style={{ color: "var(--text-dim)", fontSize: "0.8125rem", lineHeight: 1.6, margin: "0 0 14px" }}>
               Changes the console theme using invented evidence. No file, device
               or system policy is touched.
             </p>
@@ -231,25 +206,25 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
             </div>
           </section>
 
-          <section className="panel">
+          <section className="panel glass-card glass-card--panel">
             <h3 className="panel-title">CAPABILITY STATUS</h3>
             <div className="kv-row">
               <span className="kv-key">
                 Scan adapter <span className="status-dot" style={{ display: "inline-block" }} />
               </span>
-              <span className="kv-val" style={{ color: "var(--warn)" }}>
+              <span className="kv-val glass-status--warning">
                 {demo?'bounded demo':'unavailable'}
               </span>
             </div>
             <div className="kv-row">
               <span className="kv-key">Vault backend</span>
-              <span className="kv-val" style={{ color: "var(--warn)" }}>
+              <span className="kv-val glass-status--warning">
                 {demo?'shared demo':'unavailable'}
               </span>
             </div>
             <div className="kv-row" style={{ borderBottom: "none" }}>
               <span className="kv-key">Local lessons</span>
-              <span className="kv-val" style={{ color: "var(--state)" }}>
+              <span className="kv-val glass-status--available">
                 available
               </span>
             </div>
@@ -257,72 +232,6 @@ export default function Dashboard({ onViewAll, onOpenUsb }: { onViewAll: () => v
         </div>
       </div>
 
-      {/* ── SHIELD MODULES — section head outside, grid inside ── */}
-      <div>
-        <div className="section-head" style={{ marginBottom: 12 }}>
-          <h3 className="panel-title" style={{ margin: 0, fontSize: 19 }}>
-            SHIELD MODULES
-          </h3>
-        </div>
-        <section className="panel">
-          <div className="dashboard-modules">
-            {modules.map((g) => (
-              <div
-                key={g.group}
-                style={{
-                  border: "1px solid var(--grid-line)",
-                  borderRadius: "var(--radius-sm)",
-                  padding: "16px 18px",
-                  background: "rgba(11, 18, 48, 0.55)",
-                }}
-              >
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 12,
-                    letterSpacing: "0.18em",
-                    color: "var(--chrome-mid)",
-                    marginBottom: 12,
-                  }}
-                >
-                  {g.group}
-                </div>
-                {g.modules.map((m) => (
-                  <div key={m.name} style={{ padding: "8px 0", borderTop: "1px solid var(--grid-line)" }}>
-                    <div className="dashboard-module-heading">
-                      <span
-                        style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: 99,
-                          flexShrink: 0,
-                          background: m.status === "LOCAL LESSON" ? "var(--safe)" : "var(--text-faint)",
-                          boxShadow: m.status === "LOCAL LESSON" ? "0 0 8px var(--safe)" : "none",
-                        }}
-                      />
-                      <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{m.name}</span>
-                      <span
-                        style={{
-                          marginLeft: "auto",
-                          fontFamily: "var(--font-mono)",
-                          fontSize: 10,
-                          letterSpacing: "0.1em",
-                          color: m.status === "LOCAL LESSON" ? "var(--safe)" : "var(--text-faint)",
-                        }}
-                      >
-                        {m.status}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 3, paddingLeft: 14 }}>
-                      {m.desc}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
     </div>
   );
 }

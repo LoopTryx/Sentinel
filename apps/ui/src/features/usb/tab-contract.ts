@@ -1,0 +1,10 @@
+export type UsbAccess='allowed'|'restricted'|'off'|'unverified';
+export interface UsbTabDevice {ref:string;name:string;access:UsbAccess;canChange:boolean;canBlock:false;canScan:false}
+export interface UsbTabSnapshot {schemaVersion:1;verified:boolean;topology:string|null;active:boolean;deadline:string|null;devices:UsbTabDevice[];message:string}
+export function parseUsbTab(value:unknown):UsbTabSnapshot|null {
+ if(typeof value!=='object'||value===null)return null;const x=value as Record<string,unknown>;
+ if(x.schemaVersion!==1||typeof x.verified!=='boolean'||typeof x.active!=='boolean'||!(x.topology===null||typeof x.topology==='string'&&/^[a-f0-9]{64}$/.test(x.topology))||!(x.deadline===null||typeof x.deadline==='string'&&Number.isFinite(Date.parse(x.deadline)))||typeof x.message!=='string'||x.message.length>2048||!Array.isArray(x.devices)||x.devices.length>256)return null;
+ if(x.active&&(!x.verified||x.topology===null||x.deadline===null))return null;
+ const refs=new Set<string>();for(const raw of x.devices){if(typeof raw!=='object'||raw===null)return null;const d=raw as Record<string,unknown>;if(typeof d.ref!=='string'||!/^[a-f0-9]{64}$/.test(d.ref)||refs.has(d.ref)||typeof d.name!=='string'||d.name.length<1||d.name.length>80||!['allowed','restricted','off','unverified'].includes(d.access as string)||typeof d.canChange!=='boolean'||d.canBlock!==false||d.canScan!==false)return null;refs.add(d.ref);}
+ return x as unknown as UsbTabSnapshot;
+}

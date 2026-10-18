@@ -1,0 +1,54 @@
+@font-face{font-family:"Sentinel Cabinet Grotesk";src:url("assets/CabinetGrotesk-Variable.woff2") format("woff2");font-weight:100 900;font-display:swap}
+html{font-size:18px}body{font-size:17px;line-height:1.55}h1,h2,h3{font-family:"Sentinel Cabinet Grotesk",system-ui,sans-serif}
+html:has(body.companion:not(.dashboard)){width:460px;min-width:460px;background:#1b1e4a}
+body.companion{width:460px;min-width:460px;height:600px;max-height:600px;padding:0;background:#1b1e4a;color:#e9f2ff;font-size:16px;overflow-y:auto;--surface-card:#242957;--line:#515882;--muted:#b1c3df}
+.popup-stage{position:relative;padding:94px 20px 170px;min-height:600px;box-sizing:border-box}
+.popup-card{position:relative;background:#171b40;border:1px solid #505987;border-radius:20px;padding:22px;box-shadow:0 12px 30px #080c2433}
+.popup-mascot{position:absolute;pointer-events:none;object-fit:contain;filter:drop-shadow(0 8px 5px #080c2455)}
+.red-peeking{width:160px;height:107px;right:18px;top:-84px}.blue-ledge{width:166px;height:166px;right:32px;bottom:19px}
+.companion header h1{font-size:24px}.companion h2{font-size:30px}.companion .workspace-caption,.companion footer{font-size:12px}
+.companion .connection-bar,.companion label,.companion .vault-card p,.companion [role=status]:not(:empty){font-size:14px;line-height:1.6}
+.companion button,.companion input:not([type=range]),.companion textarea,.companion #demo-accounts button,.companion .workspace-heading button{font-size:16px;min-height:44px}
+.companion .vault-card strong{font-size:18px}.companion .demo-secret{font-size:16px}.companion p{color:#b7c8e3}.companion nav{gap:24px;margin-bottom:24px}.companion nav button{color:#a9c3e9}.companion nav button[aria-pressed=true]{color:#b6e4ff;border-bottom-color:#9bddff}
+.companion input:not([type=range]),.companion textarea,.companion .setting-card,.companion .settings-group,.companion .generator-card,.companion [role=status]:not(:empty){background:#242957;border-color:#515882;color:#e9f2ff}
+.companion.dashboard{width:auto;min-width:0;height:auto;max-height:none;padding:28px}.companion.dashboard .popup-stage{min-height:0}
+@media(forced-colors:active){body.companion,.popup-card{background:Canvas;color:CanvasText;border-color:CanvasText}}
+
+.companion header button,.companion #check-accounts{width:44px;height:44px;min-height:44px;padding:0}
+
+/* Reserve room for the mascots inside Chrome's native popup bounds. */
+html:has(body.companion:not(.dashboard)),body.companion{background:transparent}
+body.companion{overflow:hidden}
+.popup-stage{height:600px;min-height:0;padding:80px 16px 150px;background:transparent}
+.popup-card{height:370px;display:flex;flex-direction:column;padding:20px;border:2px solid #6571a3;border-radius:16px;box-shadow:none;overflow:visible}
+.popup-card::before,.popup-card::after{content:"";position:absolute;left:0;right:0;height:3px;background:#6571a3;pointer-events:none}
+.popup-card::before{top:-2px}.popup-card::after{bottom:-2px}
+.red-peeking{right:18px;top:-84px;z-index:2}.blue-ledge{right:18px;top:calc(100% - 22px);bottom:auto;z-index:2}
+.companion .popup-card header{flex-shrink:0}.companion .connection-bar{flex-shrink:0;margin:12px 0;font-size:14px}
+.companion nav{flex-shrink:0;margin-bottom:12px}.companion main{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding-bottom:12px;scrollbar-width:none}
+.companion main::-webkit-scrollbar,body.companion::-webkit-scrollbar{display:none}
+.companion .setting-card,.companion .settings-group{padding:12px;margin:0}.companion .setting-card h3{font-size:18px;margin:0 0 8px}.companion .setting-card button{margin:0 0 8px}.companion details{font-size:14px}.companion footer{display:none}
+.companion.dashboard{height:auto;max-height:none;overflow:auto;background:transparent}.companion.dashboard .popup-stage{height:auto;padding:84px 16px 150px}.companion.dashboard .popup-card{height:auto;min-height:370px}.companion.dashboard main{overflow:visible}
+
+/* Opaque brand canvas avoids the native popup's black alpha fallback. */
+html:has(body.companion:not(.dashboard)),body.companion{width:520px;min-width:520px;background:#afaea2}
+.popup-stage{height:600px;padding:66px 16px 92px;background:#afaea2}
+.popup-card{height:442px;border:2px solid #7184b1;border-radius:20px;background:linear-gradient(145deg,#202550,#171b40);box-shadow:0 10px 26px #1b1e4a26,inset 0 1px 0 #c6e4ff22}
+.popup-card::before,.popup-card::after{content:none}
+.red-peeking{width:128px;height:85px;top:-66px;right:20px}.blue-ledge{width:104px;height:104px;top:calc(100% - 14px);right:20px}
+body.companion{font-weight:600}.companion p,.companion label,.companion input,.companion textarea,.companion .connection-bar,.companion details{font-weight:600}.companion h1,.companion h2,.companion h3{font-weight:800}.companion button{font-weight:700}
+.companion.dashboard{width:auto;min-width:0;background:#afaea2}.companion.dashboard .popup-stage{height:auto;background:#afaea2;padding:66px 16px 92px}.companion.dashboard .popup-card{height:auto;min-height:442px}
+.companion #email-address:focus-visible{outline:3px solid #9bddff;outline-offset:3px}
+
+body{font-weight:500}p,li,label,input,textarea,output{font-weight:600}h1,h2,h3{font-weight:800}
+@media(max-height:500px){body.companion:not(.dashboard){overflow:auto;scrollbar-width:none}}
+
+/* Secure full-tab controls keep their own navy surface; the injected panel has no canvas. */
+body.companion,html:has(body.companion),.popup-stage,.companion.dashboard,.companion.dashboard .popup-stage{background:#1b1e4a}
+
+/* Native Chrome popup: solid brand canvas, mascots overlap the inner card.
+   Chrome owns the rectangular outer window; CSS cannot reshape that window. */
+body.companion:not(.dashboard){width:520px;min-width:520px;height:600px;max-height:600px;background:#1b1e4a}
+body.companion:not(.dashboard) .popup-stage{height:600px;padding:68px 16px 92px;background:#1b1e4a}
+body.companion:not(.dashboard) .popup-card{height:438px;border:2px solid #7184b1;border-radius:22px}
+body.companion:not(.dashboard) .blue-ledge{width:108px;height:108px;right:20px;top:calc(100% - 14px)}

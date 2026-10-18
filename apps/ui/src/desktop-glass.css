@@ -1,33 +1,130 @@
-/* GLM's layout, typography and state colors stay authoritative.
-   This opt-in desktop layer lets the native Windows backdrop show through. */
-html[data-desktop="glass"],
-html[data-desktop="glass"] body,
-html[data-desktop="glass"] #root { background: transparent; }
+@import './components/glass-card-tokens.css';
+/* .panel/.stat are compatibility aliases: every existing card inherits this base. */
+#root :is(.glass-card,.panel,.stat){
+ --text-dim:var(--glass-body);--text-faint:var(--glass-muted);
+ position:relative;isolation:isolate;overflow:hidden;
+ background:var(--glass-solid);border:1px solid var(--glass-border);border-radius:var(--glass-radius);
+ box-shadow:inset 0 1px 0 var(--glass-highlight),var(--glass-shadow);
+ color:var(--glass-body);font-family:var(--glass-font);font-size:14px;font-weight:400;line-height:1.5;
+ backdrop-filter:none;-webkit-backdrop-filter:none;
+ animation:glass-appear var(--glass-duration) ease-out backwards;animation-delay:var(--card-delay,0ms);
+ transition:border-color var(--glass-duration) var(--glass-ease),box-shadow var(--glass-duration) var(--glass-ease),transform var(--glass-duration) var(--glass-ease);
+}
+#root :is(.stat,.glass-card--tile){border-radius:var(--glass-tile-radius)}
+/* Preserve existing spacing, including the small-window overrides. */
+#root .dashboard-layout :is(.panel,.stat){padding:var(--glass-padding)}
+#root .dashboard-layout .dashboard-hero{padding:0}
+#root :is(.glass-card,.panel,.stat)::before{
+ content:"";position:absolute;inset:-40px;z-index:-1;pointer-events:none;height:auto;padding:0;border-radius:inherit;
+ background:radial-gradient(ellipse 150px 120px at var(--bloom-x,8%) var(--bloom-y,12%),var(--glass-bloom-blue),transparent 75%),radial-gradient(ellipse 160px 130px at 90% 90%,var(--glass-bloom-indigo),transparent 75%);
+ filter:blur(var(--glass-bloom-blur));opacity:1;animation:glass-bloom var(--glass-bloom-duration) ease-in-out infinite alternate;
+}
+#root :is(.glass-card,.panel,.stat)::after{content:none}
+#root :is(.glass-card,.panel,.stat):nth-child(2n){--bloom-x:92%;--bloom-y:18%;--card-delay:var(--glass-stagger)}
+#root :is(.glass-card,.panel,.stat):nth-child(3n){--bloom-x:65%;--bloom-y:85%;--card-delay:calc(2 * var(--glass-stagger))}
+@keyframes glass-appear{from{opacity:0;transform:scale(.99)}to{opacity:1;transform:scale(1)}}
+@keyframes glass-bloom{from{transform:translate3d(-6px,-8px,0)}to{transform:translate3d(10px,8px,0)}}
+@supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+ #root :is(.glass-card,.panel,.stat){background:var(--glass-fill);backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturation));-webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturation))}
+ /* Avoid stacking another full blur inside an already frosted card. */
+ #root :is(.panel,.glass-card) :is(.panel,.stat,.glass-card){backdrop-filter:none;-webkit-backdrop-filter:none}
+}
+@media(hover:hover){#root :is(.glass-card,.panel,.stat):hover{border-color:var(--glass-border-hover);transform:translateY(-2px)}}
+#root :is(.glass-card,.panel,.stat):focus-within{border-color:var(--glass-border-hover)}
+#root :is(button,a):is(.glass-card,.panel,.stat):focus-visible{outline:2px solid var(--glass-blue);outline-offset:3px}
+#root :is(button,a):is(.glass-card,.panel,.stat):active{transform:translateY(0)}
+#root :is(.glass-card,.panel,.stat) .panel-title{font:600 13px/1.5 var(--glass-font);text-transform:uppercase;letter-spacing:.08em;color:var(--glass-muted)}
+#root .stat .label{font:400 12px/1.5 var(--glass-font);text-transform:uppercase;letter-spacing:.08em;color:var(--glass-muted)}
+#root .stat .num{font:700 36px/1.2 var(--glass-font);color:var(--glass-text);text-shadow:none}
+#root .stat .num.is-empty{color:var(--glass-placeholder)}
+#root .glass-card p{font-size:14px!important;font-weight:400;line-height:1.5!important}
+#root .glass-card .section-link{color:var(--glass-link);text-decoration:none;font-family:var(--glass-font)}
+#root .glass-card .section-link:hover{color:var(--glass-cyan)}
+#root .glass-card :is(.section-link,.btn):focus-visible{outline:2px solid var(--glass-blue);outline-offset:3px}
+#root .glass-card .btn{border:1px solid var(--glass-button-border);border-radius:var(--glass-button-radius);background:transparent;color:var(--glass-text);font-family:var(--glass-font);transition:background-color var(--glass-duration) ease,box-shadow var(--glass-duration) ease,border-color var(--glass-duration) ease}
+#root .glass-card .btn:not(:disabled):hover{background:rgba(255,255,255,.07);box-shadow:0 0 18px rgba(77,217,255,.12)}
+#root .glass-card .btn.danger{color:var(--glass-danger);border-color:rgba(255,90,95,.5);background:rgba(255,90,95,.06)}
+#root .glass-card .btn.danger:not(:disabled):hover{background:rgba(255,90,95,.1);box-shadow:0 0 20px rgba(255,90,95,.2)}
+#root .glass-card .kv-row{border-color:var(--glass-divider)}
+#root .glass-card .kv-key{color:#d6dbee;font:400 14px/1.5 var(--glass-font)}
+#root .glass-card .kv-val{font:400 12px/1.5 var(--font-mono);border-radius:8px;padding:3px 7px;background:rgba(255,176,32,.09);color:var(--glass-warning)}
+#root .glass-card .kv-val.glass-status--available{color:var(--glass-cyan);background:rgba(77,217,255,.08)}
+#root .glass-card .status-dot{width:8px;height:8px;background:currentColor;color:var(--glass-blue);box-shadow:0 0 10px currentColor;animation:none}
+#root .glass-card :is(progress,.progress-track){height:6px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden}
+#root .glass-card .progress-fill{height:100%;border-radius:inherit;background:linear-gradient(90deg,#1f4bff,var(--glass-cyan));box-shadow:0 0 10px rgba(77,217,255,.25)}
+html[data-desktop=glass],html[data-desktop=glass] body,html[data-desktop=glass] #root{background:transparent}
+#root .shell{background:transparent}
+body::before{display:none}
+#root .topbar{background:transparent;border-color:transparent;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+#root :is(h1,h2,h3,h4,h5,h6,.panel-title,.dashboard-title){color:var(--glass-heading)!important}
+html[data-desktop=glass] .dither-bg{opacity:.75!important}
+/* The danger theme continues to communicate actual findings and previews. */
+body[data-threat=danger]{--glass-fill:rgba(42,14,24,var(--glass-opacity));--glass-solid:rgba(42,14,24,.92);--glass-bloom-blue:rgba(255,90,95,.30);--glass-bloom-indigo:rgba(145,35,73,.28)}
+html[data-glass-effects=off] #root :is(.glass-card,.panel,.stat){background:var(--glass-solid);backdrop-filter:none;-webkit-backdrop-filter:none}
+html[data-glass-effects=off] #root :is(.glass-card,.panel,.stat)::before{content:none}
+@media(max-width:600px){#root .dashboard-layout :is(.panel,.stat){padding:20px}#root .dashboard-layout .dashboard-hero{padding:0}}
+@media(prefers-reduced-transparency:reduce){#root :is(.glass-card,.panel,.stat){background:var(--glass-solid);backdrop-filter:none;-webkit-backdrop-filter:none}#root :is(.glass-card,.panel,.stat)::before{content:none}}
+@media(prefers-reduced-motion:reduce){#root :is(.glass-card,.panel,.stat){animation:none;transition:none;transform:none!important}#root :is(.glass-card,.panel,.stat)::before{animation:none}#root .glass-card .btn{transition:none}}
+@media(forced-colors:active){#root :is(h1,h2,h3,h4,h5,h6,.panel-title,.dashboard-title){color:CanvasText!important}#root :is(.glass-card,.panel,.stat){background:Canvas;color:CanvasText;border-color:CanvasText;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}#root :is(.glass-card,.panel,.stat)::before{content:none}#root :is(.glass-card,.panel,.stat) :is(.panel-title,.label,.num,.kv-key,.kv-val,.btn,.section-link){color:CanvasText;background:Canvas}#root .glass-card :is(.btn,.section-link):focus-visible{outline-color:Highlight}}
 
-html[data-desktop="glass"] .shell {
-  background: linear-gradient(135deg, rgba(8, 15, 35, .32), rgba(8, 18, 40, .18));
+/* Info-box headings remain legible on the dark glass in both threat states. */
+#root :is(.glass-card,.panel,.stat) :is(h1,h2,h3,h4,h5,h6,.panel-title){color:#a5d8ff!important}
+@media(forced-colors:active){#root :is(.glass-card,.panel,.stat) :is(h1,h2,h3,h4,h5,h6,.panel-title){color:CanvasText!important}}
+
+/* Stronger headings and visible, rounded Console quick actions. */
+#root :is(h1,h2,h3,h4,h5,h6,.panel-title,.dashboard-title){font-weight:800!important}
+#root :is(.glass-card,.panel,.stat) .panel-title{font-size:15px;letter-spacing:.06em}
+#root .stat .label{font-weight:700;color:#a5d8ff}
+#root .dashboard-actions{gap:12px}
+#root .dashboard-actions .btn{border-radius:20px;min-height:48px;height:auto;padding:12px 22px;border:1px solid rgba(165,216,255,.38);background:rgba(12,18,35,.88);color:#c4e6ff;font-weight:700;font-size:16px;box-shadow:inset 0 1px 0 rgba(255,255,255,.09);transition:background-color 200ms ease,border-color 200ms ease,box-shadow 200ms ease}
+#root .dashboard-actions .btn:not(:disabled):hover{background:rgba(30,53,90,.94);border-color:#a5d8ff;box-shadow:0 0 20px rgba(43,107,255,.25)}
+#root .dashboard-actions .btn:focus-visible{outline:2px solid #a5d8ff;outline-offset:3px}
+#root .dashboard-actions .btn:disabled{opacity:.5;cursor:not-allowed}
+@media(prefers-reduced-motion:reduce){#root .dashboard-actions .btn{transition:none}}
+@media(forced-colors:active){#root .dashboard-actions .btn{background:ButtonFace;color:ButtonText;border-color:ButtonText}}
+
+#root .sound-toggle{margin-left:auto;padding:8px 12px;border-radius:12px;border:1px solid rgba(165,216,255,.3);background:rgba(10,16,32,.72);color:#a5d8ff;font:600 12px var(--font-body);cursor:pointer}#root .sound-toggle:focus-visible{outline:2px solid #a5d8ff;outline-offset:3px}
+
+#root .app-refresh{display:inline-flex;align-items:center;gap:7px;margin-left:auto;padding:8px 12px;border-radius:12px;border:1px solid rgba(165,216,255,.3);background:rgba(10,16,32,.72);color:#a5d8ff;font:600 12px var(--font-body);cursor:pointer}#root .app-refresh:focus-visible{outline:2px solid #a5d8ff;outline-offset:3px}#root .sound-toggle{margin-left:0}
+
+/* Readable page hierarchy and compact scan evidence. */
+#root{--text-dim:#d2dcf0;--text-faint:#b8c9e4}
+#root .page-title{display:table;margin:0 0 18px;padding:5px 0 9px;color:#c5e7ff;font:800 clamp(25px,2.5vw,34px)/1.2 var(--font-display);letter-spacing:-.025em;border-bottom:3px solid #8dccff;text-shadow:0 2px 16px #12304c}
+#root .glm-page-heading .page-title{margin-bottom:0}
+#root :is(.small,.glm-caption,.pm-eyebrow,.eyebrow,.scan-target-caption){color:#c0d0e8}
+#root .scan-finding-summary{display:flex;align-items:center;gap:16px;padding:12px 16px;margin:18px 0;border:0;border-left:3px solid #ff7883;border-radius:0 12px 12px 0;background:rgba(45,14,24,.8);box-shadow:none}
+#root .scan-finding-summary strong{font:700 17px/1.4 var(--font-body);color:#ffe8eb}
+#root .scan-finding-summary p{margin:0;color:#efd1d7;font-size:14px}
+#root .scan-results-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:22px 0 12px}
+#root .scan-results-heading h2{margin:0;font:750 21px var(--font-display);color:#c5e7ff}
+#root .scan-results-heading span{font-size:14px;color:#d2dcf0}
+#root .scan-result-card{margin:12px 0;padding:20px;border:1px solid rgba(197,220,255,.2);border-radius:20px;background:rgba(9,15,31,.7)}
+#root .scan-result-card>strong{display:block;color:#ffce83;font:750 18px var(--font-body)}
+#root .scan-result-card[data-contained=true]>strong{color:#8de4be}
+#root .scan-result-card p{margin:10px 0;color:#d2dcf0;line-height:1.6}
+#root .scan-result-card .glm-details{margin:12px 0;padding:12px 0;border-top:1px solid #ffffff18}
+#root .scan-result-card .btn,#root .glm-vault-actions .btn,#root .glm-segments button{border-radius:999px;min-height:44px;padding:10px 20px}
+#root .vault-action{--action-ink:#a5d8ff;display:inline-flex;align-items:center;gap:9px;color:var(--action-ink);border-color:color-mix(in srgb,var(--action-ink) 40%,transparent);background:color-mix(in srgb,var(--action-ink) 8%,transparent)}
+#root .vault-destroy{--action-ink:#ff8b96}
+#root .vault-action:not(:disabled):is(:hover,:focus-visible){color:var(--action-ink);background:color-mix(in srgb,var(--action-ink) 16%,transparent);box-shadow:0 4px 18px color-mix(in srgb,var(--action-ink) 16%,transparent)}
+.vault-action-lid{transform-origin:6px 7px;transition:transform 180ms ease}
+.vault-action:not(:disabled):is(:hover,:focus-visible) .vault-action-lid{transform:translateY(-2px) rotate(-12deg)}
+.vault-action:not(:disabled):is(:hover,:focus-visible) .vault-action-paper{animation:vault-paper-out 650ms ease both}
+.vault-destroy:not(:disabled):is(:hover,:focus-visible) .vault-action-paper{animation-name:vault-paper-in}
+@keyframes vault-paper-in{0%{transform:translateY(-7px);opacity:0}35%{opacity:1}100%{transform:translateY(0);opacity:1}}
+@keyframes vault-paper-out{0%{transform:translateY(2px);opacity:.2}100%{transform:translateY(-3px);opacity:1}}
+@media(max-width:600px){#root .scan-finding-summary{display:block}#root .scan-finding-summary p{margin-top:4px}}
+@media(prefers-reduced-motion:reduce){.vault-action-lid,.vault-action-paper{animation:none!important;transition:none!important;transform:none!important}}
+
+#root .password-manager{--pm-muted:#c3d3e8}
+#root .glm-page :is(summary,time),#root .scan-page .glm-toolbar{color:#d2dcf0}
+
+/* Only page-identifying headings receive the highlight. */
+#root .page-title,#root .panel .page-title{
+ color:var(--heading-ink)!important;background:var(--heading-highlight);width:fit-content;max-width:100%;
+ padding:.14em .4em;border:0;border-radius:8px;text-shadow:none;font-weight:800!important;
+ box-decoration-break:clone;-webkit-box-decoration-break:clone;
 }
-html[data-desktop="glass"] .sidebar {
-  background: linear-gradient(180deg, rgba(24, 33, 73, .48), rgba(12, 17, 41, .36));
-  border-right-color: rgba(205, 228, 255, .17);
-  backdrop-filter: blur(24px) saturate(135%);
-  box-shadow: 8px 0 32px rgba(5, 8, 26, .18);
-}
-html[data-desktop="glass"] .topbar {
-  background: rgba(7, 11, 30, .20);
-  backdrop-filter: blur(18px);
-}
-html[data-desktop="glass"] .panel,
-html[data-desktop="glass"] .stat {
-  background: linear-gradient(145deg, rgba(23, 39, 74, .47), rgba(7, 15, 38, .33));
-  border-color: rgba(178, 210, 255, .22);
-  backdrop-filter: blur(20px) saturate(130%);
-  box-shadow: inset 0 1px 0 rgba(224, 240, 255, .07), 0 12px 28px rgba(3, 8, 23, .12);
-}
-html[data-desktop="glass"] .dither-bg { opacity: .14 !important; }
-@media (prefers-reduced-transparency: reduce) {
-  html[data-desktop="glass"] .shell { background: #070b1e; }
-  html[data-desktop="glass"] .sidebar { background: #101736; }
-  html[data-desktop="glass"] .panel,
-  html[data-desktop="glass"] .stat { background: #0b1230; }
-}
+@media(forced-colors:active){#root .page-title,#root .panel .page-title{color:HighlightText!important;background:Highlight}}
+
+#root .watchtower-domain{margin:12px 0;padding:14px 16px;background:rgba(8,15,30,.7);border:1px solid #ffffff20;border-radius:16px}#root .watchtower-domain summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer}#root .watchtower-domain code{overflow-wrap:anywhere;min-width:0;color:#d2e8ff}#root .watchtower-domain [data-risk="Suspicious"]{color:#ffd391}#root .watchtower-domain [data-risk="Likely Malicious"]{color:#ff9ea7}

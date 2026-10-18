@@ -1,0 +1,6 @@
+/* Only the embedded card changes; standalone extension controls retain their layout. */
+html.embedded-overlay,html.embedded-overlay body.companion { width:100%!important; max-width:none!important; min-width:0!important; min-height:100%!important; margin:0!important; padding:0!important; background:#171d3d!important; }
+.embedded-overlay .popup-stage { width:100%!important; max-width:none!important; margin:0!important; padding:0!important; background:transparent!important; }
+.embedded-overlay .popup-card { width:100%!important; min-height:100%!important; margin:0!important; padding:24px!important; border:0!important; border-radius:0!important; background:#171d3d!important; }
+.embedded-overlay .popup-mascot,.embedded-overlay #open-dashboard { display:none!important; }
+.embedded-overlay { scrollbar-width:thin; }

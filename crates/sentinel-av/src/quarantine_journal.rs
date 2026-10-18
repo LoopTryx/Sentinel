@@ -22,9 +22,17 @@ pub enum RecoveryPhase {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+pub enum RecoveryIntent {
+    Quarantine,
+    Restore,
+    Destroy,
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub struct RecoverySummary {
     pub vault_file: String,
     pub phase: RecoveryPhase,
+    pub intent: RecoveryIntent,
     pub plaintext_bytes: String,
     pub sha256: String,
 }
@@ -272,11 +280,11 @@ impl Journal {
     }
 }
 
-pub(crate) fn read_summary(
+pub(crate) fn read_native_record(
     dir: &Path,
     reference: &str,
     key: &[u8; 32],
-) -> Result<RecoverySummary, String> {
+) -> Result<(RecoverySummary, PathBuf), String> {
     let lifecycle_path = journal_path(dir, reference, true)?;
     // A malformed/inaccessible lifecycle receipt must never fall back to the
     // older quarantine receipt and falsely imply it describes the latest action.
@@ -386,10 +394,27 @@ pub(crate) fn read_summary(
         offset += length;
     }
     let record = first.ok_or("recovery journal unauthenticated or incomplete")?;
-    Ok(RecoverySummary {
-        vault_file: reference.into(),
-        phase,
-        plaintext_bytes: record.bytes.to_string(),
-        sha256: record.sha256,
-    })
+    Ok((
+        RecoverySummary {
+            vault_file: reference.into(),
+            phase,
+            intent: match record.stage {
+                Stage::VerifiedBeforeRemoval => RecoveryIntent::Quarantine,
+                Stage::RestorePrepared => RecoveryIntent::Restore,
+                Stage::DestroyPrepared => RecoveryIntent::Destroy,
+                _ => return Err("invalid recovery intent".into()),
+            },
+            plaintext_bytes: record.bytes.to_string(),
+            sha256: record.sha256,
+        },
+        PathBuf::from(record.source),
+    ))
+}
+
+pub(crate) fn read_summary(
+    dir: &Path,
+    reference: &str,
+    key: &[u8; 32],
+) -> Result<RecoverySummary, String> {
+    read_native_record(dir, reference, key).map(|(summary, _)| summary)
 }

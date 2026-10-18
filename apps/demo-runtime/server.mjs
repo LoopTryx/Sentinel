@@ -1,3 +1,5 @@
+import {watchtowerPreferences} from './watchtower-observe.mjs';
+import {rememberBrowserDomain,forgetBrowserDomains} from './watchtower-browser.mjs';
 import http from 'node:http';
 import {observeWifi} from './wifi.mjs';
 import {observeUsb} from './usb-observe.mjs';
@@ -57,7 +59,7 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
  function state(){return {revision,mode:'synthetic_demo',connected:true,unlocked,extensionId,accounts:accounts.map(({password,...a})=>({...a,...auditPassword(password),reused:accounts.filter(b=>b.password===password).length>1})),events,scan:scan?Object.fromEntries(Object.entries(scan).filter(([k])=>k!=='cancel')):null};}
  let nativeSnapshot=null;
  let nativeService=null;
- const outstandingQuarantines=new Set();
+
  let nativeActionInFlight=false;
  async function runNativeScan(path,current){
   try{
@@ -178,6 +180,8 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
    if(!password)return respond(503,{error:'generation_unavailable'});
    const id='account_'+randomBytes(8).toString('hex');accounts.push({id,name:body.name.trim(),user:body.user.trim(),host:body.host.toLowerCase(),password});revision++;event('desktop','account_added');return respond(200,{ok:true,id});
   }
+  if(req.url==='/watchtower-domain'){if(!browser)return respond(403,{error:'forbidden'});if(keys(body,['host'])&&Object.keys(body).length===1&&body.host===null){forgetBrowserDomains();return respond(200,{ok:true});}if(!keys(body,['host','codes'])||(body.codes!==undefined&&(!Array.isArray(body.codes)||body.codes.length>2||!body.codes.every(code=>['portal_credentials','portal_payment'].includes(code))))||!rememberBrowserDomain(body.host,Date.now(),body.codes??[]))return respond(400,{error:'invalid_request'});return respond(200,{ok:true});}
+  if(req.url==='/watchtower-preference'){if(!desktop)return respond(403,{error:'forbidden'});if(!keys(body,['host','risk'])||Object.keys(body).length!==2)return respond(400,{error:'invalid_request'});try{return respond(200,await watchtowerPreferences.change(body.host,body.risk));}catch{return respond(503,{error:'preferences_unavailable'});}}
   if(req.url==='/wifi'){
    if(!desktop)return respond(403,{error:'forbidden'});
    if(!keys(body,[]))return respond(400,{error:'invalid_request'});
@@ -204,8 +208,8 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
    nativeActionInFlight=true;
    try{
     const result=await operation(body[key]);
-    if(result.type==='quarantine_receipt'&&result.data.state==='quarantined')outstandingQuarantines.add(result.data.actionRef);
-    if(result.type==='restore_receipt'&&result.data.state==='restored')outstandingQuarantines.delete(result.data.quarantine.actionRef);
+
+
     return respond(200,result);
    }finally{nativeActionInFlight=false;}
   }
@@ -230,7 +234,7 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
   if(req.url==='/cancel'&&desktop&&keys(body,[])){if(scan?.status==='running')scan.cancel=true;nativeService?.cancel();return respond(200,{ok:true});}
   if(req.url==='/scan'&&desktop&&keys(body,['path'])){
    if(nativeActionInFlight)return respond(409,{error:'action_busy'});
-   if(outstandingQuarantines.size)return respond(409,{error:'restore_required_before_new_scan'});
+   // Authenticated on-disk journals now retain recovery independently of this scan session.
    if(scan?.status==='running')return respond(409,{error:'scan_busy'});
    const ordinaryPath=typeof body.path==='string'&&(process.platform==='win32'?/^[a-df-z]:[\\/]/i.test(body.path):/^\/(?!\/)/.test(body.path));
    if(!ordinaryPath||body.path.length>1024||/^E:/i.test(body.path)||body.path.includes('\0'))return respond(400,{error:'selection_unsupported'});

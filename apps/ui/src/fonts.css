@@ -15,3 +15,10 @@
   font-display: swap;
   src: url('./assets/fonts/JetBrainsMono-500.woff2') format('woff2');
 }
+
+@font-face{font-family:"Cabinet Grotesk";src:url("./assets/CabinetGrotesk-Variable.woff2") format("woff2");font-weight:100 900;font-style:normal;font-display:swap}
+
+/* Existing local geometric family, used by the shared glass cards. */
+@font-face{font-family:"Space Grotesk";src:url("./assets/fonts/SpaceGrotesk-400.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Space Grotesk";src:url("./assets/fonts/SpaceGrotesk-600.woff2") format("woff2");font-weight:600;font-style:normal;font-display:swap}
+@font-face{font-family:"Space Grotesk";src:url("./assets/fonts/SpaceGrotesk-700.woff2") format("woff2");font-weight:700;font-style:normal;font-display:swap}
