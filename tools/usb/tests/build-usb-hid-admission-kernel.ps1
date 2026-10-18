@@ -16,6 +16,34 @@ $store=Replace-One $store '"exact-blocks.bin"' '"hid-admission-state.bin"'
 $store=Replace-One $store '"exact-transition.bin"' '"hid-admission-transition.bin"'
 $store=Replace-One $store '"exact-decision.lock"' '"hid-admission-decision.lock"'
 $store=Replace-One $store '"exact-write-"' '"hid-admission-write-"'
+$hook=@'
+ // Native composition hook, executed under the existing Decision lease.
+ // Its callbacks must use these captured values and never reopen Decision.
+ internal Action<UsbExactBlockState.Request,UsbExactBlockState.Snapshot,UsbExactBlockState.Transition,Action> BeforeLinkedCommit;
+ internal Action<UsbExactBlockState.Request,UsbExactBlockState.Snapshot,UsbExactBlockState.Transition,Action> BeforeLinkedRetirement;
+ internal void WithLinkedReadFence(Action<UsbExactBlockState.Snapshot,UsbExactBlockState.Transition,Action> read){WithReadFence(read);}
+ void PublishLinkedCommit(UsbExactBlockState.Transition current){
+  Action check=()=>{if(DateTime.UtcNow<current.Request.IssuedUtc||DateTime.UtcNow>=current.Request.RollbackDeadlineUtc)throw Refused();Match(current.Request.Before);var value=Require(current.Request.Digest);if(value.Phase!=UsbExactBlockState.Stage.PolicyVerified)throw Refused();};
+  check();var callback=BeforeLinkedCommit;
+#if SENTINEL_USB_HID_PNP_LINKED
+  if(callback==null)throw Refused();
+#endif
+  if(callback!=null)callback(current.Request,ReadState(),current,check);
+  check();
+ }
+ void VerifyLinkedRetirement(UsbExactBlockState.Transition current){
+  var decision=ReadState();Action check=()=>{Match(decision);var value=Require(current.Request.Digest);if(value.Phase!=current.Phase)throw Refused();};
+  check();var callback=BeforeLinkedRetirement;
+#if SENTINEL_USB_HID_PNP_LINKED
+  if(callback==null)throw Refused();
+#endif
+  if(callback!=null)callback(current.Request,decision,current,check);
+  check();
+ }
+'@
+$store=Replace-One $store ' public void CommitCandidate(' ($hook+"`r`n public void CommitCandidate(")
+$store=Replace-One $store 'Match(before);Put(committed,UsbExactBlockState.Encode(after)' 'Match(before);PublishLinkedCommit(current);Match(before);if(Require(digest).Phase!=UsbExactBlockState.Stage.PolicyVerified)throw Refused();Put(committed,UsbExactBlockState.Encode(after)'
+$store=Replace-One $store 'NotReparse(pending);File.Delete(pending);' 'VerifyLinkedRetirement(current);NotReparse(pending);File.Delete(pending);'
 $initialize=@'
  // Caller must independently authenticate the safety/recovery receipt first.
  // This only seeds an inactive generation under the existing protected lease.

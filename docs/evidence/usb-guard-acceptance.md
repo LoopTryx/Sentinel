@@ -75,3 +75,28 @@ Private runtime findings/fixes: independent gpupdate /wait30 exited-1 after35205
 Unchanged full verifier PASS exit0 outside restricted filesystem token: `artifacts/usb-hid-final-verifier-native.log`. Earlier sandbox run failed13 retained-file tests with AccessDenied5; checks were not weakened. Final affected PnP tests PASS199 after idempotent committed-recovery regression. Focused recovery-task tests PASS after narrow race fix.
 
 Owner's requested observation-only RP2040 baseline FAILED: QUACK did not run before new blocking. Read-only present-device PnP inspection shows RP2040 composite, storage, HID function, keyboard and mouse all OK/problem0. This proves Windows reports healthy, not that input works. Do not credit silence as prevention. No new live default-deny/SetupAPI transition performed. Positive baseline must be restored before hardware trials. Existing installed console/UI is unchanged.
+
+## RP2040 positive input baseline — 18 October
+
+Owner confirms QUACK ran and saved the visible observer report. The actual report is `docs/evidence/usb-rp2040-baseline-2026-10-18.json`: RP2040-Zero159 baseline events, baseline marker85543ms, first/last90546/92377ms. Test marker absent (-1), testevents0, blockingProven=false.554 events were unresolved, so no whole-system per-device coverage is claimed. No key content/native IDs were recorded and policyChanged=false. This is a positive fixture baseline only; it is not evidence that the new default-deny path rejects input.
+
+Fixed a source integration case test-first: policy-restored healthy Allow previously threw not_sentinel_disabled. A healthy target now receives no PnP action; rollback likewise leaves it untouched. Actual problem22 devices still require authenticated Sentinel-owned disable receipts before enable.201 modeled PnP assertions,23 ledger assertions and7 journal assertions pass. This behavior has not yet been installed or physically qualified.
+
+## Linked production path — 18 October
+
+The saved RP2040 baseline is now positive: owner QUACK confirmed,159 attributed events. Current live source links native card selection, foreground/session-bound single-use Windows Hello proof, protected worker, same-decision-lock parent/PnP history, independent recovery and saved/effective policy readback. The old exact engine is excluded under its own short read lease during live GPO operations; no old class-wide controller was enabled.
+
+Recovery schema SNTPNP02 persists connector and directed HID-tree witnesses. Strict fresh selection remains separate from recovery; old records without the new witnesses cannot authorize recovery. Before-policy Prepare persists original PnP state and ownership, AfterPolicy uses the exact witness. Policy-only restriction/restoration performs no SetupAPI change or disable-ownership minting.214 modeled assertions pass;33 SetupAPI mapping/recovery assertions pass. Parent commitlinks are written before parent commit and become authoritative only through the actual committed tip. Mandatory in-lease commit AND retirement hooks prevent bypassing reconciliation.
+
+Owner-approved actual protected tests:
+- usb-hid-linked-store-native.log: PASS22 real protected parent/link/PnP file assertions with modeled PnP.
+- usb-hid-device-lifecycle-native.log: PASS24 connected lifecycle assertions with modeled PnP.
+- usb-hid-install-read.log: updated lifecycle PASS30 incl mandatory retirement-hook refusal; code-only installer PASS; production read PASS active=False generation1 internalExceptions2 externalApprovals0. This initialized only inactive local state and verified original policy baseline, not device enforcement.
+
+Builds PASS: build-usb-hid-controller.ps1, build-usb-hid-operator.ps1, build-usb-hid-production-read.ps1, build-usb-hid-runtime-installer.ps1; test-usb-hid-backend-wiring.ps1 PASS14. Native selection/Hello-binding contracts PASS33 synthetic. Saved legacy-field parsing reproduced Foreign admission field then fixed: disposable HKCU suitePASS17, changed baselineflags still refuse. Parent/link codecPASS5; journalcodecPASS8; ledgerPASS23. Production compile is isolated by explicit live-linked symbols and runtime worker/compiler/profile stamps; no mock is used by native construction.
+
+Console route and explicit Enable USB Guard implemented. Per-device Allow cannot implicitly activate a shared rule. Frontend action payloads remain opaque references/topology; native selection/Hello is required. Focused UI testsPASS9; typecheck/buildPASS. Unchanged tools/verify.ps1 PASS exit0 outside restrictedfilesystem token, artifacts/usb-hid-linked-final-verifier.log. No unrelated check weakened.
+
+Owner exited tray app. Matching USB operator installed using existing protected installer with backup, usb-hid-console-operator-install.log. Console/UI copied with prior console backup and new executable hash70D9E75FEDEBAD3E7B8A2E58284F865D38D7B3CE0D960510F35DAD50B2135A08 verified; launched --app --display-check. Ordinary source audio work remains separate/uncommitted; local build includes existing workspace audio assets. This is not a main release.
+
+Physical activation requested through USB Guard Enable USB Guard + Windows Hello, then RP2040 reconnect and built-in keyboard/trackpad check. Await owner result. No PASS claimed for new live default-deny, Allow, two-device physical preservation, appclosure or Windows restart persistence. If a controlled accepted-input test fails, stop policy-value tweaks and apply the owner-specified filter-driver fallback decision.

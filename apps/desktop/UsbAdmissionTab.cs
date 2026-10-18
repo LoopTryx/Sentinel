@@ -24,6 +24,9 @@ internal sealed partial class UsbAdmissionWindow {
   var json=new JavaScriptSerializer{MaxJsonLength=32768,RecursionLimit=8};var request=json.Deserialize<Dictionary<string,object>>(raw);
   object operation; if(request==null||!request.TryGetValue("action",out operation)||!(operation is string))return "{\"error\":\"invalid_request\"}";
   string action=(string)operation;
+#if SENTINEL_USB_HID_ADMISSION_LIVE_REVIEWED
+  if(UsbHidAdmissionCapability.IsInstalled())return await HidTabRequest(request,action,json);
+#endif
 #if SENTINEL_USB_EXACT_LIVE_REVIEWED
   if(UsbExactBlockCapability.IsInstalled())return await ExactTabRequest(request,action,json);
 #endif

@@ -18,11 +18,18 @@ export default function UsbGuardView(){
   catch(error){if(generation.current===epoch){setStale(true);setNotice(friendly(error));setChoice(null);}}
   finally{if(generation.current===epoch){pending.current=false;setBusy('');}}
  }
+ async function activateGuard(){
+  if(!snapshot?.canActivate||!snapshot.topology||pending.current)return;
+  const epoch=generation.current;pending.current=true;setBusy('activation');setNotice('Waiting for Windows Hello…');
+  try{const value=parseUsbTab(await demoCall('usb.admission.action',{action:'activate',topology:snapshot.topology}));if(!value)throw Error('Windows access could not be verified.');if(generation.current===epoch){setSnapshot(value);setStale(false);setNotice(value.message);}}
+  catch(error){if(generation.current===epoch){setStale(true);setNotice(friendly(error));}}
+  finally{if(generation.current===epoch){pending.current=false;setBusy('');}}
+ }
  const connected=!!state;const status=!connected?'Desktop disconnected':stale?'Update needed':!snapshot?.verified?'Access not verified':snapshot.active?snapshot.persistent?'Persistent rules saved':`Active until ${new Date(snapshot.deadline!).toLocaleTimeString()}`:'Protection session inactive';
  return <section className="usb-guard usb-minimal" aria-labelledby="usb-heading">
   <div className="usb-page-heading"><h2 id="usb-heading">USB Guard</h2><span className="usb-mode">{status}</span></div>
   {notice&&<p role="status" className="usb-action-status">{notice}</p>}
-  <section className="panel usb-inline-devices"><div className="usb-toolbar"><h3>Connected devices</h3><button className="btn ghost" disabled={!connected||!!busy} onClick={()=>setRefresh(n=>n+1)}>Refresh</button></div>
+  <section className="panel usb-inline-devices"><div className="usb-toolbar"><h3>Connected devices</h3>{snapshot?.canActivate&&<button className="btn" disabled={!!busy||stale} onClick={()=>void activateGuard()}>Enable USB Guard</button>}<button className="btn ghost" disabled={!connected||!!busy} onClick={()=>setRefresh(n=>n+1)}>Refresh</button></div>
    {connected&&snapshot?<div className="usb-device-list">{snapshot.devices.map(device=><article key={device.ref} data-usb-device className="usb-device-card usb-inline-row">
     <div className="usb-device-title"><span className="usb-device-glyph" aria-hidden="true">⌨</span><div><strong>{device.name}</strong><span className="usb-device-reference">{busy===device.ref?'Working…':stale?'Update needed':labels[device.access]}</span></div></div>
     <div className="usb-row-actions">{(['block','allow','scan'] as const).map(action=><button key={action} className={`btn ${action==='allow'?'':'ghost'}`} disabled={!!busy||stale||!device.canChange||action==='block'&&!device.canBlock} title={action==='block'&&!device.canBlock?'Blocking is unavailable until native qualification passes':undefined} onClick={()=>setChoice({action,device,topology:snapshot.topology})}>{action[0].toUpperCase()+action.slice(1)}</button>)}</div>

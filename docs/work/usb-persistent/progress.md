@@ -98,3 +98,13 @@ Fresh version2 private fixture preserves original recovered fixture and its immu
 Second unchanged full verifier under sandbox failed13 retained-file AV tests with AccessDenied5. Rerun unchanged outside restricted filesystem token: artifacts/usb-hid-final-verifier-native.log, exec session88187; must record its actual exit rather than claim previous pass proves current run. No unrelated verifier checks altered. No live classdeny/SetupAPI changes, no physical acceptance claim, no new commit yet.
 
 Final native qualification PASS exit0, actual SYSTEM precommit rollback and postcommit preservation plus inactive/pending cleanup. New private fixture is inactive; original interrupted fixture authenticated recovery passed earlier. Final unchanged full verifier native PASS exit0. Affected PnP tests199 and recovery-task testsPASS. Owner RP2040 baseline QUACK absent; read-only RP2040 function/keyboard/mouse reportsOK/problem0, so no valid physical blocking comparison yet. Restore positive baseline before physical trials; no current newlivepolicytransition.
+
+## Positive fixture baseline restored
+
+18 October: owner reports QUACK works again after the requested restart/baseline recovery. This restores a positive functional baseline only; it is not a new Block/Allow or default-deny acceptance result. Per-device count evidence and production PnP/policy commit integration remain required before the live trial.
+
+## Linked runtime installed inactive; physical trial pending
+
+Protected linkedstore PASS22; connected lifecycle PASS24, updated requiredretirement hook PASS30; native production installer/read PASS activeFalse generation1 internal2 external0. Operator and updated console installed with backups; console hash70D9E75FEDEBAD3E7B8A2E58284F865D38D7B3CE0D960510F35DAD50B2135A08 launchedvisible. No restriction activated by installer/read. New `Enable USB Guard` routes nativeHello explicitactivate; Block/Allow useopaque cardrefs. Source/controller/worker wiring compilePASS; 214PnPmodel/33adapter/33selection/17HKCU/14wiring/9UI testsPASS. Full unchanged verifierPASS exit0 usb-hid-linked-final-verifier.log.
+
+Owner action pending: USB Guard->Enable, Windows/UACHelloverify, reconnectQUACK, checkbuiltincontrols. Positivebaseline stored docs/evidence/usb-rp2040-baseline-2026-10-18.json159events. Physicalgeneralblocking/Allow/restart remainPENDING. Do not treat oldexactbackend's oneRPsuccess as newdefaultdenypass. See acceptance doc for detailed evidence. Codechangesaftera158e8f notyetpublished. Preserve B UI and unrelated audio/NativeConsole. No mainmerge.

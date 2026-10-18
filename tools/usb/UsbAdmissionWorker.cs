@@ -82,6 +82,7 @@ internal sealed class UsbAdmissionWorkerBackend : UsbAdmissionTransaction.INativ
    backend.CheckRetiredForExact();if(requireEmptyPolicy)backend.DemandEmptyPolicyAndNoUnownedOperations();backend.CheckRetiredForExact();return backend;
   }catch{backend.Dispose();throw;}
  }
+ internal UsbEnrollmentConfig.Snapshot ReadRetiredEnrollment(){CheckRetiredForExact();return exactEnrollmentPin.ReadCommitted();}
  internal void CheckRetiredForExact(){
   if(disposed||exactEnrollmentPin==null||Record()!=null||exactEnrollmentPin.ReadPending()!=null)throw new InvalidOperationException("Prior admission operation requires recovery");
   dynamic service=null,folder=null,tasks=null,running=null;try{
