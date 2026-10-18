@@ -134,3 +134,5 @@ Owner requested revert of a92bdf5: restored the prior blue glass material, top c
 18 October: successful quarantine clears the active scan snapshot/alert, adds a direct Open Quarantine Vault action, and the Vault automatically selects an actionable stored file. Restore and Destroy regressions pass with native confirmation routes preserved.
 
 18 October: restored GLM's existing HoldButton for Vault Destroy:1400ms red wave fill, rounded shape, keyboard hold and reduced-motion support. Completion opens the current native confirmation; no premature Deleted claim. Typecheck, three Vault regressions and UI build pass.
+
+18 October: Restore now uses the same1400ms GLM wave-fill HoldButton in blue. Hold completion opens native restore confirmation. Tests verify both actions require the hold; typecheck, three Vault tests and UI build passed.
