@@ -1,3 +1,4 @@
+import {observeDestinations} from './watchtower-observe.mjs';
 import {execFile} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {join} from 'node:path';
@@ -21,9 +22,10 @@ export async function observeWifi(){
  if(process.platform!=='win32')throw new Error('wifi_unsupported');
  if(busy)throw new Error('wifi_busy');busy=true;
  try{
+  const destinations=observeDestinations().catch(()=>({version:1,unavailable:true,domains:[],connections:[],dnsStatus:'unavailable',connectionStatus:'unavailable',capabilities:{blocking:false,tls:false,reputation:false,domainAge:false,browserUrls:false},limitations:['Local destination metadata is unavailable. No safety conclusion can be drawn.']}));
   const executable=join(process.env.SystemRoot??'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
   const output=await new Promise((resolve,reject)=>execFile(executable,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',fileURLToPath(new URL('./wifi-observe.ps1',import.meta.url))],{windowsHide:true,timeout:8000,maxBuffer:8192},(error,stdout)=>error?reject(new Error('wifi_unavailable')):resolve(stdout)));
   let value;try{value=JSON.parse(String(output).replace(/^\uFEFF/,''));}catch{throw new Error('wifi_unavailable');}
-  const observation=validateObservation(value);if(!observation)throw new Error('wifi_unavailable');return assessObservation(observation);
+  const observation=validateObservation(value);if(!observation)throw new Error('wifi_unavailable');return {...assessObservation(observation),destinations:await destinations};
  }finally{busy=false;}
 }

@@ -126,3 +126,5 @@ html[data-glass-effects=off] #root :is(.glass-card,.panel,.stat)::before{content
  box-decoration-break:clone;-webkit-box-decoration-break:clone;
 }
 @media(forced-colors:active){#root .page-title,#root .panel .page-title{color:HighlightText!important;background:Highlight}}
+
+#root .watchtower-domain{margin:12px 0;padding:14px 16px;background:rgba(8,15,30,.7);border:1px solid #ffffff20;border-radius:16px}#root .watchtower-domain summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer}#root .watchtower-domain code{overflow-wrap:anywhere;min-width:0;color:#d2e8ff}#root .watchtower-domain [data-risk="Suspicious"]{color:#ffd391}#root .watchtower-domain [data-risk="Likely Malicious"]{color:#ff9ea7}

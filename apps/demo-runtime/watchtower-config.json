@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "limits": {
+    "domains": 32,
+    "connections": 32,
+    "outputBytes": 65536
+  },
+  "thresholds": {
+    "suspicious": 7,
+    "likely": 13,
+    "trustedSuspicious": 14,
+    "trustedLikely": 21,
+    "minimumCategories": 2
+  },
+  "weights": {
+    "lookalike": 5,
+    "suspiciousTld": 2,
+    "ipHost": 2,
+    "mixedScript": 4,
+    "brandSubdomain": 5,
+    "hyphens": 1,
+    "entropy": 2,
+    "longName": 1,
+    "subdomains": 1,
+    "shortener": 1,
+    "internationalized": 1
+  },
+  "bonuses": {
+    "brandAndHosting": 3,
+    "threeCategories": 2,
+    "firstSeen": 1
+  },
+  "naming": {
+    "longLabel": 28,
+    "hyphens": 3,
+    "subdomains": 5,
+    "entropyMinLength": 18,
+    "entropy": 3.8
+  },
+  "popularDomains": [
+    "cloudfront.net",
+    "cloudflare.com",
+    "amazonaws.com",
+    "akamai.net",
+    "akamaized.net",
+    "fastly.net",
+    "googleapis.com",
+    "gstatic.com",
+    "github.io",
+    "vercel.app",
+    "netlify.app"
+  ],
+  "trustedDomains": [],
+  "retention": {
+    "persistEvents": false,
+    "maximumMemoryEvents": 32,
+    "minutes": 30
+  },
+  "externalLookups": {
+    "enabled": false,
+    "rdap": false,
+    "tls": false,
+    "reputation": false
+  },
+  "confusables": {
+    "\u0430": "a",
+    "\u0435": "e",
+    "\u043e": "o",
+    "\u0440": "p",
+    "\u0441": "c",
+    "\u0445": "x",
+    "\u0443": "y",
+    "\u0456": "i",
+    "\u04cf": "l",
+    "\u03bf": "o",
+    "\u03c1": "p"
+  }
+}

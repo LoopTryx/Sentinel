@@ -136,3 +136,5 @@ Owner requested revert of a92bdf5: restored the prior blue glass material, top c
 18 October: restored GLM's existing HoldButton for Vault Destroy:1400ms red wave fill, rounded shape, keyboard hold and reduced-motion support. Completion opens the current native confirmation; no premature Deleted claim. Typecheck, three Vault regressions and UI build pass.
 
 18 October: Restore now uses the same1400ms GLM wave-fill HoldButton in blue. Hold completion opens native restore confirmation. Tests verify both actions require the hold; typecheck, three Vault tests and UI build passed.
+
+18 October Watchtower stage1 checkpoint: bounded local DNS-cache/connection collection, shared domain scoring/config, tiered reasons, current-report UI and105-case offline set/evaluator. Nine backend tests and UI test/typecheck/build pass; actual local collector availability/counts validated. Public-feed hostname-only detection is0/50, so website protection remains incomplete. No reputation/TLS/age provider, browser URL bridge, rogue-hotspot or traffic-behavior detector, or blocking is claimed. Evidence: evidence/watchtower-stage1-2026-10-18.md.
