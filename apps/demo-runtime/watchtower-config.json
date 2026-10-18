@@ -157,5 +157,54 @@
         "text": "Windows reports limited connectivity alongside sensitive form fields. A network outage or ordinary login page can also explain this."
       }
     }
+  },
+  "traffic": {
+    "windowSeconds": 480,
+    "randomDnsBurst": 12,
+    "minimumBeaconConnections": 6,
+    "minimumBeaconSeconds": 20,
+    "beaconVariation": 0.15,
+    "suspicious": 7,
+    "likely": 13,
+    "usualPorts": [
+      80,
+      443,
+      53,
+      853,
+      123,
+      22,
+      3389,
+      445,
+      587,
+      993,
+      995
+    ],
+    "signals": {
+      "uncachedDestination": {
+        "weight": 2,
+        "category": "destination",
+        "text": "No matching IP was observed in the bounded DNS cache. This is not proof of a raw-IP request."
+      },
+      "unusualPort": {
+        "weight": 2,
+        "category": "protocol",
+        "text": "The destination port is outside the editable usual-port list."
+      },
+      "regularConnections": {
+        "weight": 5,
+        "category": "timing",
+        "text": "Several distinct connections to this endpoint appeared at regular intervals. Legitimate telemetry can behave this way."
+      },
+      "randomDnsNames": {
+        "weight": 4,
+        "category": "structure",
+        "text": "Many newly observed, non-trusted DNS names have random-looking labels."
+      },
+      "dnsBurst": {
+        "weight": 3,
+        "category": "timing",
+        "text": "The distinct random-name observations clustered in a short window; cache snapshots do not measure actual query rates."
+      }
+    }
   }
 }
