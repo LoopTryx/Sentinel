@@ -335,11 +335,22 @@ public sealed class SentinelGlassConsole : Window
                     }
                 }finally{actionDialog=false;requests--;if(!IsActive)HideToTray();}
                 return;
+            } else if (method == "quarantine.list" || method == "quarantine.restore" || method == "quarantine.destroy") {
+                var input = data as Dictionary<string,object>;
+                bool list=method=="quarantine.list";
+                if(input==null||input.Count!=(list?0:1)||(!list&&(!input.ContainsKey("reference")||!(input["reference"] is string))))throw new InvalidOperationException();
+                if(actionDialog||selectionRequest){Reply(id,new{error="action_busy"});return;}
+                if(!list&&(!IsActive||!IsVisible)){Reply(id,new{error="action_unavailable"});return;}
+                requests++;if(!list)actionDialog=true;
+                try{Reply(id,list?await StoredQuarantine.List():await StoredQuarantine.Action(this,input["reference"] as string,method=="quarantine.destroy"));}
+                catch{Reply(id,new{error="vault_recovery_required"});}
+                finally{requests--;if(!list)actionDialog=false;}
+                return;
             } else if (method == "quarantine.request" || method == "restore.request") {
                 if (actionDialog || selectionRequest) { Reply(id, new { error = "action_busy" }); return; }
                 var action = data as Dictionary<string, object>;
                 bool restore = method == "restore.request";
-                if (!restore) { Reply(id, new { error = "quarantine_recovery_lifetime_unavailable" }); return; }
+                if(!IsActive||!IsVisible){Reply(id,new{error="action_unavailable"});return;}
                 string key = restore ? "actionRef" : "reportRef";
                 if (action == null || action.Count != 1 || !action.ContainsKey(key)) throw new InvalidOperationException();
                 string reference = action[key] as string;
@@ -349,7 +360,7 @@ public sealed class SentinelGlassConsole : Window
                 finally { actionDialog = false; requests--; }
                 return;
             } else if (method == "scan.select") {
-                if (quarantinedPaths.Count != 0) { Reply(id, new { error = "restore_required_before_new_scan" }); return; }
+                quarantinedPaths.Clear(); // Durable store, not this map, owns recovery.
                 if (actionDialog || selectionRequest) { Reply(id, new { error = "action_busy" }); return; }
                 selectionRequest = true; selectionLease = true;
                 var selection = data as Dictionary<string, object>;
@@ -435,6 +446,7 @@ public sealed class SentinelGlassConsole : Window
     {
         string displayPath = null;
         if (!restore) {
+            await StoredQuarantine.List(); // Refuse removal unless the durable recovery worker is available.
             var state = await NativeActionCall("state", new { });
             var scan = state.ContainsKey("scan") ? state["scan"] as Dictionary<string, object> : null;
             var evidence = await NativeActionCall("inspection", new { });
@@ -476,9 +488,9 @@ public sealed class SentinelGlassConsole : Window
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
-        if (quarantinedPaths.Count != 0 || actionDialog) {
+        if (actionDialog) {
             e.Cancel = true;
-            MessageBox.Show(this, "Finish the native action and restore quarantined files before closing. This demo retains restore authority only for the current session.", "Sentinel recovery", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, "Finish the native action before closing. Quarantined files remain available in the durable Vault after restarting.", "Sentinel recovery", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         base.OnClosing(e);
     }

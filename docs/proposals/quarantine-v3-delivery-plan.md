@@ -1,6 +1,6 @@
 # Quarantine Vault delivery plan for v3
 
-Status on17 October2026: existing Rust candidate plus deliberately disabled desktop entry. This is a concrete plan, not permission to remove valuable files or enable an unreviewed native endpoint.
+Status on 18 October 2026: the v3 branch now implements manual native-confirmed quarantine, durable inventory, and fresh-process restore/destroy. See [integration evidence](../evidence/quarantine-v3-integration-2026-10-18.md). The foundation and ordered slices below describe the original gap and plan. Independent security review and real native-dialog acceptance remain release gates.
 
 ## Existing foundation
 

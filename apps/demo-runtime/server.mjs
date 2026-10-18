@@ -57,7 +57,7 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
  function state(){return {revision,mode:'synthetic_demo',connected:true,unlocked,extensionId,accounts:accounts.map(({password,...a})=>({...a,...auditPassword(password),reused:accounts.filter(b=>b.password===password).length>1})),events,scan:scan?Object.fromEntries(Object.entries(scan).filter(([k])=>k!=='cancel')):null};}
  let nativeSnapshot=null;
  let nativeService=null;
- const outstandingQuarantines=new Set();
+
  let nativeActionInFlight=false;
  async function runNativeScan(path,current){
   try{
@@ -204,8 +204,8 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
    nativeActionInFlight=true;
    try{
     const result=await operation(body[key]);
-    if(result.type==='quarantine_receipt'&&result.data.state==='quarantined')outstandingQuarantines.add(result.data.actionRef);
-    if(result.type==='restore_receipt'&&result.data.state==='restored')outstandingQuarantines.delete(result.data.quarantine.actionRef);
+
+
     return respond(200,result);
    }finally{nativeActionInFlight=false;}
   }
@@ -230,7 +230,7 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
   if(req.url==='/cancel'&&desktop&&keys(body,[])){if(scan?.status==='running')scan.cancel=true;nativeService?.cancel();return respond(200,{ok:true});}
   if(req.url==='/scan'&&desktop&&keys(body,['path'])){
    if(nativeActionInFlight)return respond(409,{error:'action_busy'});
-   if(outstandingQuarantines.size)return respond(409,{error:'restore_required_before_new_scan'});
+   // Authenticated on-disk journals now retain recovery independently of this scan session.
    if(scan?.status==='running')return respond(409,{error:'scan_busy'});
    const ordinaryPath=typeof body.path==='string'&&(process.platform==='win32'?/^[a-df-z]:[\\/]/i.test(body.path):/^\/(?!\/)/.test(body.path));
    if(!ordinaryPath||body.path.length>1024||/^E:/i.test(body.path)||body.path.includes('\0'))return respond(400,{error:'selection_unsupported'});

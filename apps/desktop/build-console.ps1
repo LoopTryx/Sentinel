@@ -15,6 +15,7 @@ $arguments = @('/nologo', '/target:winexe', '/platform:x64', ('/out:' + (Join-Pa
 $references += @((Join-Path $framework 'System.Net.Http.dll'), (Join-Path $framework 'System.Web.Extensions.dll'), (Join-Path $framework 'System.Windows.Forms.dll'))
 $arguments += $references | ForEach-Object { "/reference:$_" }
 $arguments += Join-Path $PSScriptRoot 'GlassConsole.cs'
+$arguments += Join-Path $PSScriptRoot 'StoredQuarantine.cs'
 $arguments += Join-Path $PSScriptRoot 'DuckyPolicyControl.cs'
 $arguments += Join-Path $PSScriptRoot 'DuckyInputHealth.cs'
 $arguments += Join-Path $PSScriptRoot 'DuckyPolicyEnrollment.cs'
