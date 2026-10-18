@@ -50,12 +50,14 @@ internal sealed class UsbExactBlockRecoveryTasks:IDisposable {
  // external controller must prove policy and producer quiescence before calling.
  // Crash after disabling/deleting leaves terminal cleanup pending. Startup must
  // finish authenticated pending recovery before accepting another mutation.
+ internal static bool VanishedRunningInstance(int hresult){return hresult==unchecked((int)0x8004130B);}
  internal void Retire(UsbExactBlockState.Request request,Action terminalPolicyVerifier){
   if(terminalPolicyVerifier==null)throw Refused();Current(request,false);var pending=store.ReadPending();if(pending.Phase!=UsbExactBlockState.Stage.Committed&&pending.Phase!=UsbExactBlockState.Stage.RecoveryClaimed)throw Refused();terminalPolicyVerifier();
   dynamic service=null,folder=null;bool disabled=false;
   try{service=Scheduler();folder=service.GetFolder("\\");dynamic task=null;try{task=folder.GetTask(TaskName(request.Nonce));}catch(Exception error){if(error.HResult!=unchecked((int)0x80070002))throw;}if(task==null)return;
    VerifyTask(task,request,(bool)task.Enabled);task.Enabled=false;disabled=true;VerifyTask(folder.GetTask(TaskName(request.Nonce)),request,false);
-   bool busy=(int)task.State==2||(int)task.State==4;dynamic running=service.GetRunningTasks(1);try{if((int)running.Count>4096)throw Refused();foreach(dynamic item in running)if((string)item.Path=="\\"+TaskName(request.Nonce))busy=true;}finally{if(Marshal.IsComObject(running))Marshal.FinalReleaseComObject(running);}
+   bool busy=(int)task.State==2||(int)task.State==4;dynamic running=service.GetRunningTasks(1);try{if((int)running.Count>4096)throw Refused();foreach(dynamic item in running){try{if((string)item.Path=="\\"+TaskName(request.Nonce))busy=true;}catch(COMException error){if(!VanishedRunningInstance(error.HResult))throw;}}}finally{if(Marshal.IsComObject(running))Marshal.FinalReleaseComObject(running);}
+   dynamic latest=folder.GetTask(TaskName(request.Nonce));VerifyTask(latest,request,false);if((int)latest.State==2||(int)latest.State==4)busy=true;
    if(busy)throw Refused();terminalPolicyVerifier();Current(request,false);VerifyTask(folder.GetTask(TaskName(request.Nonce)),request,false);folder.DeleteTask(TaskName(request.Nonce),0);disabled=false;bool absent=false;try{folder.GetTask(TaskName(request.Nonce));}catch(Exception error){if(error.HResult==unchecked((int)0x80070002))absent=true;else throw;}if(!absent)throw Refused();
   }catch{if(disabled){Current(request,false);dynamic same=folder.GetTask(TaskName(request.Nonce));VerifyTask(same,request,false);same.Enabled=true;VerifyTask(folder.GetTask(TaskName(request.Nonce)),request,true);}throw;}
   finally{if(folder!=null&&Marshal.IsComObject(folder))Marshal.FinalReleaseComObject(folder);if(service!=null&&Marshal.IsComObject(service))Marshal.FinalReleaseComObject(service);}
