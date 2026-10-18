@@ -32,6 +32,8 @@ class SentinelAiTest {
   h.Body=new string('x',65537);Refuses(()=>p.Generate("key","meta/llama-3.1-8b-instruct","{}",true,new string[0],CancellationToken.None).GetAwaiter().GetResult(),"output_too_large");
   Refuses(()=>SentinelNim.ValidateAnswer("{\"evidenceRefs\":[\"invented\"],\"explanation\":\"x\",\"uncertainty\":\"x\",\"recommendations\":[]}",new string[0]),"invalid_provider_response");
   Check(SentinelNim.ValidateAnswer("```json\n{\"evidenceRefs\":[],\"explanation\":\"x\",\"uncertainty\":\"x\",\"recommendations\":[]}\n```",new string[0])!=null);
+  Check(SentinelNim.ValidateAnswer("{\"evidenceRefs\":[],\"explanation\":\"Hi! What can I help you with?\",\"uncertainty\":\"\",\"recommendations\":[]}",new string[0])!=null);
+  Refuses(()=>SentinelNim.ValidateAnswer("{\"evidenceRefs\":[],\"explanation\":\"\",\"uncertainty\":\"\",\"recommendations\":[]}",new string[0]),"invalid_provider_response");
   Console.WriteLine("PASS: consent, endpoint/auth binding, parsing, credential/rate errors, model validation, fabricated evidence refusal");return 0;
  }
 }

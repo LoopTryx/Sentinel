@@ -53,7 +53,7 @@ Safe example: `https://example.test/winner-payment`, question `Why is this conce
 
 ## Official provider basis
 
-Checked the [NVIDIA llama-3.1-8b inference API](https://docs.api.nvidia.com/nim/reference/meta-llama-3_1-8b-infer): fixed `POST https://integrate.api.nvidia.com/v1/chat/completions`, Bearer credential, chat messages/model/max_tokens/stream fields. Default model is `meta/llama-3.1-8b-instruct`. A custom identifier is syntax-checked; actual availability/authorization is established by the explicitly approved test/request, not inferred from syntax. No claim of unlimited/free access.
+Checked the [NVIDIA llama-3.1-8b inference API](https://docs.api.nvidia.com/nim/reference/meta-llama-3_1-8b-infer): fixed `POST https://integrate.api.nvidia.com/v1/chat/completions`, Bearer credential, chat messages/model/max_tokens/stream fields. The original default was `meta/llama-3.1-8b-instruct`; live testing below supersedes that obsolete choice. A custom identifier is syntax-checked; actual availability/authorization is established by the explicitly approved test/request, not inferred from syntax. No claim of unlimited/free access.
 
 Chrome [Redirect documentation](https://developer.chrome.com/docs/extensions/reference/api/declarativeNetRequest#type-Redirect) documents regexSubstitution `\0` as the entire matched text. Production rules extend the existing keyword match to consume the whole URL; classifier conditions and warning decisions remain local.
 
@@ -77,3 +77,12 @@ Current primary live journey is still pending. Browser-control inventory reports
 
 Current provider source: https://build.nvidia.com/nvidia/nemotron-3.5-lightning-30b-a3b/build and public https://integrate.api.nvidia.com/v1/models (no key used for catalog inspection).
 
+
+## Verified installed checkpoint
+
+- Local commit506c6e5 contains the initial coherent integration; no remote push or main merge.
+- Unchanged `tools/verify.ps1`: PASS, final line `All available T01 checks passed.` Separate new AI native tests and8 focused connected tests PASS. Full extension138, UI62 PASS. Native window smoke and native process jobs PASS (jobs needed unsandboxed child-process access). Narrow peer re-review confirmed the two reported integration defects addressed; this is not coordinator approval.
+- Owner screenshot shows a real answer displayed by the selected NVIDIA model after the TLS/model/profile corrections. It responded poorly to a greeting by analyzing JSON, so the trusted prompt now explicitly treats question as the user's message and greets naturally. Empty optional uncertainty/recommendations are accepted; empty explanations and fabricated references remain rejected. Native adapter regressions PASS and native rebuild PASS after that correction.
+- Updated the existing per-user installed console, native messaging executable, required runtime modules and UI with backups and matching file hashes. Installed console SHA256:41E0AB3FAABCD4B7BAA7FD0C1949FE434459FFE3D2E1C2E87DBE045B315F64E3. Fresh installed WebView evidence records navigation=True/glass=true/heading=Console/backend=demo_runtime. No USB policy or recovery-service changes.
+- Updated only installed extension AI logic/resources; copied files hash-verified, existing presentation retained, permission list compared equal. Chrome reload, actual connection and warning-to-conversation-to-returned-answer journey still PENDING. A file copy is not proof Chrome loaded it.
+- Existing key survived console restarts; owner entered it privately. The agent did not retrieve it. Owner still needs to test key removal, decline/cancel/offline native UI behavior and final greeting. Existing WhatsApp/email local adapters remain unchanged; their SentinelAI per-item integration is still missing.
