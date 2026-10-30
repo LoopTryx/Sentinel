@@ -1,10 +1,12 @@
 use aes_gcm::aead::{Aead, KeyInit, Payload};
 use aes_gcm::{Aes256Gcm, Key, Nonce};
 use rand::RngCore;
+use sha2::Digest;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
-const MAX_PLAINTEXT_BYTES: usize = 8 * 1024 * 1024;
+pub const MAX_PLAINTEXT_BYTES: usize = 64 * 1024 * 1024;
+pub const MAX_STORAGE_BYTES: u64 = 512 * 1024 * 1024;
 const MAX_BLOB_BYTES: usize = MAX_PLAINTEXT_BYTES + 12 + 16;
 
 #[cfg(test)]
@@ -222,15 +224,21 @@ impl Vault {
         #[cfg(windows)]
         {
             use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
-            let handle = std::fs::OpenOptions::new()
-                .read(true)
-                .write(true)
-                .create(true)
-                .truncate(false)
-                .share_mode(0)
-                .custom_flags(0x00200000)
-                .open(self.dir.join(".admission.lock"))
-                .map_err(|_| "quarantine storage admission busy or unavailable")?;
+            let lock_path = self.dir.join(".admission.lock");
+            let handle = match crate::storage_privacy::create_file(&lock_path) {
+                Ok(handle) => handle,
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                    // Existing locks are validated, never recreated or repaired.
+                    std::fs::OpenOptions::new()
+                        .read(true)
+                        .write(true)
+                        .share_mode(0)
+                        .custom_flags(0x00200000)
+                        .open(&lock_path)
+                        .map_err(|_| "quarantine storage admission busy or unavailable")?
+                }
+                Err(_) => return Err("quarantine storage admission busy or unavailable".into()),
+            };
             crate::storage_privacy::validate_file(&handle)?;
             let lock_metadata = handle
                 .metadata()
@@ -266,7 +274,7 @@ impl Vault {
                 bytes = bytes
                     .checked_add(metadata.len())
                     .ok_or("quarantine storage byte limit reached")?;
-                if bytes > 64 * 1024 * 1024 {
+                if bytes > MAX_STORAGE_BYTES {
                     return Err("quarantine storage byte limit reached".into());
                 }
                 files.insert(entry.file_name(), metadata.len());
@@ -312,7 +320,7 @@ impl Vault {
             }
             if bytes
                 .checked_add(additional_bytes)
-                .is_none_or(|count| count > 64 * 1024 * 1024)
+                .is_none_or(|count| count > MAX_STORAGE_BYTES)
             {
                 return Err("quarantine storage byte limit reached".into());
             }
@@ -413,6 +421,160 @@ impl Vault {
         crate::quarantine_journal::read_summary(&vault.dir, vault_file, &vault.load_key()?)
     }
 
+    /// Authenticated, bounded catalogue. Original paths never enter this DTO.
+    pub fn inventory(
+        &self,
+    ) -> Result<sentinel_proto::quarantine_inventory::QuarantineInventory, String> {
+        use crate::quarantine_journal::{RecoveryIntent, RecoveryPhase};
+        use sentinel_proto::quarantine_inventory::{QuarantineInventory, QuarantineItem};
+        let storage = self.storage_guard()?;
+        let vault = &storage.vault;
+        let mut references = std::collections::BTreeSet::new();
+        let mut count = 0usize;
+        let mut total = 0u64;
+        for entry in std::fs::read_dir(&vault.dir).map_err(|_| "vault inventory unavailable")? {
+            let entry = entry.map_err(|_| "vault inventory unavailable")?;
+            count += 1;
+            if count > 128 {
+                return Err("vault inventory limit reached".into());
+            }
+            let name = entry
+                .file_name()
+                .into_string()
+                .map_err(|_| "vault entry unsupported")?;
+            if name == ".admission.lock" {
+                continue;
+            }
+            let id = name
+                .strip_suffix(".qtn")
+                .or_else(|| name.strip_suffix(".qjr"))
+                .or_else(|| name.strip_suffix(".qlj"))
+                .ok_or("vault entry unsupported")?;
+            let reference = format!("{id}.qtn");
+            vault.blob_path(&reference)?;
+            let metadata =
+                std::fs::symlink_metadata(entry.path()).map_err(|_| "vault entry unavailable")?;
+            if !metadata.is_file() || metadata.file_type().is_symlink() {
+                return Err("vault entry unsupported".into());
+            }
+            total = total
+                .checked_add(metadata.len())
+                .ok_or("vault inventory limit reached")?;
+            if total > MAX_STORAGE_BYTES {
+                return Err("vault inventory limit reached".into());
+            }
+            references.insert(reference);
+        }
+        if references.len() > 64 {
+            return Err("vault inventory limit reached".into());
+        }
+        if references.is_empty() {
+            if vault.key_path.exists() {
+                vault.load_key()?;
+            }
+            return Ok(QuarantineInventory { items: vec![] });
+        }
+        let key = vault.load_key()?;
+        let mut items = Vec::new();
+        for reference in references {
+            let (summary, source) =
+                crate::quarantine_journal::read_native_record(&vault.dir, &reference, &key)?;
+            let blob = vault.blob_path(&reference)?;
+            let exists = match std::fs::symlink_metadata(&blob) {
+                Ok(_) => true,
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
+                Err(_) => return Err("vault entry unavailable".into()),
+            };
+            if !exists
+                && matches!(
+                    summary.phase,
+                    RecoveryPhase::RestoredRecorded | RecoveryPhase::DestroyedRecorded
+                )
+            {
+                continue;
+            }
+            let valid_blob = if exists {
+                read_private_bounded_handle(&blob, MAX_BLOB_BYTES, false)
+                    .and_then(|(_, bytes)| vault.decrypt_blob(&bytes, &key))
+                    .is_ok_and(|plain| {
+                        plain.len().to_string() == summary.plaintext_bytes
+                            && hex::encode(sha2::Sha256::digest(&plain)) == summary.sha256
+                    })
+            } else {
+                false
+            };
+            let source_label = source.to_string_lossy();
+            let supported = source.is_absolute()
+                && !source_label.to_ascii_lowercase().starts_with("e:")
+                && !source_label.starts_with("\\\\");
+            let ready = valid_blob && supported && summary.phase == RecoveryPhase::RemovalRecorded;
+            let recoverable = supported
+                && ((valid_blob && summary.intent == RecoveryIntent::Quarantine)
+                    || (summary.phase == RecoveryPhase::RecoveryRequired
+                        && summary.intent == RecoveryIntent::Restore));
+            let state = if ready {
+                "quarantined"
+            } else if valid_blob && summary.phase == RecoveryPhase::SourceRetainedRecorded {
+                "original_retained"
+            } else {
+                "recovery_required"
+            };
+            let file_name = source
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("Quarantined file")
+                .chars()
+                .filter(|c| !c.is_control())
+                .take(160)
+                .collect::<String>();
+            let added_at = std::fs::metadata(vault.dir.join(reference.replace(".qtn", ".qjr")))
+                .ok()
+                .and_then(|m| m.created().or_else(|_| m.modified()).ok())
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_secs().to_string())
+                .unwrap_or_default();
+            items.push(QuarantineItem {
+                reference,
+                file_name,
+                bytes: summary.plaintext_bytes,
+                sha256: summary.sha256,
+                added_at,
+                state: state.into(),
+                can_restore: ready || recoverable,
+                can_destroy: ready,
+            });
+        }
+        Ok(QuarantineInventory { items })
+    }
+    /// Native-only original destination. Never serialize this path to a renderer.
+    pub fn stored_original(&self, reference: &str) -> Result<PathBuf, String> {
+        let storage = self.storage_guard()?;
+        let vault = &storage.vault;
+        vault.blob_path(reference)?;
+        let (summary, source) = crate::quarantine_journal::read_native_record(
+            &vault.dir,
+            reference,
+            &vault.load_key()?,
+        )?;
+        if summary.phase != crate::quarantine_journal::RecoveryPhase::RemovalRecorded
+            && !(matches!(
+                summary.phase,
+                crate::quarantine_journal::RecoveryPhase::RecoveryRequired
+                    | crate::quarantine_journal::RecoveryPhase::SourceRetainedRecorded
+            ) && summary.intent != crate::quarantine_journal::RecoveryIntent::Destroy)
+        {
+            return Err("stored action requires recovery".into());
+        }
+        let label = source.to_string_lossy();
+        if label.to_ascii_lowercase().starts_with("e:")
+            || label.starts_with("\\\\")
+            || !source.is_absolute()
+        {
+            return Err("stored destination unsupported".into());
+        }
+        Ok(source)
+    }
+
     pub fn new(app_data: &Path) -> Self {
         let dir = app_data.join("vault");
         let storage = (|| -> Result<crate::storage_path::DirectoryGuard, String> {
@@ -459,15 +621,7 @@ impl Vault {
         }
         let mut key = [0u8; 32];
         rand::thread_rng().fill_bytes(&mut key);
-        let mut options = std::fs::OpenOptions::new();
-        options.write(true).create_new(true);
-        #[cfg(windows)]
-        {
-            use std::os::windows::fs::OpenOptionsExt;
-            options.share_mode(0).custom_flags(0x00200000);
-        }
-        let mut output = options
-            .open(&self.key_path)
+        let mut output = crate::storage_privacy::create_file(&self.key_path)
             .map_err(|_| "quarantine key creation failed".to_string())?;
         crate::storage_privacy::validate_file(&output)?;
         output
@@ -575,15 +729,7 @@ impl Vault {
 
         let mut blob = nonce_bytes.to_vec();
         blob.extend_from_slice(&sealed);
-        let mut options = std::fs::OpenOptions::new();
-        options.read(true).write(true).create_new(true);
-        #[cfg(windows)]
-        {
-            use std::os::windows::fs::OpenOptionsExt;
-            options.share_mode(0).custom_flags(0x00200000);
-        }
-        let mut output = options
-            .open(&vault_path)
+        let mut output = crate::storage_privacy::create_file(&vault_path)
             .map_err(|_| "quarantine blob creation failed".to_string())?;
         crate::storage_privacy::validate_file(&output)?;
         output
@@ -640,6 +786,37 @@ impl Vault {
         })
     }
 
+    /// Explicit native-confirmed stored action, bound to authenticated journal bytes.
+    pub fn restore_original(&self, reference: &str) -> Result<(), String> {
+        let source = self.stored_original(reference)?;
+        let summary = self.recovery_summary(reference)?;
+        if summary.phase == crate::quarantine_journal::RecoveryPhase::RecoveryRequired
+            && summary.intent == crate::quarantine_journal::RecoveryIntent::Restore
+        {
+            return self.resume_restore(reference, &source);
+        }
+        self.restore_bound_inner(
+            reference,
+            &source,
+            Some(&summary.sha256),
+            #[cfg(test)]
+            None,
+        )
+    }
+    pub fn destroy_authenticated(&self, reference: &str) -> Result<(), String> {
+        self.stored_original(reference)?;
+        let summary = self.recovery_summary(reference)?;
+        if summary.phase != crate::quarantine_journal::RecoveryPhase::RemovalRecorded {
+            return Err("destroy requires committed quarantine".into());
+        }
+        self.destroy_bound_inner(
+            reference,
+            Some(&summary.sha256),
+            #[cfg(test)]
+            None,
+        )
+    }
+
     pub fn restore(&self, vault_file: &str, to_path: &Path) -> Result<(), String> {
         #[cfg(test)]
         {
@@ -657,12 +834,33 @@ impl Vault {
         to_path: &Path,
         #[cfg(test)] interruption: Option<ControlledLifecycleInterruption>,
     ) -> Result<(), String> {
+        self.restore_bound_inner(
+            vault_file,
+            to_path,
+            None,
+            #[cfg(test)]
+            interruption,
+        )
+    }
+
+    fn restore_bound_inner(
+        &self,
+        vault_file: &str,
+        to_path: &Path,
+        expected_digest: Option<&str>,
+        #[cfg(test)] interruption: Option<ControlledLifecycleInterruption>,
+    ) -> Result<(), String> {
         let storage = self.storage_guard()?;
         let vault = &storage.vault;
         let vault_path = vault.blob_path(vault_file)?;
         let key_bytes = vault.load_key()?;
         let (blob_handle, blob) = read_private_bounded_handle(&vault_path, MAX_BLOB_BYTES, true)?;
         let plaintext = vault.decrypt_blob(&blob, &key_bytes)?;
+        if expected_digest
+            .is_some_and(|digest| digest != hex::encode(sha2::Sha256::digest(&plaintext)))
+        {
+            return Err("stored byte identity mismatch".into());
+        }
         let _admission = vault.admit_storage(8192, 1, Some(vault_file))?;
         let target_parent = crate::storage_path::retain_file_parent(to_path, true)?;
         let mut options = std::fs::OpenOptions::new();
@@ -736,12 +934,31 @@ impl Vault {
         vault_file: &str,
         #[cfg(test)] interruption: Option<ControlledLifecycleInterruption>,
     ) -> Result<(), String> {
+        self.destroy_bound_inner(
+            vault_file,
+            None,
+            #[cfg(test)]
+            interruption,
+        )
+    }
+
+    fn destroy_bound_inner(
+        &self,
+        vault_file: &str,
+        expected_digest: Option<&str>,
+        #[cfg(test)] interruption: Option<ControlledLifecycleInterruption>,
+    ) -> Result<(), String> {
         let storage = self.storage_guard()?;
         let vault = &storage.vault;
         let path = vault.blob_path(vault_file)?;
         let key_bytes = vault.load_key()?;
         let (handle, bytes) = read_private_bounded_handle(&path, MAX_BLOB_BYTES, true)?;
         let plaintext = vault.decrypt_blob(&bytes, &key_bytes)?;
+        if expected_digest
+            .is_some_and(|digest| digest != hex::encode(sha2::Sha256::digest(&plaintext)))
+        {
+            return Err("stored byte identity mismatch".into());
+        }
         let _admission = vault.admit_storage(8192, 1, Some(vault_file))?;
         let mut journal = crate::quarantine_journal::Journal::prepare_lifecycle(
             &vault.dir, vault_file, &self.dir, &plaintext, &key_bytes, true,
@@ -1034,7 +1251,7 @@ mod retained_source_tests {
             .map(|entry| entry.metadata().unwrap().len())
             .sum();
         let filler = std::fs::File::create(vault.dir.join("harmless-sparse-budget")).unwrap();
-        let size = 64 * 1024 * 1024 - current_bytes - 2051;
+        let size = MAX_STORAGE_BYTES - current_bytes - 2051;
         filler.set_len(size).unwrap();
         drop(filler);
         let receipt = vault.dir.join(reference.replace(".qtn", ".qlj"));

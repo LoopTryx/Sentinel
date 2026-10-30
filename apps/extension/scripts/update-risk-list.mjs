@@ -14,7 +14,7 @@ const base='https://raw.githubusercontent.com/uBlockOrigin/uAssets/'+meta.sha+'/
 const source=await get(base+'filters/badware.txt');const license=await get(base+'LICENSE');
 const candidates=source.split(/\r?\n/).map(l=>/^\|\|([a-z0-9.-]+)\^\$doc$/.exec(l.trim())?.[1]).filter(Boolean);
 const exceptions=source.split(/\r?\n/).filter(l=>l.startsWith('@@')).join('\n');
-const hosts=[...new Set(candidates)].filter(h=>h.includes('.')&&h.length<=253&&!exceptions.includes(h)).sort().slice(0,500);
+const hosts=[...new Set(candidates)].filter(h=>h.includes('.')&&h.length<=253&&!exceptions.includes(h)).sort().slice(0,5000);
 if(hosts.length<10)throw new Error('Source yielded too few supported domains');
 const snapshot={source:'uBlock Origin · Badware risks (domain-only subset)',sourceUrl:'https://github.com/uBlockOrigin/uAssets/blob/'+meta.sha+'/filters/badware.txt',sourceCommit:meta.sha,license:'GPL-3.0',capturedAt:new Date().toISOString(),sourceSha256:createHash('sha256').update(source).digest('hex'),hosts};
 await mkdir(new URL('data/',root),{recursive:true});await mkdir(new URL('third-party/',root),{recursive:true});

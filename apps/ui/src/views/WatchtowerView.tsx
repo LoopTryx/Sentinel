@@ -1,198 +1,35 @@
-import { useState } from "react";
-import Icon from "../components/Icon";
-
-interface WatchAlert {
-  id: number;
-  severity: "danger" | "warn" | "info";
-  icon: string;
-  title: string;
-  desc: string;
-  source: string;
+import PageMascot from '../components/PageMascot';
+import {useRef,useState} from 'react';
+import Icon from '../components/Icon';
+import {demoCall} from '../demo-bridge';
+import {useAutoRefresh} from '../use-auto-refresh';
+import './glm-pages.css';
+import './watchtower.css';
+type Reason={code:string;text:string};
+type Domain={domain:string;tier:string;score:number;source?:string;allowedOnce?:boolean;reasons:Reason[]};
+type Destinations={unavailable?:boolean;domains:Domain[];connections:{address:string;port:number;process:string}[];limitations:string[];dnsStatus:string;connectionStatus:string;topology?:{available:boolean;tier:string;wifiStatus?:string;reasons:Reason[];limitations:string[]};traffic?:{findings:{reference:string;subject:string;tier:string;reasons:Reason[]}[];limitations:string[]};preferences?:{trusted:string[];blockingAvailable:boolean}};
+type Report={destinations?:Destinations;version:1;observedAt:string;coverage:'passive';observation:Record<string,string>;checks:{level:string;title:string;detail:string}[];limitations:string[]};
+const labels:Record<string,string>={wifi:'Wi-Fi',ethernet:'Ethernet',disconnected:'Disconnected',unknown:'Not available',public:'Public',private:'Private',domain:'Managed',open:'No encryption',wep:'Outdated WEP',wpa2:'WPA2',wpa3:'WPA3',configured:'Configured',missing:'Not observed',observed:'Adapter visible',not_configured:'Not configured'};
+function Advice({code}:{code:string}){const text:Record<string,string>={open:'Use a trusted connection for sensitive work. Switch to your mobile hotspot or a network you recognize. Confirm the network name with its owner.',wep:'Ask the router owner to enable WPA2-AES or WPA3. Avoid entering passwords on this connection until you can switch networks.',private:'For a café, hotel or airport, open Windows Settings → Network & internet → Wi-Fi → your connected network → Network profile type, and choose Public. This reduces discovery and sharing; it does not encrypt Wi-Fi.',change:'If you did not change router, VPN or DNS settings, disconnect and check with the network owner. Do not enter credentials into unexpected sign-in pages.'};return <p className="wt-advice">{text[code]??text.change}</p>;}
+export default function WatchtowerView(){
+ const [report,setReport]=useState<Report|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');const reading=useRef(false);
+ async function check(){if(reading.current)return;reading.current=true;setBusy(true);setError('');try{const value=await demoCall('wifi.assess');if(value?.version!==1||value.coverage!=='passive'||!value.observation||!Array.isArray(value.checks)||!Array.isArray(value.limitations))throw Error();setReport(value);}catch{setReport(null);setError('Could not check this connection. Try again after connecting to a network.');}finally{reading.current=false;setBusy(false);}}
+ async function acknowledge(host:string,choice='allow_once'){setBusy(true);try{await demoCall('watchtower.preference',{host,choice});setNotice(choice==='untrust'?'Saved trust removed. The usual warning threshold applies.':'Warning acknowledged for five minutes. Network access was not changed.');await check();}catch{setNotice('Could not acknowledge the warning.');}finally{setBusy(false);}}
+ useAutoRefresh(check,30000);
+ const o=report?.observation,d=report?.destinations;
+ const weak=o?.connection==='wifi'&&['open','wep'].includes(o.security);
+ const unknown=!report||o?.connection==='unknown'||o?.connection==='wifi'&&o.security==='unknown';
+ const changes=d?.topology?.available?d.topology.reasons:[];
+ const flagged=(d?.domains??[]).filter(item=>item.tier!=='Safe'),routine=(d?.domains??[]).filter(item=>item.tier==='Safe');
+ const warnings=report?.checks.filter(item=>item.level==='warn')??[];
+ const attention=weak||warnings.length>0||changes.length>0||flagged.length>0||(d?.traffic?.findings.length??0)>0;
+ return <div className="watchtower-page">
+ <section className="panel wt-hero"><div className="section-head"><div><span className="eyebrow">YOUR CONNECTION</span><h1 className="page-title">Watchtower</h1><p>Understand your Wi-Fi before you share anything sensitive.</p></div><PageMascot page="watchtower"/></div><button className="btn wt-refresh" onClick={()=>void check()} disabled={busy}><Icon name="radar" size={16}/>{busy?'Checking connection…':'Check connection'}</button>{report&&<span className="wt-checked">Checked {new Date(report.observedAt).toLocaleTimeString()} · refreshes every 30 seconds</span>}{error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}</section>
+ {report&&<>
+ <section className={'panel wt-summary '+(attention?'wt-attention':'')} aria-label="Connection assessment"><div className="wt-summary-heading"><Icon name="wifi" size={28}/><div><span className="eyebrow">BEFORE YOU USE THIS NETWORK</span><h2>{o?.connection==='disconnected'?'You are offline':weak?'Check this Wi-Fi before signing in':unknown?'Some connection details are unavailable':attention?'Your connection needs a closer look':'No warning found in available checks'}</h2></div></div><p>{weak?'The Wi-Fi link uses missing or outdated encryption. That is a real exposure, but it does not prove someone is attacking you.':o?.connection==='disconnected'?'Connect to a network, then check again.':'These are local configuration and change checks, not a guarantee that the network or websites are safe.'}</p><div className="wt-facts">{[['connection','Connection'],['security','Wi-Fi encryption'],['profile','Windows profile']].map(([key,label])=><div key={key}><span>{label}</span><strong>{key==='security'&&o?.connection!=='wifi'?'Not a Wi-Fi connection':labels[o?.[key]??'unknown']??'Not available'}</strong></div>)}</div></section>
+ <section className="panel wt-actions"><h2>Before you use this network</h2>{weak&&<article className="wt-warning"><h3>{o?.security==='open'?'Wi-Fi has no link encryption':'Wi-Fi uses outdated encryption'}</h3><Advice code={o?.security??'open'}/><p>HTTPS still protects properly secured website content. A VPN does not verify who operates a hotspot.</p></article>}{o?.profile==='private'&&<article className="wt-guidance"><h3>Is this a shared or public hotspot?</h3><Advice code="private"/></article>}{warnings.filter(item=>!['Open Wi-Fi','Legacy Wi-Fi encryption'].includes(item.title)).map(item=><article className="wt-warning" key={item.title}><h3>{item.title}</h3><p>{item.detail}</p></article>)}{changes.length>0&&<article className="wt-warning"><h3>Connection changes worth checking</h3><ul>{changes.map(reason=><li key={reason.code}>{reason.text}</li>)}</ul><Advice code="change"/><p>Roaming, router updates, DHCP and VPNs can legitimately cause changes. Session observations reset when Sentinel restarts.</p></article>}{d?.topology&&!d.topology.available&&<p className="wt-muted">Wi-Fi change observations are unavailable. No conclusion about hotspot impersonation was made.</p>}{!weak&&!warnings.length&&!changes.length&&o?.connection!=='disconnected'&&<p>No action is suggested by the available configuration checks. Use the exact network name provided by its owner and verify unexpected login requests independently.</p>}</section>
+ {(flagged.length>0||(d?.traffic?.findings.length??0)>0)&&<section className="panel wt-alerts"><h2>Connections to review</h2><p>DNS cache names are not proof of a website visit. Indicators suggest review; they do not establish malicious intent.</p>{flagged.map(item=><details key={item.domain} className="watchtower-domain"><summary><code>{item.domain}</code><span className="badge">{item.allowedOnce?'Acknowledged':item.tier}</span></summary><ul>{item.reasons.map(reason=><li key={reason.code}>{reason.text}</li>)}</ul><p>Check unexpected links using the service’s official app or a trusted bookmark.</p><button className="btn ghost" disabled={busy} onClick={()=>void acknowledge(item.domain)}>Acknowledge warning</button></details>)}{d?.traffic?.findings.map(item=><details key={item.reference} className="watchtower-domain"><summary>{item.subject}<span className="badge">Review</span></summary><ul>{item.reasons.map(reason=><li key={reason.code}>{reason.text}</li>)}</ul></details>)}<p className="wt-muted">Watchtower observes and warns. It has not blocked these connections.</p></section>}
+ <section className="panel wt-details"><h2>Details, when you need them</h2>{!!d?.preferences?.trusted.length&&<details><summary>Previously trusted domains ({d.preferences.trusted.length})</summary><p>These saved exceptions use a higher warning threshold. Remove an exception to restore the usual checks.</p>{d.preferences.trusted.map(host=><p key={host}><code>{host}</code> <button className="btn ghost" disabled={busy} onClick={()=>void acknowledge(host,'untrust')}>Remove trust</button></p>)}</details>}<details className="watchtower-routine"><summary>Other observed domains ({routine.length})</summary><p>No hostname warning was raised for these names. This is not a safety verdict or browsing history.</p>{d?.unavailable?<p>Destination observations unavailable.</p>:routine.length?routine.map(item=><p key={item.domain}><code>{item.domain}</code><span className="wt-muted">No hostname warning</span></p>):<p>No routine domain observations available.</p>}</details><details><summary>Application connections ({d?.connections.length??0})</summary><p>Process destinations are not attributed to particular websites.</p>{d?.connections.map((item,index)=><p key={index}>{item.process} · <code>{item.address}:{item.port}</code></p>)}</details><details><summary>Configuration &amp; check coverage</summary><dl className="wt-facts">{[['gateway','Gateway'],['dns','DNS'],['vpn','VPN adapter'],['proxy','Proxy']].map(([key,label])=><div key={key}><dt>{label}</dt><dd>{labels[o?.[key]??'unknown']??'Not available'}</dd></div>)}</dl><p>Passive local checks. No packet capture or network changes. Blocking is not enabled. A visible VPN adapter does not establish VPN protection.</p><ul>{[...report.limitations,...(d?.limitations??[]),...(d?.topology?.limitations??[])].map((item,index)=><li key={index}>{item}</li>)}</ul></details></section>
+ </>}
+ </div>;
 }
-
-/** Alert Center + live guards. Detection wiring lands in Phase B; the
- *  structure, severity styling and scam checker are live now. */
-
-const SAMPLE_ALERTS: WatchAlert[] = [
-  {
-    id: 1,
-    severity: "warn",
-    icon: "wifi",
-    title: "Connected to an open network",
-    desc: "Cafe_Guest_WiFi has no encryption — unencrypted traffic may be visible; HTTPS content is not exposed merely by an open network.",
-    source: "wifi-guard",
-  },
-  {
-    id: 2,
-    severity: "danger",
-    icon: "mail",
-    title: "Scam message flagged",
-    desc: "\u201cYour parcel is held at customs — pay \u20b95 to release.\u201d 3 signals: urgency, payment link, spoofed sender.",
-    source: "scam-radar",
-  },
-];
-
-type Verdict = {
-  level: "clean" | "warn" | "danger";
-  signals: string[];
-  summary: string;
-};
-
-/** Offline scam-text engine — the same heuristics the Watchtower will run
- *  on every incoming SMS/email/WhatsApp message. */
-function analyzeText(text: string): Verdict {
-  const t = text.toLowerCase();
-  const signals: string[] = [];
-
-  if (/(urgent|immediately|act now|last chance|expires|within \d+ (hour|minute|day))/.test(t))
-    signals.push("urgency pressure");
-  if (/(won|winner|prize|lottery|congratulation|reward|free gift|cashback)/.test(t))
-    signals.push("too-good-to-be-true offer");
-  if (/(otp|one[- ]time password|verify your (account|number)|cvv|pin|password)/.test(t))
-    signals.push("credential request — verify through the official service");
-  if (/(bank account (is|will be) (blocked|suspended|frozen)|kyc (is|update|expired)|pan (card|aadhaar) (is )?(suspend|block))/.test(t))
-    signals.push("account-suspension threat");
-  if (/(pay(?:ing)? (?:rs|₹|inr|usd|\$)\s?\d|send money|processing fee|delivery fee|clearance fee)/.test(t))
-    signals.push("small-payment demand");
-  if (/(http:\/\/|bit\.ly|tinyurl|t\.co\/|goo\.gl|is\.gd|clk\.|wa\.me\/\d)/.test(t))
-    signals.push("shortened or insecure link");
-  if (/(click (the )?(link|below)|tap here|open this link|download the app from)/.test(t))
-    signals.push("link-nudging language");
-  if (/(dear customer|dear user|respected customer|valued customer)/.test(t))
-    signals.push("generic greeting (they don't know you)");
-  if (/[\u20b9$£€]\s?\d{2}/.test(t) && /(winner|claim|prize|refund)/.test(t))
-    signals.push("money amount + reward bait");
-
-  const level: Verdict["level"] =
-    signals.length >= 3 ? "danger" : signals.length >= 1 ? "warn" : "clean";
-
-  const summary =
-    level === "danger"
-      ? "This message shows classic scam patterns. Do not click any link or pay anything."
-      : level === "warn"
-        ? "Some suspicious signals detected. Verify the sender through an official channel before acting."
-        : "No known scam patterns detected. Still never share OTPs or passwords.";
-
-  return { level, signals, summary };
-}
-
-export default function WatchtowerView() {
-  const [text, setText] = useState("");
-  const [verdict, setVerdict] = useState<Verdict | null>(null);
-
-  function check() {
-    setVerdict(analyzeText(text));
-  }
-
-  return (
-    <>
-      <section className="panel">
-        <h3 className="panel-title">Message checker</h3>
-        <p style={{ color: "var(--text-dim)", fontSize: 13, margin: "0 0 12px" }}>
-          Use invented messages only. Local pattern clues cannot verify senders or establish safety; no inbox or network monitoring is connected.
-        </p>
-        <textarea
-          className="input"
-          aria-label="Invented message" maxLength={4096} rows={4}
-          placeholder='e.g. "URGENT: your bank account will be blocked tonight. Click bit.ly/verify-now to update your KYC…"'
-          value={text}
-          onChange={(e) => { setText(e.target.value); setVerdict(null); }}
-          style={{ resize: "vertical", fontFamily: "var(--font-body)" }}
-        />
-        <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-          <button className="btn" onClick={check} disabled={!text.trim()}>
-            <Icon name="radar" size={15} /> Check message
-          </button>
-          {verdict && (
-            <button
-              className="btn ghost"
-              onClick={() => {
-                setText("");
-                setVerdict(null);
-              }}
-            >
-              Clear
-            </button>
-          )}
-        </div>
-
-        {verdict && (
-          <div
-            style={{
-              marginTop: 16,
-              border: `1px solid var(--${verdict.level === "clean" ? "safe" : verdict.level === "warn" ? "warn" : "danger"})`,
-              background:
-                verdict.level === "clean"
-                  ? "rgba(62,230,160,0.06)"
-                  : verdict.level === "warn"
-                    ? "rgba(255,196,107,0.06)"
-                    : "rgba(255,138,122,0.07)",
-              borderRadius: "var(--radius)",
-              padding: "14px 16px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                fontWeight: 600,
-                fontSize: 14,
-                color:
-                  verdict.level === "clean"
-                    ? "var(--safe)"
-                    : verdict.level === "warn"
-                      ? "var(--warn)"
-                      : "var(--danger)",
-              }}
-            >
-              <Icon name={verdict.level === "clean" ? "check" : "alert"} size={16} />
-              {verdict.level === "clean"
-                ? "No pattern clues · unknown"
-                : verdict.level === "warn"
-                  ? `Suspicious — ${verdict.signals.length} signal${verdict.signals.length > 1 ? "s" : ""}`
-                  : `Likely scam — ${verdict.signals.length} signals`}
-            </div>
-            <div style={{ marginTop: 6, fontSize: 13, color: "var(--text)" }}>
-              {verdict.summary}
-            </div>
-            {verdict.signals.length > 0 && (
-              <ul style={{ margin: "10px 0 0", paddingLeft: 18, fontSize: 12.5, color: "var(--text-dim)", lineHeight: 1.7 }}>
-                {verdict.signals.map((s) => (
-                  <li key={s}>{s}</li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-      </section>
-
-      <section className="panel">
-        <h3 className="panel-title">Synthetic alert examples</h3>
-        {SAMPLE_ALERTS.map((a) => (
-          <div
-            key={a.id}
-            className={`feed-line ${a.severity}`}
-            style={{ border: "1px solid var(--grid-line)", borderRadius: "var(--radius-sm)", marginBottom: 8, padding: "10px 12px" }}
-          >
-            <span className="feed-ico">
-              <Icon name={a.icon} size={15} />
-            </span>
-            <div style={{ minWidth: 0 }}>
-              <div className="feed-msg" style={{ color: "var(--text)" }}>
-                <b>{a.title}</b>
-              </div>
-              <div style={{ fontSize: 12.5, color: "var(--text-dim)" }}>{a.desc}</div>
-            </div>
-            <span className="feed-ts">{a.source}</span>
-          </div>
-        ))}
-        <p style={{ color: "var(--text-faint)", fontSize: 12, fontFamily: "var(--font-mono)", margin: "4px 0 0" }}>
-          // wifi-guard auto-watch and toast alerts arrive in Phase B
-        </p>
-      </section>
-    </>
-  );
-}
-
-

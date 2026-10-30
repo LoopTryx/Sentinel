@@ -1,19 +1,31 @@
 // @vitest-environment jsdom
-import {act} from 'react';
-import {createRoot} from 'react-dom/client';
-import {expect,it,vi} from 'vitest';
-import ConnectedVault from './views/ConnectedVault';
-import type {DemoState} from '@sentinel/contracts/generated/DemoState';
-vi.mock('./demo-bridge',()=>({demoCall:vi.fn(async()=>({password:'invented-only'}))}));
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;
-it('renders computed weakness and recommendations, and clears revealed dummy on lock',async()=>{
- const state:DemoState={revision:0,mode:'synthetic_demo',connected:true,extensionId:'',unlocked:true,events:[],scan:null,accounts:[{id:'mail',name:'Orbit Mail',user:'alex@example.test',host:'mail.example.test',health:'Very weak',reused:true,reasons:['Avoid common password words.']}]};
- const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
- try{
-  await act(()=>root.render(<ConnectedVault state={state}/>));
-  const click=async(text:string)=>act(async()=>{Array.from(host.querySelectorAll('button')).find(b=>b.textContent?.includes(text))!.click();});
-  await click('Orbit Mail');expect(host.textContent).toContain('Avoid common password words.');expect(host.textContent).toContain('Give every account its own password.');
-  await click('Show dummy password');expect(host.textContent).toContain('invented-only');
-  await act(()=>root.render(<ConnectedVault state={{...state,unlocked:false}}/>));expect(host.textContent).not.toContain('invented-only');expect(host.textContent).toContain('synthetic passwords only');
+import {act} from 'react';import {createRoot} from 'react-dom/client';import {expect,it,vi} from 'vitest';import ConnectedVault from './views/ConnectedVault';import {demoCall} from './demo-bridge';import type {DemoState} from '@sentinel/contracts/generated/DemoState';
+vi.mock('./demo-bridge',()=>({demoCall:vi.fn(async()=>({ok:true,id:'account_new',password:'approved-fixture'}))}));(globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;
+const state:DemoState={revision:0,mode:'synthetic_demo',connected:true,extensionId:'',unlocked:false,events:[],scan:null,accounts:[{id:'mail',name:'Orbit Mail',user:'alex@example.test',host:'mail.example.test',health:'Very weak',reused:true,reasons:['Avoid common password words.']}]};
+async function fixture(run:(host:HTMLDivElement)=>Promise<void>){const host=document.createElement('div');document.body.append(host);const root=createRoot(host);try{await act(()=>root.render(<ConnectedVault state={state}/>));await run(host);}finally{await act(()=>root.unmount());host.remove();}}
+async function click(host:HTMLElement,label:string){await act(()=>host.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!.click());}
+async function choose(host:HTMLElement){await act(()=>Array.from(host.querySelectorAll('button')).find(b=>b.textContent?.includes('Orbit Mail'))!.click());}
+async function field(host:HTMLElement,label:string,value:string){await act(()=>{const input=host.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,value);input.dispatchEvent(new Event('input',{bubbles:true}));});}
+it('audits accounts and protects native reveal/copy/removal while clearing hidden secrets',()=>fixture(async host=>{
+ await click(host,'Check accounts');expect(host.querySelector('.pm-priority-high')).not.toBeNull();await choose(host);await click(host,'Show password');expect(host.querySelector<HTMLInputElement>('[aria-label="Password"]')!.value).toBe('approved-fixture');await act(()=>window.dispatchEvent(new Event('sentinel-clear-secrets')));expect(host.querySelector<HTMLInputElement>('[aria-label="Password"]')!.value).toBe('');await click(host,'Copy password');expect(demoCall).toHaveBeenCalledWith('vault.copy',{id:'mail'});await click(host,'Check accounts');expect(host.querySelector('.pm-priority-high')).toBeNull();await click(host,'Remove login');expect(demoCall).toHaveBeenCalledWith('vault.remove',{id:'mail'});
+}));
+it('creates an inline draft row and submits editable details through protected add',()=>fixture(async host=>{
+ expect(host.querySelector('.pm-list-heading [aria-label="Add login"]')).not.toBeNull();await click(host,'Add login');expect(host.querySelector('.pm-add')).toBeNull();expect(host.querySelector('.pm-list [aria-label="Account name"]')).not.toBeNull();for(const [label,value] of [['Account name','Notes'],['Email','owner@example.test'],['Website','notes.example.test'],['Password','invented-editable-password']])await field(host,label,value);await act(()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));expect(demoCall).toHaveBeenCalledWith('vault.add',{name:'Notes',user:'owner@example.test',host:'notes.example.test',password:'invented-editable-password'});
+}));
+it('edits existing metadata and opens the generator without rotating until saved',()=>fixture(async host=>{
+ await choose(host);await field(host,'Account name','Renamed');await click(host,'Generate Replacement');expect(host.querySelector('dialog')).not.toBeNull();expect(host.textContent).toContain('Password Strength Analyzer');expect(host.textContent).toContain('Strong Password Generator');await act(()=>Array.from(host.querySelectorAll('button')).find(b=>b.textContent==='Generate password')!.click());await act(()=>Array.from(host.querySelectorAll('button')).find(b=>b.textContent==='Use generated password')!.click());expect(host.querySelector('dialog')).toBeNull();expect(host.querySelector<HTMLInputElement>('[aria-label="Password"]')!.value).toHaveLength(16);await act(()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));expect(demoCall).toHaveBeenCalledWith('vault.update',expect.objectContaining({id:'mail',name:'Renamed',password:expect.any(String)}));
+}));
+it('native hiding revokes a pending reveal even when the window is reopened',()=>fixture(async host=>{
+ let complete!:(value:unknown)=>void;vi.mocked(demoCall).mockImplementationOnce(()=>new Promise(resolve=>{complete=resolve;}));await choose(host);await click(host,'Show password');await act(()=>window.dispatchEvent(new Event('sentinel-clear-secrets')));await act(async()=>complete({password:'late-secret'}));expect(host.querySelector<HTMLInputElement>('[aria-label="Password"]')!.value).toBe('');
+}));
+it('preserves an unsaved replacement across unrelated runtime revisions',async()=>{
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);try{await act(()=>root.render(<ConnectedVault state={state}/>));await choose(host);await field(host,'Password','unsaved-local-replacement');await act(()=>root.render(<ConnectedVault state={{...state,revision:1}}/>));expect(host.querySelector<HTMLInputElement>('[aria-label="Password"]')!.value).toBe('unsaved-local-replacement');await act(()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));expect(demoCall).toHaveBeenCalledWith('vault.update',expect.objectContaining({password:'unsaved-local-replacement'}));}finally{await act(()=>root.unmount());host.remove();}
+});
+it('accepts add completion even when polling sees the new revision first',async()=>{
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);let complete!:(v:unknown)=>void;
+ try{await act(()=>root.render(<ConnectedVault state={state}/>));await click(host,'Add login');await field(host,'Email','added@example.test');await field(host,'Website','added.example.test');vi.mocked(demoCall).mockImplementationOnce(()=>new Promise(resolve=>{complete=resolve;}));await act(()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));await act(()=>root.render(<ConnectedVault state={{...state,revision:1,accounts:[...state.accounts,{id:'account_new',name:'New login',user:'added@example.test',host:'added.example.test',health:'Stronger',reused:false,reasons:[]}]}}/>));await act(()=>window.dispatchEvent(new Event('sentinel-clear-secrets')));await act(async()=>complete({ok:true,id:'account_new'}));expect(host.textContent).toContain('Login saved.');expect(host.querySelectorAll('.pm-account')).toHaveLength(2);
  }finally{await act(()=>root.unmount());host.remove();}
+});
+it('clears the saved-change notice after five seconds',async()=>{
+ vi.useFakeTimers();try{await fixture(async host=>{await choose(host);await field(host,'Account name','Updated');await act(()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));expect(host.textContent).toContain('Login saved.');await act(()=>vi.advanceTimersByTime(4999));expect(host.textContent).toContain('Login saved.');await act(()=>vi.advanceTimersByTime(1));expect(host.querySelector('.pm-notice')).toBeNull();});}finally{vi.useRealTimers();}
 });

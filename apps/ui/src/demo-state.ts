@@ -5,7 +5,7 @@ const count=(v:unknown)=>Number.isSafeInteger(v)&&Number(v)>=0;
 const texts=(v:unknown,max:number)=>Array.isArray(v)&&v.length<=max&&v.every(x=>text(x));
 const list=(v:unknown,max:number,check:(x:unknown)=>boolean)=>Array.isArray(v)&&v.length<=max&&v.every(check);
 export function isDemoState(v:unknown):v is DemoState{
- if(!object(v)||v.mode!=='synthetic_demo'||v.connected!==true||typeof v.unlocked!=='boolean'||!count(v.revision)||!text(v.extensionId,32)||!(v.extensionId===''||/^[a-p]{32}$/.test(v.extensionId)))return false;
+ if(!object(v)||!['synthetic_demo','encrypted_vault'].includes(v.mode as string)||v.connected!==true||typeof v.unlocked!=='boolean'||!count(v.revision)||!text(v.extensionId,32)||!(v.extensionId===''||/^[a-p]{32}$/.test(v.extensionId)))return false;
  if(!list(v.accounts,128,a=>object(a)&&text(a.id,64)&&text(a.name,80)&&text(a.user,254)&&text(a.host,254)&&text(a.health,32)&&['Very weak','Weak','Moderate','Stronger'].includes(a.health)&&typeof a.reused==='boolean'&&texts(a.reasons,16)))return false;
  if(!list(v.events,64,e=>object(e)&&text(e.id,64)&&text(e.at,64)&&text(e.source,16)&&['browser','desktop'].includes(e.source)&&text(e.kind,80)&&texts(e.codes,16)))return false;
  if(v.scan===null)return true;

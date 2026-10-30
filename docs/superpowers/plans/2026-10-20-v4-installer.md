@@ -1,0 +1,8 @@
+# V4 installer and warning recovery
+
+1. Regression: prove remembered messages still produce a finding after refresh, while silent findings retain local explanations without automatic inbox delivery. Preserve explicit Learn more. Run extension and handoff tests. Remove overlapping message outline.
+2. Setup: add tools/install-prerequisites.ps1; validate Windows build, x64 architecture and .NET, detect WebView2 and install only a Microsoft-signed bootstrapper if absent. Integrate before filesystem changes in install-desktop.ps1; test-only mode performs no prerequisite installation. Package the new helper.
+3. Version existing ReleaseInstaller/build-v2-release pipeline for V4. Keep paths relative, current-user registration, one-time Chrome consent and Windows Hello setup. Bundle pinned engines/models and no session keys or user state. Keep USB protection off on new machines.
+4. Build current UI/extension/native assets, stage package, build V4 installer, verify payload integrity and hashes. Do not claim Windows 10 or ARM acceptance without actual execution there. Record source/build evidence and artifact paths.
+
+Current status: steps 1-4 completed for local artifact delivery. 175 tests pass; all 454 payload file hashes and embedded payload identity verified. Dynamic-path fixture, prerequisite checks and pre-extraction low-space refusal pass. Full clean-machine install remains pending; the first extraction test ran out of host disk space, so payload verification used streaming after cleanup. Finished installer is artifacts/v4-release/Sentinel-v4-Setup.exe. No publication requested.

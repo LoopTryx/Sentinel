@@ -11,6 +11,9 @@ mod file_subject;
 pub use file_subject::InspectedSubject;
 pub mod inspection;
 pub mod inspection_wire;
+pub mod official_signatures;
+#[cfg(windows)]
+pub mod protection;
 pub mod quarantine_journal;
 pub mod scan_jobs;
 mod storage_path;
@@ -22,3 +25,6 @@ mod tests;
 
 #[cfg(all(test, windows))]
 mod inspected_quarantine_tests;
+
+#[cfg(windows)]
+mod retained_map;

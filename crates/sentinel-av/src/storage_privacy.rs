@@ -22,9 +22,44 @@ pub(crate) fn validate_file(file: &std::fs::File) -> Result<(), String> {
         windows::validate_file(file)
     }
 }
+pub(crate) fn create_file(path: &Path) -> std::io::Result<std::fs::File> {
+    #[cfg(windows)]
+    {
+        windows::create_file(path)
+    }
+    #[cfg(not(windows))]
+    {
+        std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(path)
+    }
+}
 #[cfg(windows)]
 pub(crate) fn create_directory(path: &Path) -> std::io::Result<()> {
     windows::create_directory(path)
+}
+
+#[cfg(all(test, windows))]
+mod creation_tests {
+    #[test]
+    fn private_file_creation_sets_valid_owner_and_refuses_existing_files() {
+        use std::io::Write;
+        let root =
+            std::env::temp_dir().join(format!("sentinel-private-create-{}", uuid::Uuid::new_v4()));
+        super::create_directory(&root).unwrap();
+        let path = root.join("owned.bin");
+        let mut file = super::create_file(&path).unwrap();
+        super::validate_file(&file).unwrap();
+        file.write_all(b"harmless retained bytes").unwrap();
+        file.sync_all().unwrap();
+        assert!(super::create_file(&path).is_err());
+        drop(file);
+        assert_eq!(std::fs::read(&path).unwrap(), b"harmless retained bytes");
+        std::fs::remove_file(&path).unwrap();
+        std::fs::remove_dir(&root).unwrap();
+    }
 }
 #[cfg(windows)]
 mod windows {
@@ -246,6 +281,51 @@ mod windows {
         Ok(())
     }
     pub(super) fn create_directory(path: &std::path::Path) -> std::io::Result<()> {
+        with_private_security(path, true, |wide, attributes| {
+            // SAFETY: Both buffers remain live through this synchronous call.
+            if unsafe {
+                windows_sys::Win32::Storage::FileSystem::CreateDirectoryW(wide, attributes)
+            } == 0
+            {
+                return Err(std::io::Error::last_os_error());
+            }
+            Ok(())
+        })
+    }
+    pub(super) fn create_file(path: &std::path::Path) -> std::io::Result<std::fs::File> {
+        use std::os::windows::io::FromRawHandle;
+        use windows_sys::Win32::{
+            Foundation::INVALID_HANDLE_VALUE,
+            Storage::FileSystem::{
+                CreateFileW, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, FILE_FLAG_OPEN_REPARSE_POINT,
+            },
+        };
+        with_private_security(path, false, |wide, attributes| {
+            // SAFETY: Caller retains private parent ancestry. CREATE_NEW refuses
+            // replacements; exclusive sharing and explicit owner/DACL are atomic.
+            let handle = unsafe {
+                CreateFileW(
+                    wide,
+                    0xc0000000,
+                    0,
+                    attributes,
+                    CREATE_NEW,
+                    FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT,
+                    std::ptr::null_mut(),
+                )
+            };
+            if handle == INVALID_HANDLE_VALUE {
+                return Err(std::io::Error::last_os_error());
+            }
+            // SAFETY: A fresh valid owned handle transfers exactly once to File.
+            Ok(unsafe { std::fs::File::from_raw_handle(handle) })
+        })
+    }
+    fn with_private_security<T>(
+        path: &std::path::Path,
+        directory: bool,
+        create: impl FnOnce(*const u16, *const SECURITY_ATTRIBUTES) -> std::io::Result<T>,
+    ) -> std::io::Result<T> {
         use std::os::windows::ffi::OsStrExt;
         use windows_sys::Win32::{
             Foundation::LocalFree,
@@ -253,7 +333,6 @@ mod windows {
                 ConvertSidToStringSidW, ConvertStringSecurityDescriptorToSecurityDescriptorW,
                 SDDL_REVISION_1,
             },
-            Storage::FileSystem::CreateDirectoryW,
         };
         struct Allocation(*mut std::ffi::c_void);
         impl Drop for Allocation {
@@ -281,7 +360,8 @@ mod windows {
         // SAFETY: OS allocated terminated SID text, bounded above and live.
         let sid = String::from_utf16(unsafe { std::slice::from_raw_parts(sid_text, length) })
             .map_err(|_| std::io::Error::other(REFUSE))?;
-        let sddl: Vec<u16> = format!("O:{sid}D:P(A;OICI;FA;;;{sid})(A;OICI;FA;;;SY)")
+        let flags = if directory { "OICI" } else { "" };
+        let sddl: Vec<u16> = format!("O:{sid}D:P(A;{flags};FA;;;{sid})(A;{flags};FA;;;SY)")
             .encode_utf16()
             .chain(Some(0))
             .collect();
@@ -304,11 +384,6 @@ mod windows {
             bInheritHandle: 0,
         };
         let wide: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
-        // SAFETY: Caller has validated bounded path and retains parent ancestry;
-        // both input buffers and descriptor remain live. Existing paths refuse.
-        if unsafe { CreateDirectoryW(wide.as_ptr(), &attributes) } == 0 {
-            return Err(std::io::Error::last_os_error());
-        }
-        Ok(())
+        create(wide.as_ptr(), &attributes)
     }
 }

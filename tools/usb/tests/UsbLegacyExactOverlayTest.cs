@@ -1,0 +1,20 @@
+using System;using System.Text;using Microsoft.Win32;
+// Disposable HKCU validation-seam test. This does NOT authenticate an Acquire
+// lease, fabricate legacy receipts or prove a live machine-policy capability.
+internal static class UsbLegacyExactOverlayTest {
+ static void Check(bool ok){if(!ok)throw new Exception("Legacy overlay seam regression");}static bool Reject(Action action){try{action();return false;}catch(InvalidOperationException){return true;}}
+ public static int Main(){int calls=0;Check(Reject(()=>UsbLegacyReleasedBaseline.AcquireForExactOverlay(null,key=>calls++)));Check(Reject(()=>UsbLegacyReleasedBaseline.AcquireForExactOverlay(new byte[3],key=>calls++)));Check(Reject(()=>UsbLegacyReleasedBaseline.AcquireForExactOverlay(new byte[104],key=>calls++)));Check(calls==0);
+  string path=@"Software\SentinelLegacyOverlayTest\"+Guid.NewGuid().ToString("N"),nonce=new string('a',32),id=@"USB\VID_0000&PID_0000&MI_00\SYNTHETIC";try{using(var setup=Registry.CurrentUser.CreateSubKey(path)){setup.SetValue("SentinelOperation",nonce,RegistryValueKind.String);setup.SetValue("DenyInstanceIDs",1,RegistryValueKind.DWord);setup.SetValue("DenyInstanceIDsRetroactive",1,RegistryValueKind.DWord);using(var list=setup.CreateSubKey("DenyInstanceIDs")){} }
+   using(var read=Registry.CurrentUser.OpenSubKey(path)){UsbLegacyReleasedBaseline.ValidateForLease(read,nonce,null);UsbLegacyReleasedBaseline.ValidatePreservedValues(read,nonce);}
+   using(var setup=Registry.CurrentUser.OpenSubKey(path,true)){setup.SetValue("SentinelExactOperation","fixture-owned");using(var list=setup.OpenSubKey("DenyInstanceIDs",true))list.SetValue("1",id,RegistryValueKind.String);}
+   Action<RegistryKey> strict=key=>{calls++;Check(key.ValueCount==4&&key.SubKeyCount==1&&(string)key.GetValue("SentinelExactOperation")=="fixture-owned");using(var list=key.OpenSubKey("DenyInstanceIDs")){if(list==null||list.ValueCount!=1||list.SubKeyCount!=0||list.GetValueKind("1")!=RegistryValueKind.String||(string)list.GetValue("1")!=id)throw new InvalidOperationException("Foreign fixture overlay");}};
+   using(var read=Registry.CurrentUser.OpenSubKey(path)){Check(Reject(()=>UsbLegacyReleasedBaseline.ValidateForLease(read,nonce,null)));UsbLegacyReleasedBaseline.ValidateForLease(read,nonce,strict);bool readonlyHandle=false;try{read.SetValue("ForbiddenWrite",1);}catch(UnauthorizedAccessException){readonlyHandle=true;}Check(readonlyHandle);}
+   int before=calls;using(var setup=Registry.CurrentUser.OpenSubKey(path,true))setup.SetValue("DenyInstanceIDsRetroactive",0,RegistryValueKind.DWord);using(var read=Registry.CurrentUser.OpenSubKey(path))Check(Reject(()=>UsbLegacyReleasedBaseline.ValidateForLease(read,nonce,strict)));Check(calls==before);
+   using(var setup=Registry.CurrentUser.OpenSubKey(path,true))setup.SetValue("DenyInstanceIDsRetroactive",1,RegistryValueKind.DWord);
+   using(var read=Registry.CurrentUser.OpenSubKey(path))Check(Reject(()=>UsbLegacyReleasedBaseline.ValidateForLease(read,nonce,key=>{strict(key);using(var mutable=Registry.CurrentUser.OpenSubKey(path,true))mutable.SetValue("DenyInstanceIDsRetroactive",0,RegistryValueKind.DWord);}))); // post-callback raw flag recheck
+   using(var setup=Registry.CurrentUser.OpenSubKey(path,true)){setup.SetValue("DenyInstanceIDsRetroactive",1,RegistryValueKind.DWord);using(var list=setup.OpenSubKey("DenyInstanceIDs",true))list.SetValue("2","FOREIGN",RegistryValueKind.String);}
+   using(var read=Registry.CurrentUser.OpenSubKey(path))Check(Reject(()=>UsbLegacyReleasedBaseline.ValidateForLease(read,nonce,strict)));
+   using(var setup=Registry.CurrentUser.OpenSubKey(path,true)){setup.DeleteValue("SentinelExactOperation");using(var list=setup.OpenSubKey("DenyInstanceIDs",true)){list.DeleteValue("1");list.DeleteValue("2");}}
+   using(var read=Registry.CurrentUser.OpenSubKey(path))UsbLegacyReleasedBaseline.ValidateForLease(read,nonce,null);
+  }finally{Registry.CurrentUser.DeleteSubKeyTree(path,false);}Console.WriteLine("PASS disposable HKCU legacy-flag/owned-overlay seam; old strict empty-list behavior retained; NOT authenticated Acquire evidence");return 0;}
+}

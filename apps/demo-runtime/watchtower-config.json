@@ -1,0 +1,210 @@
+{
+  "version": 1,
+  "limits": {
+    "domains": 32,
+    "connections": 32,
+    "outputBytes": 65536
+  },
+  "thresholds": {
+    "suspicious": 7,
+    "likely": 13,
+    "trustedSuspicious": 14,
+    "trustedLikely": 21,
+    "minimumCategories": 2
+  },
+  "weights": {
+    "lookalike": 5,
+    "suspiciousTld": 2,
+    "ipHost": 2,
+    "mixedScript": 4,
+    "brandSubdomain": 5,
+    "hyphens": 1,
+    "entropy": 2,
+    "longName": 1,
+    "subdomains": 1,
+    "shortener": 1,
+    "internationalized": 1,
+    "reputationListed": 12,
+    "expiredCertificate": 3,
+    "futureCertificate": 2,
+    "mismatchedCertificate": 4,
+    "selfSignedCertificate": 3,
+    "untrustedCertificate": 2,
+    "newCertificate": 1,
+    "newDomain": 2
+  },
+  "bonuses": {
+    "brandAndHosting": 3,
+    "threeCategories": 2,
+    "firstSeen": 1
+  },
+  "naming": {
+    "longLabel": 28,
+    "hyphens": 3,
+    "subdomains": 5,
+    "entropyMinLength": 18,
+    "entropy": 3.8,
+    "newDomainDays": 30,
+    "newCertificateDays": 7
+  },
+  "popularDomains": [
+    "cloudfront.net",
+    "cloudflare.com",
+    "amazonaws.com",
+    "akamai.net",
+    "akamaized.net",
+    "fastly.net",
+    "googleapis.com",
+    "gstatic.com",
+    "github.io",
+    "vercel.app",
+    "netlify.app"
+  ],
+  "trustedDomains": [],
+  "retention": {
+    "persistEvents": false,
+    "maximumMemoryEvents": 32,
+    "minutes": 30
+  },
+  "externalLookups": {
+    "enabled": false,
+    "rdap": false,
+    "tls": false,
+    "reputation": false
+  },
+  "confusables": {
+    "\u0430": "a",
+    "\u0435": "e",
+    "\u043e": "o",
+    "\u0440": "p",
+    "\u0441": "c",
+    "\u0445": "x",
+    "\u0443": "y",
+    "\u0456": "i",
+    "\u04cf": "l",
+    "\u03bf": "o",
+    "\u03c1": "p"
+  },
+  "topology": {
+    "minimumObservations": 3,
+    "signalDifference": 45,
+    "suspicious": 7,
+    "likely": 12,
+    "signals": {
+      "newBssid": {
+        "weight": 3,
+        "category": "wireless_identity",
+        "text": "A previously observed network name is advertising an unfamiliar access-point identity."
+      },
+      "weakerSecurity": {
+        "weight": 4,
+        "category": "wireless_security",
+        "text": "A previously observed network name is advertising weaker wireless security."
+      },
+      "openKnownName": {
+        "weight": 5,
+        "category": "wireless_security",
+        "text": "A network name previously observed with WPA2/WPA3 is now also advertised open."
+      },
+      "signalDifference": {
+        "weight": 1,
+        "category": "radio",
+        "text": "Access points using the same name have widely different signal strengths; this can be normal."
+      },
+      "channelChanged": {
+        "weight": 1,
+        "category": "radio",
+        "text": "A network name is advertised on a channel outside its initial session observations; roaming can explain this."
+      },
+      "gatewayMacChanged": {
+        "weight": 3,
+        "category": "routing",
+        "text": "The cached gateway MAC differs from the initial observation for this network/interface."
+      },
+      "dnsChanged": {
+        "weight": 2,
+        "category": "resolution",
+        "text": "Configured DNS servers differ from the initial network observation."
+      },
+      "duplicateMac": {
+        "weight": 1,
+        "category": "neighbors",
+        "text": "Multiple cached neighbor IPs use one MAC; bridges and proxy ARP can explain this."
+      },
+      "hostsChanged": {
+        "weight": 2,
+        "category": "local_settings",
+        "text": "The hosts file hash changed since the initial observation."
+      },
+      "proxyChanged": {
+        "weight": 2,
+        "category": "local_settings",
+        "text": "Proxy configuration changed since the initial observation."
+      },
+      "portalCredentials": {
+        "weight": 4,
+        "category": "portal",
+        "text": "An opted-in browser page has a password field while Windows reports limited connectivity. It may be a login page, not necessarily a captive portal."
+      },
+      "portalPayment": {
+        "weight": 5,
+        "category": "portal",
+        "text": "An opted-in browser page has a card-number field while connectivity is limited. Verify any access-payment request independently."
+      },
+      "limitedPortal": {
+        "weight": 3,
+        "category": "connectivity",
+        "text": "Windows reports limited connectivity alongside sensitive form fields. A network outage or ordinary login page can also explain this."
+      }
+    }
+  },
+  "traffic": {
+    "windowSeconds": 480,
+    "randomDnsBurst": 12,
+    "minimumBeaconConnections": 6,
+    "minimumBeaconSeconds": 20,
+    "beaconVariation": 0.15,
+    "suspicious": 7,
+    "likely": 13,
+    "usualPorts": [
+      80,
+      443,
+      53,
+      853,
+      123,
+      22,
+      3389,
+      445,
+      587,
+      993,
+      995
+    ],
+    "signals": {
+      "uncachedDestination": {
+        "weight": 2,
+        "category": "destination",
+        "text": "No matching IP was observed in the bounded DNS cache. This is not proof of a raw-IP request."
+      },
+      "unusualPort": {
+        "weight": 2,
+        "category": "protocol",
+        "text": "The destination port is outside the editable usual-port list."
+      },
+      "regularConnections": {
+        "weight": 5,
+        "category": "timing",
+        "text": "Several distinct connections to this endpoint appeared at regular intervals. Legitimate telemetry can behave this way."
+      },
+      "randomDnsNames": {
+        "weight": 4,
+        "category": "structure",
+        "text": "Many newly observed, non-trusted DNS names have random-looking labels."
+      },
+      "dnsBurst": {
+        "weight": 3,
+        "category": "timing",
+        "text": "The distinct random-name observations clustered in a short window; cache snapshots do not measure actual query rates."
+      }
+    }
+  }
+}

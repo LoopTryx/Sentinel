@@ -1069,6 +1069,18 @@ cracksmid.com##div[style=""] > center > center
 ||canxe.cojoystreut.com^$all
 ! https://x.com/masaomi346/status/2107275737342640269
 ||dezhou.hnambui01zs.com^$all
+! https://x.com/masaomi346/status/2107804609066782864
+||xsapd.19slot-ph.com^$all
+! https://x.com/masaomi346/status/2108786052400140706
+||ming.nongyuenongyz.com^$all
+! https://x.com/TAKAC82135362/status/2109053115752456682
+||dailyque.site^$all
+! https://x.com/Nao_Nao1293/status/2109958967640342905
+||calmnotice.site^$all
+! https://x.com/masaomi346/status/2111801710863851952
+||cdn.hgianignh.cfd/apks/$all
+! https://x.com/masaomi346/status/2111633497538658611
+||dramajp.com^$all
 
 ! scam sites
 ||webuzz.me^$doc
@@ -2717,7 +2729,8 @@ longhall.consulting##+js(rmnt, script, /document\.currentScript\.remove|0x0/)
 
 ! https://x.com/Malwarehunterr/status/2079287390959776116
 ! https://github.com/uBlockOrigin/uAssets/issues/33811
-###captchaBox
+! https://github.com/uBlockOrigin/uAssets/issues/34807
+! ###captchaBox
 ! ##.captcha-wrap
 ###mainBtn[onclick="startVerify()"]
 
@@ -2842,6 +2855,11 @@ darumasushiantofagasta.cl##+js(aost, Function, /bxslider|wow/)
 ! https://x.com/masaomi346/status/2104557449722351921
 ||raw.githubusercontent.com/om5678774/kt4567/main/landing2.txt
 ||precisionproving.com^$3p
+
+! https://github.com/uBlockOrigin/uAssets/issues/34909
+||filedragonspire.com^$all
+/apph5/?enHash=$doc
+##html[data-page="macos-download"] > body[data-platform="macos"] > .app_wrap
 
 ! !SECTION: ClickFix
 
@@ -5453,7 +5471,7 @@ rapidkil.com.au##+js(aost, XMLHttpRequest, /wp-content)
 /^https:\/\/(?:[a-z]{3,5}|[ej][ac])\.[a-z]{4,10}\.[a-z]{2,6}\/item-(?:[0-9A-Za-z]{10}|\d{8}|[0-9a-f]{32})\.html$/$doc,match-case,to=art|autos|baby|best|boats|buzz|cards|cfd|click|cyou|eu|fit|fun|guru|hair|homes|ink|lat|lol|mom|my|pics|qpon|quest|rest|sale|sbs|skin|today|top|wiki|work|world|xyz
 /^https:\/\/(?:[a-z]{4,5}|[ej][ac])\.[a-z]{4,10}\.[a-z]{2,6}\/item-(?:[0-9A-Za-z]{10}|\d{8}|[0-9a-f]{32})\.html$/$doc,match-case,to=biz|blog|cc|cloud|club|info|life|live|me|one|online|shop|site|space|store
 ! https://github.com/AdguardTeam/AdguardFilters/commit/e1f80e3244eff4c1688c30947655ebc6f72b47cc
-/^https:\/\/([a-vx-z][a-z]{2,}\.)?[0-9a-z-]{3,}\.(com|net|org)\/index\.php\?main_page=product_info(&stl=\d)?&(cPath|products_id)=/$doc
+/^https:\/\/([a-vx-z][a-z]{2,}\.)?[0-9a-z-]{3,}\.(com|net|org)\/index\.php\?main_page=product_info&/$doc
 !#endif
 
 ! https://www.reddit.com/r/Scams/comments/1iyqpsn/new_digital_fearscam_unlocked_zoom_phishing/
@@ -6212,7 +6230,6 @@ ublockorigin.app###main::before:style(content: 'This is not the official uBlock 
 ||todesk.ac.cn^$all
 ||todesk.im^$all
 ||youkuhonor.com^$all
-||youku.tv^$all
 ||wps.ac.cn^$all
 ||cn-wps-zh.com.cn^$all
 ||tuba.toolg.cn^$all
@@ -6568,3 +6585,23 @@ top##body > center + .A + .post
 msm-wroclaw.pl##+js(noeval-if, _0x)
 ||bringmeday.icu^$all
 ||bringmelove.icu^$all
+
+! https://github.com/AdguardTeam/AdguardFilters/issues/243746
+||timbuk2.com.de^$all
+
+! https://github.com/uBlockOrigin/uAssets/issues/34913
+||sanal-nine.vercel.app^$doc
+
+! https://github.com/uBlockOrigin/uAssets/issues/34930
+||changelly.com.$doc
+||changelly.com.lc^$all
+||changelly.com.mx^$all
+||us-changelly.com.co^$all
+||app-changelly.net^$all
+||app.phantomlocal.com^$all
+||trezor-uk.at^$all
+||changelly-en.at^$all
+||en-leger.org^$all
+||up-ledger.com^$all
+||ledger-nano.com^$all
+||ledger.net.cn^$all

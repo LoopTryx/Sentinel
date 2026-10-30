@@ -1,0 +1,14 @@
+# USB admission service and connection popup
+
+Owner approved: native protected service owns admission; arrival popup reports confirmed Windows state and offers Allow once / Keep blocked. Do not label post-arrival observation or a registry write as pre-input containment. Existing exact built-in source evidence is available; it is not installed enrollment. Owner deferred recovery-environment verification, so live restrictions remain disabled.
+
+Implementation order:
+
+1. Replace consent-Boolean authorization with a service-verifiable RSA/SHA256 challenge. Bind owner key pinned by protected enrollment, service-run nonce, native caller identity, exact connection generation/capabilities, operation, random nonce and monotonic expiry. One use, detach/reconnect/action/caller changes fail closed. Tests use synthetic in-memory keys; genuine Hello enrollment/signing needs separate owner action and hardware evidence.
+2. Native service transport authenticates Windows pipe caller identity and installed image signature, bounds every message, and never accepts renderer IDs/clock/hold assertions. No unprotected owner-key enrollment or unsigned privileged installation.
+3. Admission adapter provisions a verified restrictive baseline with independent recovery first; approvals use the reviewed baseline-preserving adapter. Installed watchdog, explicit rollback, conflict/crash recovery and native readback precede enablement. Phase0 establishes whether install policy actually prevents first input; unsupported paths cannot be called blocked.
+4. Native arrival popup consumes typed service states: checking, blocked (only confirmed containment), allowed, disconnected, unavailable. Allow once requires a valid signed per-connection challenge and successful native readback. Keep blocked never grants permission. Unknown/unavailable shows disabled approval. Popup dismiss is not approval; disconnect invalidates it. Match existing navy/azure glass style, readable identity/capabilities and concise status.
+
+New source stays on PR74's owned issue branch, with tests, documented native signatures and independent review. Preserve unrelated NativeConsole.cs and peer claims. Full local verifier plus installed service/device tests are distinct. Completion requires actual supported device admission and recovery acceptance, not only components or a UI.
+
+Current increment: signature authority and existing-key adapter implemented/tested (no genuine enrollment/signing), native arrival/removal notices wired into GlassConsole and normal-receiver popup visually confirmed by owner. Notice status is unavailable and approval disabled because the actual installed service/admission backend is unfinished. See usb-signed-notices-2026-10-14.md. UsbGuardArrival.cs and its test are additional owned files; future claimed UsbGuardService/build files have not been implemented. Do not describe this as an installed service or completed blocker.

@@ -1,0 +1,53 @@
+{
+  "description": "Frozen initial email policy versus updated policy and technical checks. Sanitized historic public samples; not live-inbox accuracy.",
+  "results": {
+    "tuning": {
+      "baseline": {
+        "samples": 80,
+        "scams": 40,
+        "legitimate": 40,
+        "falsePositives": 0,
+        "falseNegatives": 38
+      },
+      "updated": {
+        "samples": 80,
+        "scams": 40,
+        "legitimate": 40,
+        "falsePositives": 4,
+        "falseNegatives": 23
+      }
+    },
+    "comparison": {
+      "baseline": {
+        "samples": 20,
+        "scams": 10,
+        "legitimate": 10,
+        "falsePositives": 0,
+        "falseNegatives": 9
+      },
+      "updated": {
+        "samples": 20,
+        "scams": 10,
+        "legitimate": 10,
+        "falsePositives": 0,
+        "falseNegatives": 8
+      }
+    },
+    "regression": {
+      "baseline": {
+        "samples": 20,
+        "scams": 0,
+        "legitimate": 20,
+        "falsePositives": 0,
+        "falseNegatives": 0
+      },
+      "updated": {
+        "samples": 20,
+        "scams": 0,
+        "legitimate": 20,
+        "falsePositives": 0,
+        "falseNegatives": 0
+      }
+    }
+  }
+}

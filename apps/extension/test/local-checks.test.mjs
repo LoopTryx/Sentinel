@@ -44,11 +44,11 @@ test('message checks are bounded local clues, not clean or malicious verdicts',(
  assert.doesNotMatch(JSON.stringify(result),/URGENT send money/);
  assert.throws(()=>explainMessage('x'.repeat(4097)));
 });
-test('cash claim bait catches price typo but ordinary prices remain unknown',()=>{
+test('bare cash claims and price typos need supporting risk evidence',()=>{
  for(const message of ['Come claim your price of 100$!!','Come claim your free price of 100$!!','Claim your cash of $100','CLAIM YOUR MONEY £200']){
   const result=explainMessage(message);
-  assert.equal(result.risk,'suspicious');
-  assert.ok(result.reasons.some(r=>r.code==='reward'));
+  assert.equal(result.risk,'unknown');
+  assert.ok(result.signals.some(r=>r.code==='reward'));
   assert.equal(result.networkAccessed,false);
  }
  for(const message of ['The price is 100$','Please confirm the price of $100','I bought this for $100','Claim your receipt for $100','The prizewinning project has a price tag'])assert.equal(explainMessage(message).risk,'unknown');

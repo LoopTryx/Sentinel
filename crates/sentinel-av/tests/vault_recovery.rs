@@ -98,11 +98,14 @@ fn oversized_source_is_rejected_before_key_or_blob_creation() {
     let source = root.join("large.txt");
     std::fs::File::create(&source)
         .unwrap()
-        .set_len(9 * 1024 * 1024)
+        .set_len(sentinel_av::vault::MAX_PLAINTEXT_BYTES as u64 + 29)
         .unwrap();
     let vault = Vault::new(&root.join("app"));
     assert!(vault.quarantine(&source).is_err());
-    assert_eq!(std::fs::metadata(&source).unwrap().len(), 9 * 1024 * 1024);
+    assert_eq!(
+        std::fs::metadata(&source).unwrap().len(),
+        (sentinel_av::vault::MAX_PLAINTEXT_BYTES as u64 + 29)
+    );
     assert!(!root.join("app/vault.key").exists());
     assert_eq!(std::fs::read_dir(&vault.dir).unwrap().count(), 0);
     std::fs::remove_dir_all(root).unwrap();
@@ -116,12 +119,15 @@ fn oversized_recovery_input_preserves_blob_and_destination() {
         .write(true)
         .open(&blob)
         .unwrap()
-        .set_len(9 * 1024 * 1024)
+        .set_len(sentinel_av::vault::MAX_PLAINTEXT_BYTES as u64 + 29)
         .unwrap();
     let target = root.join("restored.txt");
     assert!(vault.restore(&id, &target).is_err());
     assert!(!target.exists());
-    assert_eq!(std::fs::metadata(&blob).unwrap().len(), 9 * 1024 * 1024);
+    assert_eq!(
+        std::fs::metadata(&blob).unwrap().len(),
+        (sentinel_av::vault::MAX_PLAINTEXT_BYTES as u64 + 29)
+    );
     std::fs::remove_dir_all(root).unwrap();
 }
 
@@ -133,17 +139,20 @@ fn exact_plaintext_boundary_restores_and_oversized_key_is_preserved() {
     let source = root.join("boundary.txt");
     std::fs::File::create(&source)
         .unwrap()
-        .set_len(8 * 1024 * 1024)
+        .set_len(sentinel_av::vault::MAX_PLAINTEXT_BYTES as u64)
         .unwrap();
     let vault = Vault::new(&root.join("app"));
     let id = vault.quarantine(&source).unwrap().vault_file;
     assert_eq!(
         std::fs::metadata(vault.dir.join(&id)).unwrap().len(),
-        8 * 1024 * 1024 + 28
+        sentinel_av::vault::MAX_PLAINTEXT_BYTES as u64 + 28
     );
     let target = root.join("restored.txt");
     vault.restore(&id, &target).unwrap();
-    assert_eq!(std::fs::metadata(&target).unwrap().len(), 8 * 1024 * 1024);
+    assert_eq!(
+        std::fs::metadata(&target).unwrap().len(),
+        sentinel_av::vault::MAX_PLAINTEXT_BYTES as u64
+    );
     let second = root.join("second.txt");
     std::fs::write(&second, b"harmless").unwrap();
     let id = vault.quarantine(&second).unwrap().vault_file;

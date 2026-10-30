@@ -1,93 +1,76 @@
 <div align="center">
 
-# SENTINEL
+# Sentinel
 
-**A glass desktop console. A connected browser companion.**
+**A local-first Windows security companion.**
 
-Explore file inspection, password health and suspicious-link warnings in one Windows school demo.
+File inspection, browser awareness, encrypted passwords and local AI in one desktop console.
 
-[**Download v1.0.0**](https://github.com/LoopTryx/Sentinel/releases/tag/v1.0.0) · [Demo guide](docs/today-demo.md) · [Report an issue](https://github.com/LoopTryx/Sentinel/issues)
+[Download v1.0.0](https://github.com/LoopTryx/Sentinel/releases/tag/v1.0.0) · [Changelog](CHANGELOG.md) · [Architecture](docs/architecture.md) · [Report a problem](https://github.com/LoopTryx/Sentinel/issues)
 
-**Windows · Chrome extension · Local processing · v1.0.0 school demo**
+Windows 10 / 11 x64 · Chrome companion · Rust · C# / WPF · React / TypeScript
 
 </div>
 
----
+![Sentinel console preview](docs/evidence/sentinel-ui-integration.png)
 
-![Sentinel console design](docs/evidence/sentinel-ui-integration.png)
+*Historical interface preview. This image is not evidence of current protection or hardware acceptance.*
 
-*Earlier console preview showing the visual foundation. v1 adds the glass desktop window, shared dummy accounts and connected runtime; this image is not evidence of live protection.*
+## Capabilities
 
-## What you can try
+| Area | Implemented behavior | Boundary |
+|---|---|---|
+| File inspection | Rust inspection core, ClamAV signature integration, YARA-X rules, SHA-256 matching, static indicators and entropy analysis | Different scan paths use different layers; partial/error states remain visible |
+| Native scanning | Persistent signature worker, monitored downloads, manual scan modes and cancellation | No guarantee that every malicious file will be detected or blocked before execution |
+| Passwords | Encrypted local vault, metadata browsing, native Windows Hello approvals, account management and generator | Real browser/Hello behavior must be checked on the target machine |
+| Browser companion | Connected overview, supported autofill/save flows, opted-in link and message awareness | Chrome permissions and supported site layouts are required |
+| SentinelAI | Local model inference, bounded conversational context and encrypted local chat history | Advice can be wrong; online Think mode uses NVIDIA NIM with consent/configuration |
+| Device overview | CPU, system RAM, aggregate Chrome working-set memory and drive capacity | Chrome memory is aggregate process usage, not exact per-tab RAM |
+| USB workspace | Device observations, file inspection and separately gated policy/driver experiments | Not complete BadUSB protection; experimental enforcement is not a daily-use safety guarantee |
+| Quarantine | Encrypted storage, inspected-file identity checks and recovery bookkeeping | Heuristic suspicion alone does not authorize automatic containment |
 
-| Feature | In v1.0.0 |
-|---|---|
-| **Glass desktop** | Grouped navigation, custom window controls and an activity feed connected to local session events. |
-| **File inspection** | Selected file/folder reads, hashes, cancellation and partial/error results. ClamAV detects the included harmless test signatures. |
-| **Password workspace** | Four invented accounts, computed weakness/reuse checks, recommendations and a cryptographic generator. Paired clients share demo account edits. |
-| **URL warnings** | Opted-in navigation warnings based on local keyword rules and a sourced domain-list snapshot. Coverage is partial. |
-| **WhatsApp warnings** | Opted-in local wording checks and inline explanations for supported rendered WhatsApp Web messages. |
+## Install
 
-**Scope:** this is a working school demo, not a finished antivirus or credential vault. ClamAV receives only verified harmless sample bytes; other selected files get bounded byte inspection. Demo passwords stay in memory and reset when the runtime stops. Microsoft Defender remains enabled.
+1. Download **Sentinel-v1.0.0-Setup.exe** from [Releases](https://github.com/LoopTryx/Sentinel/releases/tag/v1.0.0).
+2. Compare its SHA-256 with the release's `SHA256SUMS.txt`.
+3. Run Setup. It checks the platform and guides prerequisite setup; internet access may be needed for WebView2.
+4. Follow the Chrome companion instructions. Chrome may require a one-time user approval; the installer cannot silently bypass that security boundary.
+5. Open Sentinel. Enable only the browser features and permissions you intend to use.
 
-## Start the demo
+Keep Microsoft Defender enabled. The app does not guarantee detection, safe browsing or immunity from USB attacks. The installer is not claimed to be publisher-code-signed. Existing account and chat data belongs to the user and is not included in release payloads.
 
-1. Download **Sentinel-v1.0.0-Windows-portable.zip** from the [release page](https://github.com/LoopTryx/Sentinel/releases/tag/v1.0.0) and extract it.
-2. On Windows, ensure **PowerShell 7**, **.NET Framework** and the **WebView2 runtime** are available.
-3. Open PowerShell 7 in the extracted folder and run:
+## Privacy and AI
 
-   ```powershell
-   ./Start-Sentinel-Demo.ps1
-   ```
+Supported local analysis runs on the computer. Password contents and chat history use separate encrypted local stores. Local AI uses bundled quantized models through llama.cpp. Optional online Think mode uses NVIDIA NIM and requires provider configuration and the applicable consent flow. Do not interpret “local-first” as a promise that every optional feature is offline.
 
-4. In Chrome, open `chrome://extensions`, enable Developer mode, choose **Load unpacked**, and select the extracted `apps/extension/dist` folder.
-5. Open the desktop **Threat Log** connection controls. Create pairing for the extension's exact ID, then enter the displayed port/key in the extension's connection controls.
-6. Enable URL or WhatsApp warnings through the extension controls and approve the relevant Chrome permissions yourself.
+## Build and test
 
-The ZIP is portable; there is no installer. See the [five-minute walkthrough and pairing details](docs/today-demo.md) if you get stuck.
-
-### A quick route through Sentinel
-
-- **Passwords:** inspect Orbit Mail's weak password and the reused School Portal/Arcade passwords. Generate a demo replacement and observe the audit change in both paired clients.
-- **Scan & Detect:** select `apps/demo-runtime/samples/02-marker.txt`, then the samples folder. Inspect the actual findings, byte counts and hashes.
-- **Browser:** enable warnings and use the controlled examples in the demo guide. Review local explanations without submitting private messages or passwords.
-- **Threat Log:** inspect the session's recorded actions and reason codes.
-
-## Build from source
-
-Use the [v1.0.0 source archives](https://github.com/LoopTryx/Sentinel/releases/tag/v1.0.0) for the pinned release. `main` contains subsequent work.
-
-From the repository root, with Node.js and the repository's pnpm version available:
+Install Node.js, the repository's pnpm version and the pinned Rust toolchain. Native Windows builds also need .NET Framework tools, the official WebView2 SDK and prepared third-party engine/model assets.
 
 ```powershell
 pnpm install --frozen-lockfile
 pnpm --filter @sentinel/ui build
 node apps/extension/scripts/build.mjs
-./apps/desktop/build-console.ps1 -WebView2SdkPath "C:/path/to/Microsoft.Web.WebView2"
-pwsh -NoProfile -File ./tools/launch-demo.ps1
-```
-
-The native host needs the official WebView2 SDK. The prepared ClamAV executable, databases and certificate files are included in the portable release; they are not vendored into the source archive. Follow the [demo setup notes](docs/today-demo.md) when preparing a source build.
-
-To run the repository checks on a configured Windows development machine:
-
-```powershell
 ./tools/verify.ps1
 ```
 
-## Still being built
+See [release building](docs/releases/building.md) for native packaging and asset requirements. The desktop currently ships as **WPF + WebView2**, not the earlier planned Tauri shell. Generated bundles and large binaries are not committed to source.
 
-Persistent encrypted credential storage, approved imports/autofill, download-to-desktop scanning, automatic desktop logging of navigation warnings, consented cloud explanations and full offline/rehearsal acceptance remain unfinished. Do not enter real credentials into the demo vault.
+## Repository map
 
-## Project map
-
-| Location | Purpose |
+| Path | Purpose |
 |---|---|
-| [`apps/ui`](apps/ui) | React console and password workspace |
-| [`apps/desktop`](apps/desktop) | Glass Windows host used by this demo |
-| [`apps/extension`](apps/extension) | Chrome companion and local warnings |
-| [`apps/demo-runtime`](apps/demo-runtime) | Shared demo state and bounded inspection |
-| [`packages/contracts`](packages/contracts) | Generated contracts between components |
-| [`crates`](crates) | Rust runtime and security foundations |
+| `apps/ui` | React console and shared companion vault UI |
+| `apps/desktop` | Native Windows host, connector, approvals and installer |
+| `apps/extension` | Chrome Manifest V3 companion |
+| `apps/demo-runtime` | Local backend and AI orchestration; legacy directory name |
+| `crates` | Rust scanning, vault, USB, contracts and runtime components |
+| `packages/contracts` | Generated cross-component contracts |
+| `tools` | Build, test, packaging and gated qualification tooling |
+| `docs` | Architecture, engineering history and capability evidence |
 
-[Release evidence](docs/v1.0.0-demo.md) · [Implementation status](STATUS.md) · [Master plan](docs/Sentinel-Master-Plan.md) · [Collaboration rules](docs/AI-COLLABORATION.md)
+## Releases and contribution
+
+The early v1/v2/v3 previews are now numbered **v0.1.0 / v0.2.0 / v0.3.0**. The latest consolidated application is **v1.0.0**. Original commits and authors are preserved; see [version migration](docs/releases/version-migration.md) for historical artifact limitations.
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before development and [SECURITY.md](SECURITY.md) before security testing. Third-party engines, models, fonts and assets retain their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md).

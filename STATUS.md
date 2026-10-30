@@ -1,3 +1,11 @@
+# Current release status - v1.0.0
+
+The 2026-10-30 consolidation supersedes older snapshot descriptions below. See [README](README.md), [CHANGELOG](CHANGELOG.md), [architecture](docs/architecture.md) and [release provenance](docs/releases/version-migration.md).
+
+Implemented source includes a shared encrypted account vault, native Hello-approved secret operations, persistent local AI history, contextual chat, message/browser adapters, native metrics, persistent signature scanning/download monitoring, quarantine recovery and a single-EXE installer. Source implementation, automated tests, installed acceptance and universal protection are distinct claims. Live Gmail/Hello and clean-machine compatibility remain explicit acceptance work; experimental USB/HID enforcement is not released as universal protection.
+
+## Historical engineering records
+
 # Implementation status
 
 Owner workflow amendment, 8 October 2026: GLM is replaced by Engineer B (GPT-6.1-sol). Both engineers may deliver UI and logic through claimed issues and accepted handoffs. A leads runtime/security; B leads UI/product integration. Current rules: [AI collaboration](docs/AI-COLLABORATION.md), [Engineer B prompt](docs/agent-prompts/GPT-Peer.md). This supersedes older exclusive-role wording. Product requirements, milestone gates and implementation evidence remain unchanged.

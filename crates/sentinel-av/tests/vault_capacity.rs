@@ -14,7 +14,7 @@ fn aggregate_bytes_and_entries_refuse_quarantine_without_removing_source() {
         } else {
             std::fs::File::create(vault.dir.join("existing-large"))
                 .unwrap()
-                .set_len(64 * 1024 * 1024)
+                .set_len(sentinel_av::vault::MAX_STORAGE_BYTES)
                 .unwrap();
         }
         let source = root.join("harmless.txt");

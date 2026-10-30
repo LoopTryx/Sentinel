@@ -18,7 +18,7 @@ void (async()=>{
  const current=await chrome.runtime.sendMessage({kind:'whatsapp_content_status'});
  if(!current?.enabled||generation!==globalThis.__sentinelWhatsAppGeneration)return;
  globalThis.__sentinelWhatsApp?.stop();
- globalThis.__sentinelWhatsApp=mountWhatsAppWarnings(document);
+ globalThis.__sentinelWhatsApp=mountWhatsAppWarnings(document,chrome);
  const interval=setInterval(async()=>{
   if(generation!==globalThis.__sentinelWhatsAppGeneration){clearInterval(interval);return;}
   try{const state=await chrome.runtime.sendMessage({kind:'whatsapp_content_status'});if(generation===globalThis.__sentinelWhatsAppGeneration&&!state?.enabled)globalThis.__sentinelWhatsAppListener({kind:'whatsapp_stop'},{id:chrome.runtime.id});}

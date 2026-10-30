@@ -1,0 +1,5 @@
+import {expect,it} from 'vitest';import {parseQuarantineInventory} from './quarantine-inventory';
+const item=()=>({reference:'a'.repeat(32)+'.qtn',fileName:'harmless.txt',bytes:'16',sha256:'b'.repeat(64),addedAt:'1792200000',state:'quarantined',canRestore:true,canDestroy:true});
+it('accepts bounded redacted inventory and refuses forged or inconsistent records',()=>{expect(parseQuarantineInventory({items:[item()]})).not.toBeNull();for(const patch of [{reference:'../other.qtn'},{state:'recovery_required'},{fileName:'bad\nname'},{bytes:'67108865'},{path:'private'}])expect(parseQuarantineInventory({items:[{...item(),...patch}]})).toBeNull();expect(parseQuarantineInventory({items:[item(),item()]})).toBeNull();expect(parseQuarantineInventory({items:[],path:'private'})).toBeNull();});
+
+it('accepts expanded quarantine inventory without weakening its upper bound',()=>{expect(parseQuarantineInventory({items:[{...item(),bytes:'9437184'}]})).not.toBeNull();expect(parseQuarantineInventory({items:[{...item(),bytes:'67108864'}]})).not.toBeNull();});

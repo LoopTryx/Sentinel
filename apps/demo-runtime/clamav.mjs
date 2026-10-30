@@ -8,8 +8,8 @@ const DB=fileURLToPath(new URL('./synthetic-demo.hdb',import.meta.url));
 export async function inspectWithClamAV(bytes,cancelled=()=>false){
  const known=JSON.parse(await readFile(new URL('./known-samples.json',import.meta.url),'utf8'));
  const digest=createHash('sha256').update(bytes).digest('hex');
- if(!known.some(sample=>sample.sha256===digest&&sample.size===bytes.length))return {status:'unsupported',reason:'ClamAV demo gate permits only the checked-in harmless sample bytes. Other files receive bounded byte inspection; hostile parser review is pending.'};
- if(process.platform!=='win32')return {status:'unavailable',reason:'This prepared ClamAV demo executable targets Windows.'};
+ if(!known.some(sample=>sample.sha256===digest&&sample.size===bytes.length))return {status:'unsupported',reason:'This file inspector supports the bundled harmless test files. Use the dashboard scanner for other files.'};
+ if(process.platform!=='win32')return {status:'unavailable',reason:'This ClamAV build requires Windows.'};
  try{if(createHash('sha256').update(await readFile(EXE)).digest('hex')!==PIN)throw new Error();}catch{return {status:'unavailable',reason:'The verified ClamAV 1.5.4 executable is missing or changed.'};}
  if(cancelled())return {status:'incomplete',reason:'ClamAV inspection was cancelled before launch.'};
  let official=false;
@@ -27,6 +27,6 @@ export async function inspectWithClamAV(bytes,cancelled=()=>false){
   const consume=chunk=>{count+=chunk.length;if(count>32768)stop();else output+=chunk.toString('utf8');};child.stdout.on('data',consume);child.stderr.on('data',consume);
   child.stdin.on('error',()=>{});child.stdin.end(bytes);
   child.on('error',()=>finish({status:'unavailable',reason:'ClamAV could not start.'}));
-  child.on('close',code=>finish(stopped?{status:'incomplete',reason:'ClamAV was stopped; inspection is incomplete.'}:code===1?{status:output.includes('Synthetic.Sentinel.DemoOnly.UNOFFICIAL FOUND')?'synthetic_match':'signature_alert',reason:output.includes('Synthetic.Sentinel.DemoOnly.UNOFFICIAL FOUND')?'ClamAV matched the harmless Synthetic.Sentinel.DemoOnly signature using real bytes. This is a test match, not malware.':'ClamAV reported another signature match. Verify independently; no automatic remediation.'}:code===0?{status:'no_detection',reason:official?'ClamAV completed with official daily and demo signatures loaded. Main signatures and complex parsers are excluded from this bounded demo.':'ClamAV completed without a demo signature match. Only synthetic signatures are loaded; official databases unavailable.'}:{status:'error',reason:'ClamAV returned an engine/database error. No clean verdict.'}));
+  child.on('close',code=>finish(stopped?{status:'incomplete',reason:'ClamAV was stopped; inspection is incomplete.'}:code===1?{status:output.includes('Synthetic.Sentinel.DemoOnly.UNOFFICIAL FOUND')?'synthetic_match':'signature_alert',reason:output.includes('Synthetic.Sentinel.DemoOnly.UNOFFICIAL FOUND')?'ClamAV matched the harmless Synthetic.Sentinel.DemoOnly signature using real bytes. This is a test match, not malware.':'ClamAV reported another signature match. Verify independently; no automatic remediation.'}:code===0?{status:'no_detection',reason:official?'ClamAV completed with daily and test signatures. Full signature and file-format coverage is unavailable in this inspector.':'ClamAV completed without a test signature match. Official signature databases are unavailable.'}:{status:'error',reason:'ClamAV returned an engine/database error. No clean verdict.'}));
  });
 }

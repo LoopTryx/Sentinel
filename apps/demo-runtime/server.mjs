@@ -1,4 +1,14 @@
+import {createPasswordVault} from './password-vault.mjs';
+import {passwordRoute} from './password-routes.mjs';
+import {watchtowerPreferences} from './watchtower-observe.mjs';
+import {rememberBrowserDomain,forgetBrowserDomains} from './watchtower-browser.mjs';
 import http from 'node:http';
+import {createAiHandoff} from './sentinel-ai.mjs';
+import {createLocalQueue} from './local-ai-queue.mjs';
+import {createLocalAi} from './local-ai.mjs';
+import {observeWifi} from './wifi.mjs';
+import {observeUsb} from './usb-observe.mjs';
+import {createObservationMonitor} from './observation-monitor.mjs';
 import {randomBytes, createHash, webcrypto, timingSafeEqual} from 'node:crypto';
 import {lstat, open, opendir, realpath, writeFile} from 'node:fs/promises';
 import {basename, resolve, join} from 'node:path';
@@ -37,10 +47,28 @@ const allowedCodes=new Set(['http','credentials','ip','internationalized','port'
 function equal(a,b){return typeof a==='string'&&/^[a-f0-9]{64}$/.test(a)&&a.length===b.length&&timingSafeEqual(Buffer.from(a),Buffer.from(b));}
 function keys(body,list){return body&&typeof body==='object'&&!Array.isArray(body)&&Object.keys(body).every(k=>list.includes(k));}
 
-export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=null,nativeAppDir=null}={}) {
+export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=null,nativeAppDir=null,autoObserve=false,localExplanations=autoObserve,passwordVaultPath=null}={}) {
+ const credentialSite=host=>{if(typeof host!=='string'||host.length>253||!/^[a-zA-Z0-9.:-]+$/.test(host))throw Error('invalid_origin');return new URL('https://'+host).origin;};
+ const aiHandoff=createAiHandoff();
+ const localAi=createLocalAi();const chatAi=createLocalAi({profile:'chat'});if(autoObserve){void localAi.warm().catch(()=>{});void chatAi.warm().catch(()=>{});}
+ const chatQueue=createLocalQueue(chatAi);const runChat=(...args)=>chatQueue.run(...args);
+ const localRequests=new Map();let localTail=Promise.resolve(),localPending=0,activeLocalRef=null;
+ function startLocalExplanation(handoff){
+  for(const [ref,row]of localRequests)if(row.expiresAt<=Date.now())localRequests.delete(ref);
+  if(localRequests.has(handoff.finding.ref)&&!localRequests.get(handoff.finding.ref).error)return;
+  if(localPending>=8)return;
+  localPending++;
+  const row={question:handoff.question.slice(0,512),expiresAt:handoff.expiresAt,error:null,promise:null,cancelled:false};
+  row.promise=localTail.then(async()=>{if(closed)throw Error('local_model_unavailable');if(row.cancelled)throw Error('local_cancelled_or_timed_out');activeLocalRef=handoff.finding.ref;const result=handoff.finding.source.endsWith('_message')?await runChat('Assess whether this message is likely to be a scam using the supplied context.',handoff.finding,{classification:true}):await localAi.answer(row.question,handoff.finding);if(row.cancelled)throw Error('local_cancelled_or_timed_out');aiHandoff.publishQuick(handoff.finding.ref,result);return result;}).catch(error=>{row.error=['local_model_unavailable','local_cancelled_or_timed_out','local_response_unavailable','local_model_busy'].includes(error.message)?error.message:'local_response_unavailable';throw error;}).finally(()=>{if(activeLocalRef===handoff.finding.ref)activeLocalRef=null;localPending--;});
+  localTail=row.promise.catch(()=>{});localRequests.set(handoff.finding.ref,row);
+ }
+
+ const wifiMonitor=autoObserve?createObservationMonitor({collect:observeWifi,intervalMs:30000}):null;
+ const usbMonitor=autoObserve?createObservationMonitor({collect:observeUsb,intervalMs:15000}):null;
  const desktopToken=randomBytes(32).toString('hex');
  const nativeActionToken=randomBytes(32).toString('hex');
  let browserToken='',extensionId='',unlocked=false,scan=null,closed=false,revision=0,activeScan=Promise.resolve(),closing;
+ const passwordVault=passwordVaultPath?createPasswordVault({path:passwordVaultPath}):null;
  const events=[];
  const accounts=[
   {id:'mail',name:'Orbit Mail',user:'alex@example.test',host:'mail.example.test',password:'password123'},
@@ -49,10 +77,10 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
   {id:'games',name:'Arcade',user:'player@example.test',host:'arcade.example.test',password:'Sunshine2026!'},
  ];
  function event(source,kind,codes=[]){events.unshift({id:randomBytes(8).toString('hex'),at:new Date().toISOString(),source,kind,codes});events.splice(64);}
- function state(){return {revision,mode:'synthetic_demo',connected:true,unlocked,extensionId,accounts:accounts.map(({password,...a})=>({...a,...auditPassword(password),reused:accounts.filter(b=>b.password===password).length>1})),events,scan:scan?Object.fromEntries(Object.entries(scan).filter(([k])=>k!=='cancel')):null};}
+ function state(){if(passwordVault){accounts.splice(0);const v=passwordVault.status();if(unlocked===v.locked)revision++;unlocked=!v.locked;if(unlocked)accounts.push(...passwordVault.list());}return {revision,mode:passwordVault?'encrypted_vault':'synthetic_demo',connected:true,unlocked,extensionId,accounts:accounts.map(({password,...a})=>passwordVault?a:({...a,...auditPassword(password),reused:accounts.filter(b=>b.password===password).length>1})),events,scan:scan?Object.fromEntries(Object.entries(scan).filter(([k])=>k!=='cancel')):null};}
  let nativeSnapshot=null;
  let nativeService=null;
- const outstandingQuarantines=new Set();
+
  let nativeActionInFlight=false;
  async function runNativeScan(path,current){
   try{
@@ -143,10 +171,102 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
   const desktop=equal(credential,desktopToken)&&!origin;
   const browser=browserToken&&equal(credential,browserToken)&&req.headers['x-sentinel-extension']===extensionId&&(!origin||origin===browserOrigin);
   if(req.method!=='POST'||(!desktop&&!browser))return respond(403,{error:'forbidden'});
-  req.setTimeout(5000,()=>req.destroy());
+  req.setTimeout(req.url==='/ai-chat'?65000:req.url==='/ai-quick'?40000:5000,()=>req.destroy());
   let body;
-  try{let size=0;const chunks=[];for await(const c of req){size+=c.length;if(size>4096)return respond(413,{error:'request_too_large'});chunks.push(c);}body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{return respond(400,{error:'invalid_request'});}
-  if(!keys(body,['id','path','extensionId','risk','codes','reportRef','actionRef','restoreRef']))return respond(400,{error:'invalid_request'});
+  const bodyLimit=req.url==='/ai-answer'&&desktop&&equal(req.headers['x-sentinel-native-action'],nativeActionToken)?24000:req.url==='/ai-message'&&browser?12000:4096;
+  try{let size=0;const chunks=[];for await(const c of req){size+=c.length;if(size>bodyLimit)return respond(413,{error:'request_too_large'});chunks.push(c);}body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{return respond(400,{error:'invalid_request'});}
+  if(req.url==='/password-vault'){
+   if(!passwordVault)return respond(503,{error:'vault_unavailable'});
+   if(body.action!=='status'&&(!desktop||!equal(req.headers['x-sentinel-native-action'],nativeActionToken)))return respond(403,{error:'native_approval_required'});
+   try{if(!keys(body,['action','data'])||Object.keys(body).length!==2)throw Error('invalid_vault_request');const result=await passwordRoute(passwordVault,body.action,body.data);if(['unlock','lock','save'].includes(body.action))revision++;return respond(200,result);}catch(e){return respond(400,{error:['vault_locked','vault_busy','vault_try_later','vault_storage_busy','vault_invalid_file','vault_unlock_failed','invalid_origin','invalid_login','origin_mismatch','invalid_vault_request'].includes(e.message)?e.message:'vault_operation_failed'});}
+  }
+  if(passwordVault&&['/account-add','/account-update','/account-remove','/rotate','/reveal'].includes(req.url)){
+   if(!desktop||!equal(req.headers['x-sentinel-native-action'],nativeActionToken))return respond(403,{error:'native_approval_required'});
+   try{
+    const rows=passwordVault.list(),row=rows.find(a=>a.id===body.id);let result;
+    if(req.url==='/account-add')result=await passwordVault.save({origin:credentialSite(body.host),name:body.name,user:body.user,password:body.password||generatePassword(24,webcrypto)});
+    else if(!row)throw Error('invalid_account');
+    else if(req.url==='/account-remove')result=await passwordVault.remove(row.id);
+    else if(req.url==='/account-update')result=await passwordVault.edit(row.id,{origin:credentialSite(body.host),name:body.name,user:body.user,...(body.password?{password:body.password}:{})});
+    else if(req.url==='/rotate')result=await passwordVault.edit(row.id,{password:generatePassword(24,webcrypto)});
+    else result={...passwordVault.fill(row.id,row.origin),mode:'encrypted_vault'};
+    revision++;return respond(200,result);
+   }catch(e){return respond(400,{error:['vault_locked','invalid_account','account_exists','invalid_login','invalid_origin'].includes(e.message)?e.message:'vault_operation_failed'});}
+  }
+  if(req.url==='/ai-chat'||req.url==='/ai-chat-status'||req.url==='/ai-chat-cancel'){
+   if(!desktop||!equal(req.headers['x-sentinel-native-action'],nativeActionToken))return respond(403,{error:'forbidden'});
+   if(req.url==='/ai-chat-status'&&Object.keys(body).length===0)return respond(200,chatAi.status());
+   if(req.url==='/ai-chat-cancel'&&Object.keys(body).length===0){chatQueue.cancelConsole();return respond(200,{ok:true});}
+   if(req.url==='/ai-chat'&&Object.keys(body).sort().join(',')==='findingRef,question')try{const finding=body.findingRef===null?null:aiHandoff.resolve(body.findingRef);return respond(200,await runChat(body.question,finding));}catch(error){return respond(400,{error:['quick_question_too_long','local_model_busy','local_model_unavailable','local_cancelled_or_timed_out','finding_unknown_or_expired'].includes(error.message)?error.message:'local_response_unavailable'});}
+   return respond(400,{error:'invalid_request'});
+  }
+  if(req.url==='/ai-local-status'||req.url==='/ai-quick'||req.url==='/ai-quick-cancel'){
+   if(!desktop)return respond(403,{error:'forbidden'});
+   if(req.url==='/ai-local-status'&&Object.keys(body).length===0)return respond(200,localAi.status());
+   if(req.url==='/ai-quick-cancel'){if(Object.keys(body).length===0){localAi.cancel();return respond(200,{ok:true});}if(Object.keys(body).join(',')==='findingRef'&&(body.findingRef===null||typeof body.findingRef==='string'&&/^[a-f0-9]{32}$/.test(body.findingRef))){const row=localRequests.get(body.findingRef);if(row)row.cancelled=true;if(activeLocalRef===body.findingRef)localAi.cancel();return respond(200,{ok:true});}return respond(400,{error:'invalid_request'});}
+   if(req.url==='/ai-quick'&&Object.keys(body).sort().join(',')==='findingRef,question'){
+    try{const finding=body.findingRef===null?null:aiHandoff.resolve(body.findingRef);const prepared=localRequests.get(body.findingRef);const result=prepared&&prepared.question===body.question?await prepared.promise:await localAi.answer(body.question,finding);if(body.findingRef!==null)aiHandoff.publishQuick(body.findingRef,result);return respond(200,result);}catch(error){return respond(400,{error:['quick_question_too_long','local_model_busy','local_model_unavailable','local_cancelled_or_timed_out','local_response_unavailable','finding_unknown_or_expired'].includes(error.message)?error.message:'local_response_unavailable'});}
+   }return respond(400,{error:'invalid_request'});
+  }
+  if(req.url==='/ai-notify'||req.url==='/ai-open'||req.url==='/ai-message'||req.url==='/ai-handoff'||req.url==='/ai-inbox'||req.url==='/ai-finding'||req.url==='/ai-answer'||req.url==='/ai-result'){
+   try{
+    if(req.url==='/ai-notify'){if(!browser||Object.keys(body).join(',')!=='ref')return respond(403,{error:'forbidden'});return respond(200,aiHandoff.announce(body.ref));}
+    if(req.url==='/ai-open'){if(!browser||Object.keys(body).join(',')!=='ref')return respond(403,{error:'forbidden'});return respond(200,aiHandoff.open(body.ref));}
+    if(req.url==='/ai-message'){if(!browser)return respond(403,{error:'forbidden'});if(body.silent!==undefined&&typeof body.silent!=='boolean')return respond(400,{error:'invalid_message'});const {silent,...message}=body;const handoff=aiHandoff.createMessage(message,{silent:silent===true,deferAnnouncement:message.source==='whatsapp'});if(localExplanations)startLocalExplanation(handoff);return respond(200,handoff);}
+    if(req.url==='/ai-handoff'){
+     if(!browser)return respond(403,{error:'forbidden'});
+     const handoff=aiHandoff.create(body);if(localExplanations)startLocalExplanation(handoff);return respond(200,handoff);
+    }
+    if(req.url==='/ai-result'&&browser&&Object.keys(body).length===1)return respond(200,{result:aiHandoff.answer(body.ref),quick:aiHandoff.quick(body.ref),localError:localRequests.get(body.ref)?.error??null});
+    if(req.url==='/ai-answer'){
+     if(!desktop||!equal(req.headers['x-sentinel-native-action'],nativeActionToken))return respond(403,{error:'forbidden'});
+     if(Object.keys(body).sort().join(',')!=='ref,result')return respond(400,{error:'invalid_request'});
+     aiHandoff.publish(body.ref,body.result);return respond(200,{ok:true});
+    }
+    if(!desktop)return respond(403,{error:'forbidden'});
+    if(req.url==='/ai-inbox'&&Object.keys(body).length===0)return respond(200,{handoff:aiHandoff.take()});
+    if(req.url==='/ai-finding'&&Object.keys(body).length===1&&typeof body.ref==='string')return respond(200,{finding:aiHandoff.resolve(body.ref)});
+    return respond(400,{error:'invalid_request'});
+   }catch(error){return respond(400,{error:['replayed_handoff','handoff_capacity','finding_unknown_or_expired'].includes(error.message)?error.message:'invalid_handoff'});}
+  }
+  if(!keys(body,['id','path','extensionId','risk','codes','reportRef','actionRef','restoreRef','name','user','host','password']))return respond(400,{error:'invalid_request'});
+  if(req.url==='/account-update'){
+   if(!desktop||!equal(req.headers['x-sentinel-native-action'],nativeActionToken))return respond(403,{error:'native_approval_required'});
+   const text=(v,max)=>typeof v==='string'&&v.trim().length>0&&v.length<=max&&!/[\x00-\x1f\x7f]/.test(v);
+   if(!keys(body,['id','name','user','host','password'])||!text(body.name,80)||!text(body.user,254)||!text(body.host,253)||!/^[a-zA-Z0-9.-]+$/.test(body.host)||(Object.hasOwn(body,'password')&&(!text(body.password,256))))return respond(400,{error:'invalid_login'});
+   const account=accounts.find(a=>a.id===body.id);if(!account)return respond(400,{error:'invalid_account'});
+   if(accounts.some(a=>a.id!==body.id&&a.user===body.user.trim()&&a.host===body.host.toLowerCase()))return respond(409,{error:'account_exists'});
+   Object.assign(account,{name:body.name.trim(),user:body.user.trim(),host:body.host.toLowerCase()});
+   if(Object.hasOwn(body,'password'))account.password=body.password;
+   revision++;event('desktop','account_updated');return respond(200,{ok:true});
+  }
+  if(req.url==='/account-add'||req.url==='/account-remove'){
+   if(!desktop||!equal(req.headers['x-sentinel-native-action'],nativeActionToken))return respond(403,{error:'native_approval_required'});
+   if(req.url==='/account-remove'){
+    if(!keys(body,['id'])||typeof body.id!=='string')return respond(400,{error:'invalid_account'});
+    const index=accounts.findIndex(a=>a.id===body.id);if(index<0)return respond(400,{error:'invalid_account'});
+    accounts.splice(index,1);revision++;event('desktop','account_removed');return respond(200,{ok:true});
+   }
+   const text=(value,max)=>typeof value==='string'&&value.trim().length>0&&value.length<=max&&!/[\x00-\x1f\x7f]/.test(value);
+   if(!keys(body,['name','user','host','password'])||!text(body.name,80)||!text(body.user,254)||!text(body.host,253)||!/^[a-zA-Z0-9.-]+$/.test(body.host))return respond(400,{error:'invalid_login'});
+   if(Object.hasOwn(body,'password')&&!text(body.password,256))return respond(400,{error:'invalid_login'});
+   if(accounts.length>=128)return respond(409,{error:'account_limit'});
+   if(accounts.some(a=>a.user===body.user.trim()&&a.host.toLowerCase()===body.host.toLowerCase()))return respond(409,{error:'account_exists'});
+   let password=body.password||'';for(let attempt=0;!password&&attempt<32;attempt++){const candidate=generatePassword(24,webcrypto);if(auditPassword(candidate).health==='Stronger'&&!accounts.some(a=>a.password===candidate)){password=candidate;break;}}
+   if(!password)return respond(503,{error:'generation_unavailable'});
+   const id='account_'+randomBytes(8).toString('hex');accounts.push({id,name:body.name.trim(),user:body.user.trim(),host:body.host.toLowerCase(),password});revision++;event('desktop','account_added');return respond(200,{ok:true,id});
+  }
+  if(req.url==='/watchtower-domain'){if(!browser)return respond(403,{error:'forbidden'});if(keys(body,['host'])&&Object.keys(body).length===1&&body.host===null){forgetBrowserDomains();return respond(200,{ok:true});}if(!keys(body,['host','codes'])||(body.codes!==undefined&&(!Array.isArray(body.codes)||body.codes.length>2||!body.codes.every(code=>['portal_credentials','portal_payment'].includes(code))))||!rememberBrowserDomain(body.host,Date.now(),body.codes??[]))return respond(400,{error:'invalid_request'});return respond(200,{ok:true});}
+  if(req.url==='/watchtower-preference'){if(!desktop)return respond(403,{error:'forbidden'});if(!keys(body,['host','risk'])||Object.keys(body).length!==2)return respond(400,{error:'invalid_request'});try{return respond(200,await watchtowerPreferences.change(body.host,body.risk));}catch{return respond(503,{error:'preferences_unavailable'});}}
+  if(req.url==='/wifi'){
+   if(!desktop)return respond(403,{error:'forbidden'});
+   if(!keys(body,[]))return respond(400,{error:'invalid_request'});
+   try{return respond(200,await (wifiMonitor?wifiMonitor.read():observeWifi()));}catch(error){return respond(503,{error:['wifi_busy','wifi_unsupported'].includes(error.message)?error.message:'wifi_unavailable'});}
+  }
+  if(req.url==='/usb'){
+   if(!desktop)return respond(403,{error:'forbidden'});if(!keys(body,[]))return respond(400,{error:'invalid_request'});
+   try{return respond(200,await (usbMonitor?usbMonitor.read():observeUsb()));}catch(error){return respond(503,{error:['usb_busy','usb_unsupported'].includes(error.message)?error.message:'usb_unavailable'});}
+  }
   const actionRoutes={
    '/quarantine-prepare':['reportRef',v=>nativeService.prepareQuarantine(v)],
    '/quarantine-confirm':['actionRef',v=>nativeService.nativeQuarantineDecision(v,true)],
@@ -164,12 +284,12 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
    nativeActionInFlight=true;
    try{
     const result=await operation(body[key]);
-    if(result.type==='quarantine_receipt'&&result.data.state==='quarantined')outstandingQuarantines.add(result.data.actionRef);
-    if(result.type==='restore_receipt'&&result.data.state==='restored')outstandingQuarantines.delete(result.data.quarantine.actionRef);
+
+
     return respond(200,result);
    }finally{nativeActionInFlight=false;}
   }
-  if(req.url==='/state'&&keys(body,[])){const snapshot=state();if(browser)snapshot.scan=null;return respond(200,snapshot);}
+  if(req.url==='/state'&&keys(body,[])){const snapshot=state();if(browser){snapshot.scan=null;if(passwordVault)snapshot.accounts=[];}return respond(200,snapshot);}
   if(req.url==='/inspection'&&desktop&&keys(body,[]))return respond(200,{snapshot:nativeSnapshot});
   if(req.url==='/shutdown'&&desktop&&keys(body,[])){res.once('finish',()=>{void close().then(onShutdown);});return respond(200,{ok:true});}
   if(req.url==='/event'&&browser&&keys(body,['risk','codes'])&&['suspicious','unknown'].includes(body.risk)&&Array.isArray(body.codes)&&body.codes.length<=16&&body.codes.every(c=>allowedCodes.has(c))){event('browser',body.risk,Array.from(new Set(body.codes)));return respond(200,{ok:true});}
@@ -177,7 +297,7 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
   if(req.url==='/unlock'&&keys(body,[])){unlocked=true;return respond(200,{ok:true});}
   if(req.url==='/lock'&&keys(body,[])){unlocked=false;return respond(200,{ok:true});}
   if(['/rotate','/reveal'].includes(req.url)&&keys(body,['id'])){
-   if(!unlocked)return respond(423,{error:'demo_locked'});
+   if(!desktop||!equal(req.headers['x-sentinel-native-action'],nativeActionToken))return respond(403,{error:'native_approval_required'});
    const account=accounts.find(a=>a.id===body.id);if(!account)return respond(400,{error:'invalid_account'});
    if(req.url==='/rotate'){
     let generated='';
@@ -190,7 +310,7 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
   if(req.url==='/cancel'&&desktop&&keys(body,[])){if(scan?.status==='running')scan.cancel=true;nativeService?.cancel();return respond(200,{ok:true});}
   if(req.url==='/scan'&&desktop&&keys(body,['path'])){
    if(nativeActionInFlight)return respond(409,{error:'action_busy'});
-   if(outstandingQuarantines.size)return respond(409,{error:'restore_required_before_new_scan'});
+   // Authenticated on-disk journals now retain recovery independently of this scan session.
    if(scan?.status==='running')return respond(409,{error:'scan_busy'});
    const ordinaryPath=typeof body.path==='string'&&(process.platform==='win32'?/^[a-df-z]:[\\/]/i.test(body.path):/^\/(?!\/)/.test(body.path));
    if(!ordinaryPath||body.path.length>1024||/^E:/i.test(body.path)||body.path.includes('\0'))return respond(400,{error:'selection_unsupported'});
@@ -204,13 +324,13 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
  });
  server.maxConnections=8;server.requestTimeout=5000;server.headersTimeout=5000;
  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});
- function close(){if(!closing){closed=true;if(scan)scan.cancel=true;closing=(async()=>{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));if(nativeService)await nativeService.close();await activeScan;})();}return closing;}
+ function close(){if(!closing){closed=true;passwordVault?.close();if(scan)scan.cancel=true;closing=(async()=>{chatQueue.close();await Promise.all([wifiMonitor?.close(),usbMonitor?.close(),localAi.close(),chatAi.close()]);server.closeAllConnections();await new Promise(resolve=>server.close(resolve));if(nativeService)await nativeService.close();await activeScan;})();}return closing;}
  return {desktopToken,nativeActionToken,url:'http://127.0.0.1:'+server.address().port,port:server.address().port,close};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
  const nativeExecutable=fileURLToPath(new URL('../desktop/console-build/sentinel-inspect.exe',import.meta.url));
  const nativeAppDir=process.env.LOCALAPPDATA?join(process.env.LOCALAPPDATA,'Sentinel-School-Demo','inspection-vault'):null;
- const runtime=await startRuntime({onShutdown:()=>process.exit(0),nativeExecutable,nativeAppDir});
- await writeFile(new URL('../desktop/console-build/demo-runtime.json',import.meta.url),JSON.stringify({url:runtime.url,token:runtime.desktopToken,nativeActionToken:runtime.nativeActionToken}),{mode:0o600});
+ const runtime=await startRuntime({onShutdown:()=>process.exit(0),nativeExecutable,nativeAppDir,autoObserve:true,passwordVaultPath:join(process.env.LOCALAPPDATA,'Sentinel','Passwords','vault.json')});
+ await writeFile(new URL('../desktop/console-build/demo-runtime.json',import.meta.url),JSON.stringify({url:runtime.url,token:runtime.desktopToken,nativeActionToken:runtime.nativeActionToken,vaultPath:join(process.env.LOCALAPPDATA,'Sentinel','Passwords','vault.json')}),{mode:0o600});
  process.on('SIGTERM',async()=>{await runtime.close();process.exit(0);});
 }

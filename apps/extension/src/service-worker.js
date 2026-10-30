@@ -1,10 +1,33 @@
+import {browserOverview} from './browser-overview.js';
+import {restoreMessageWarnings} from './message-registration.js';
+import {restorePasswordTools} from './password-registration.js';
+import {installPasswordPanel} from './password-panel.js';
+import {installWarningNavigation} from './warning-navigation.js';
+import {passwordCompanion} from './password-companion.js';
+import {installWatchtowerSharing} from './watchtower-share.js';
+import {installFloatingControl} from './floating-control.js';
 import {navigationWarningStatus,setNavigationWarnings} from './navigation-policy.js';
 import {whatsAppStatus,setWhatsAppWarnings} from './whatsapp-control.js';
 import {installOmnibox} from './omnibox.js';
 import { FIXTURE_RULESET_ID, computeStatus } from './status.js';
 import {demoRequest} from './demo-transport.js';
+import {messageAiRequest,messageAiError} from './message-ai-transport.js';
+import {autoConnect} from './auto-connect.js';
+import {installEmailControl} from './email/control.js';
+installEmailControl(chrome);
+let restoringMessages=null;const restoreMessages=()=>{if(restoringMessages)return;restoringMessages=restoreMessageWarnings(chrome).catch(()=>{}).finally(()=>{restoringMessages=null;});};
+restoreMessages();chrome.runtime.onInstalled?.addListener(restoreMessages);chrome.runtime.onStartup?.addListener(restoreMessages);chrome.action?.onClicked?.addListener(restoreMessages);
+installPasswordPanel(chrome);
+const restorePasswords=()=>void restorePasswordTools(chrome).catch(()=>{});
+restorePasswords();chrome.runtime.onInstalled?.addListener(restorePasswords);chrome.runtime.onStartup?.addListener(restorePasswords);chrome.action?.onClicked?.addListener(restorePasswords);
+installWarningNavigation(chrome);
+installWatchtowerSharing(chrome);
+installFloatingControl(chrome);
 
 const STATUS_KEY = 'harnessStatus';
+// Existing nativeMessaging permission; no network or vault operation is replayed.
+const connectDesktop=()=>{if(typeof chrome.runtime.sendNativeMessage==='function')void autoConnect().catch(()=>{});};
+connectDesktop();chrome.runtime.onStartup?.addListener(connectDesktop);
 
 function warn(scope, error) {
   console.warn(`Sentinel harness: ${scope}`, error);
@@ -91,6 +114,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) {
     return false;
   }
+  if(message?.kind==='browser_overview'){browserOverview(message,sender).then(sendResponse).catch(error=>sendResponse({error:error.message||'Connection unavailable'}));return true;}
+  if(message?.kind==='password_companion'){passwordCompanion(message,sender).then(sendResponse).catch(error=>sendResponse({error:error.message||'Password operation unavailable.'}));return true;}
+  if(message?.kind==='message_ai'){messageAiRequest(message,sender).then(sendResponse).catch(error=>{const failure=messageAiError(error);console.warn('SentinelAI connection:',failure.error);sendResponse(failure);});return true;}
   if(message?.kind==='whatsapp_content_status'){
     if(sender.frameId!==0||!Number.isInteger(sender.tab?.id)||!sender.url?.startsWith('https://web.whatsapp.com/'))return false;
     whatsAppStatus(chrome).then(sendResponse).catch(()=>sendResponse({enabled:false}));return true;

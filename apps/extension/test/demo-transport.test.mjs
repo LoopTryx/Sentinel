@@ -11,7 +11,8 @@ test('actual extension transport shares edits and events, refuses content script
   await assert.rejects(demoRequest({method:'state'},{id,url:'https://example.test/'}),/forbidden/);
   await assert.rejects(demoRequest({method:'scan',data:{path:'C:/private'}},sender),/unsupported/);
   let state=await demoRequest({method:'state'},sender);assert.equal(state.accounts[0].health,'Very weak');
-  await demoRequest({method:'unlock'},sender);await demoRequest({method:'rotate',data:{id:'mail'}},sender);
+  await assert.rejects(demoRequest({method:'rotate',data:{id:'mail'}},sender),/unsupported/);
+  await fetch(runtime.url+'/rotate',{method:'POST',headers:{Authorization:'Bearer '+runtime.desktopToken,'X-Sentinel-Native-Action':runtime.nativeActionToken,'Content-Type':'application/json'},body:JSON.stringify({id:'mail'})});
   await demoRequest({method:'event',data:{risk:'suspicious',codes:['http']}},sender);
   const reportSender={id,url:chrome.runtime.getURL('xray.html')};
   await assert.rejects(demoRequest({method:'reveal',data:{id:'mail'}},reportSender),/forbidden/);

@@ -5,6 +5,7 @@ import {afterEach, expect, it, vi} from 'vitest';
 import Dither from './components/ui/Dither';
 import Grainient from './components/ui/Grainient';
 import WatchtowerView from './views/WatchtowerView';
+vi.mock('./demo-bridge',()=>({demoCall:vi.fn(async()=>{throw new Error('unavailable');})}));
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 let root: ReturnType<typeof createRoot> | undefined;
 afterEach(async () => {if(root) await act(() => root!.unmount()); root=undefined; document.body.innerHTML=''; vi.restoreAllMocks();});
@@ -17,15 +18,13 @@ for(const [name, Effect] of [['dither', Dither], ['grainient', Grainient]] as co
   expect(host.textContent).toContain('Console remains available');
  });
 }
-it('invalidates message feedback when the subject changes', async () => {
+it('shows network collection failure without synthetic alerts or message inputs', async () => {
  const host=document.createElement('div'); document.body.append(host); root=createRoot(host);
  await act(() => root!.render(<WatchtowerView/>));
- const input=host.querySelector('textarea')!;
- const set=Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
- await act(() => {set.call(input, 'hello'); input.dispatchEvent(new Event('input', {bubbles:true}));});
- const check=Array.from(host.querySelectorAll('button')).find(button=>button.textContent?.includes('Check message'))!;
+ expect(host.querySelector('textarea')).toBeNull();
+ expect(host.textContent).not.toContain('Synthetic alert');
+ const check=Array.from(host.querySelectorAll('button')).find(button=>button.textContent?.includes('Check connection'))!;
  await act(() => check.click());
- expect(host.textContent).toContain('No pattern clues · unknown');
- await act(() => {set.call(input, 'URGENT send money verify your account'); input.dispatchEvent(new Event('input', {bubbles:true}));});
- expect(host.textContent).not.toContain('No pattern clues · unknown');
+ expect(host.textContent).toContain('Could not check this connection');
+ expect(host.textContent).not.toContain('Open Wi-Fi');
 });

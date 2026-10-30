@@ -1,14 +1,26 @@
+import {isMessageCandidate,priorVisibleText} from './message-candidates.js';
+import {mountMessageAi} from './message-ai-inline.js';
 import {explainMessage} from './local-checks.js';
-const STYLE=`:host{display:block;margin:8px 0;color:#1b1e4a;font:13px/1.5 system-ui,sans-serif}button{cursor:pointer;border:1px solid #ff8379;border-radius:12px;background:linear-gradient(125deg,#e51c2a,#d21319 62%,#bd1036);color:#fff;padding:8px 13px;font:700 12px system-ui;box-shadow:inset 0 1px 0 #ffffff35,0 4px 12px #d2131930}button:hover{filter:brightness(1.08)}button:focus-visible{outline:3px solid #1b1e4a;outline-offset:3px}.detail{max-width:340px;margin-top:8px;padding:12px 14px;border:1px solid #afaea2;border-left:4px solid #d21319;border-radius:12px;background:linear-gradient(135deg,#fff9ed,#e5e1d5);box-shadow:0 6px 20px #0002}.detail strong{color:#1b1e4a;font-size:14px}p{margin:6px 0}ul{padding-left:18px;margin:8px 0}.muted{color:#474b5f;font-size:11px}@media(forced-colors:active){button,.detail{background:Canvas;color:CanvasText;border:1px solid CanvasText}.detail strong,.muted{color:CanvasText}}`;
-export function mountWhatsAppWarnings(doc){
+const STYLE=`
+:host{display:block;margin:10px 0 0;font:13px/1.5 "Segoe UI",system-ui,sans-serif;color:#e0eafa}
+[hidden]{display:none!important}*{box-sizing:border-box}
+button{display:inline-flex;align-items:center;gap:8px;cursor:pointer;border:1px solid #eba5a246;border-radius:9px;background:linear-gradient(135deg,#4b303b,#302b3d);color:#f1c5c1;padding:7px 11px;font:600 11px/1.4 "Segoe UI",system-ui,sans-serif;min-height:30px;box-shadow:inset 0 1px #fff1;transition:border-color .15s,background .15s}
+button:before{content:'!';display:grid;place-items:center;width:14px;height:14px;border:1px solid #eab7ae99;border-radius:50%;font-size:10px}
+button:hover{border-color:#edc6bd8c;background:#553645}button:focus-visible{outline:2px solid #a9dcff;outline-offset:3px}
+.detail{max-width:440px;margin:0;padding:0;border:0;background:transparent;overflow-wrap:anywhere}
+p{margin:0}.muted{margin-top:6px;color:#c0bfb4;font-size:12px}
+@media(prefers-reduced-motion:reduce){button{transition:none}}
+@media(forced-colors:active){button,.detail{background:Canvas;color:CanvasText;border-color:CanvasText}.muted{color:CanvasText}}
+`;
+export function mountWhatsAppWarnings(doc,api=globalThis.chrome){
  const win=doc.defaultView;
  // The direct child badge owns the outline: recycled/cleared messages lose it automatically.
  // Outline does not resize WhatsApp bubbles or overwrite page inline styles.
  const bubbleStyle=doc.createElement('style');bubbleStyle.dataset.sentinelScam='';
- bubbleStyle.textContent='[data-pre-plain-text]:has(> [data-sentinel-scam]){outline:2px solid #e51c2a;outline-offset:5px;border-radius:8px}@media(forced-colors:active){[data-pre-plain-text]:has(> [data-sentinel-scam]){outline-color:CanvasText}}';
+ bubbleStyle.textContent='[data-pre-plain-text]:has(> [data-sentinel-flagged]){outline:none;box-shadow:none;border-radius:0}@media(forced-colors:active){[data-pre-plain-text]:has(> [data-sentinel-flagged]){outline-color:CanvasText}}';
  doc.head.append(bubbleStyle);
  const records=new Map();let timer=null,stopped=false;
- function clearRecord(node){records.get(node)?.badge?.remove();records.delete(node);}
+ function clearRecord(node){records.get(node)?.cleanup?.();records.get(node)?.badge?.remove();records.delete(node);}
  function refresh(){
   if(stopped)return;
   // Latest 100 supported rendered text bubbles; confirmed outgoing is excluded.
@@ -34,22 +46,30 @@ export function mountWhatsAppWarnings(doc){
    const textNodes=node.querySelectorAll('.selectable-text');
    if(!textNodes.length){clearRecord(node);continue;}
    let text='';for(const part of textNodes){text+=(part.textContent||'').slice(0,4097-text.length);if(text.length>4096)break;}
-   const direction=directions.get(node);
-   if(records.get(node)?.text===text&&records.get(node)?.direction===direction)continue;
-   clearRecord(node);records.set(node,{text,direction,badge:null});
+   const direction=directions.get(node),history=priorVisibleText(all,node,'.selectable-text'),historyKey=JSON.stringify(history);
+   if(records.get(node)?.text===text&&records.get(node)?.direction===direction&&records.get(node)?.historyKey===historyKey)continue;
+   clearRecord(node);records.set(node,{text,direction,historyKey,badge:null});
    if(text.length>4096)continue;
-   const result=explainMessage(text);if(result.risk!=='suspicious')continue;
+   const result=explainMessage(text);if(result.risk!=='suspicious'&&!isMessageCandidate(text))continue;
+   if(api?.runtime?.sendMessage){
+    const cleanup=mountMessageAi(node,text,api,{history,candidateOnly:true,clickToReveal:true,onVerdict:verdict=>{const record=records.get(node);if(node.isConnected&&record?.text===text){const card=Array.from(node.children).find(n=>n.hasAttribute('data-sentinel-ai'));if(card){if(verdict==='likely')card.setAttribute('data-sentinel-flagged','');else card.removeAttribute('data-sentinel-flagged');}}},isCurrent:()=>node.isConnected&&records.get(node)?.text===text&&records.get(node)?.historyKey===historyKey});
+    records.set(node,{text,direction,historyKey,badge:null,cleanup});continue;
+   }
    const badge=doc.createElement('span');badge.dataset.sentinelScam='';
    const shadow=badge.attachShadow({mode:'open'});
    const style=doc.createElement('style');style.textContent=STYLE;shadow.append(style);
-   const button=doc.createElement('button');button.type='button';button.textContent=direction==='incoming'?'⚠ Potential scam':'⚠ Suspicious wording';button.setAttribute('aria-expanded','false');
+   const button=doc.createElement('button');button.type='button';button.className='warning-trigger';button.setAttribute('aria-expanded','false');
    const detail=doc.createElement('div');detail.className='detail';detail.hidden=true;
-   const title=doc.createElement('strong');title.textContent='Pause and verify';detail.append(title);
-   if(direction==='unknown'){const note=doc.createElement('p');note.className='muted';note.textContent='Message direction is unavailable in this layout. This checks wording only and does not identify the sender.';detail.append(note);}
-   const reasons=doc.createElement('ul');for(const reason of result.reasons){const li=doc.createElement('li');li.textContent=reason.text;reasons.append(li);}detail.append(reasons);
-   const limits=doc.createElement('p');limits.className='muted';limits.textContent='Local check · Not proof of fraud or sender identity. No AI upload.';detail.append(limits);
+   button.textContent=`⚠ Review message${direction==='unknown'?' · wording only':''}`;
+   badge.setAttribute('data-sentinel-flagged','');
+   const summary=doc.createElement('p');
+   summary.textContent=`${result.signals.map(signal=>signal.label).join(' · ')}. Verify independently.`;
+   const limits=doc.createElement('p');limits.className='muted';
+   limits.textContent=direction==='unknown'?'Direction unknown · Local clues, not proof of fraud.':'Verify unusual requests through another channel.';
+   detail.append(summary,limits);
    button.onclick=()=>{detail.hidden=!detail.hidden;button.setAttribute('aria-expanded',String(!detail.hidden));};
-   shadow.append(button,detail);node.append(badge);records.set(node,{text,direction,badge});
+   shadow.append(button,detail);badge.hidden=!!api?.runtime?.sendMessage;node.append(badge);records.set(node,{text,direction,historyKey,badge});
+   if(api?.runtime?.sendMessage){const cleanup=mountMessageAi(detail,text,api,{history,candidateOnly:true,clickToReveal:true,onVerdict:verdict=>{if(node.isConnected&&records.get(node)?.text===text){badge.hidden=verdict!=='likely';button.textContent='Potential scam';}},isCurrent:()=>node.isConnected&&records.get(node)?.text===text&&records.get(node)?.historyKey===historyKey});records.set(node,{text,direction,historyKey,badge,cleanup});detail.hidden=false;button.setAttribute('aria-expanded','true');}
   }
  }
  function schedule(mutations){
