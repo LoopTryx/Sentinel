@@ -36,7 +36,8 @@ def audit(path, expected_version=None):
         version=archive.read('release-version.txt').decode('utf-8-sig').strip()
         extension=json.loads(archive.read('apps/extension/dist/manifest.json'))['version']
         if expected_version and (version!='v'+expected_version or extension!=expected_version):raise ValueError('Release/extension version mismatch')
-        return {'version':version,'extensionVersion':extension,'verifiedFiles':len(rows),'privateStatePaths':0,'sha256':hashlib.file_digest(path.open('rb'),'sha256').hexdigest()}
+        with path.open('rb') as source:digest=hashlib.file_digest(source,'sha256').hexdigest()
+        return {'version':version,'extensionVersion':extension,'verifiedFiles':len(rows),'privateStatePaths':0,'sha256':digest}
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser();parser.add_argument('path');parser.add_argument('--version');parser.add_argument('--output');args=parser.parse_args()

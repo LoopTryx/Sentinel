@@ -1,3 +1,4 @@
+// Historical embedded-ZIP verifier. Current appended installers use tools/audit-release.py.
 using System;using System.IO;using System.IO.Compression;using System.Reflection;using System.Collections.Generic;using System.Security.Cryptography;using System.Web.Script.Serialization;
 public static class VerifyRelease {
  static string Hash(Stream s){using(var sha=SHA256.Create())return BitConverter.ToString(sha.ComputeHash(s)).Replace("-","").ToLowerInvariant();}

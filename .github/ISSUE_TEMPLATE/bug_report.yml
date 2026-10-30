@@ -1,0 +1,38 @@
+name: Bug report
+description: Report a reproducible Sentinel problem without sharing private data.
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: "For vulnerabilities, use the private reporting guidance in SECURITY.md. Never attach passwords, API keys, conversations or browser profiles."
+  - type: input
+    id: version
+    attributes:
+      label: Sentinel version
+      placeholder: v1.0.0
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Windows and Chrome versions
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Use harmless invented files, accounts or messages.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and observed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized error or evidence
+      description: Remove personal information before attaching screenshots or logs.

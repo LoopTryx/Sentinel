@@ -21,6 +21,9 @@ $arguments += @(('/win32icon:'+$brandIcon), ('/resource:'+$brandIcon+',Sentinel.
 $references += @((Join-Path $framework 'System.Net.Http.dll'), (Join-Path $framework 'System.Web.Extensions.dll'), (Join-Path $framework 'System.Windows.Forms.dll'))
 $arguments += $references | ForEach-Object { "/reference:$_" }
 $arguments += '/reference:System.Management.dll'
+$releaseMetadata=Join-Path $output 'ReleaseMetadata.cs'
+& (Join-Path $repo 'tools/write-release-metadata.ps1') -OutputPath $releaseMetadata
+$arguments += $releaseMetadata
 $arguments += ('/resource:'+$scanPin+',Sentinel.Scan.sha256')
 $arguments += ('/resource:'+$signatureManifest+',Sentinel.Signatures.Manifest')
 $arguments += Join-Path $PSScriptRoot 'DeviceHealth.cs'
@@ -67,5 +70,5 @@ $arguments += Join-Path $PSScriptRoot 'ProtectedUsbJournal.cs'
 $arguments += '/reference:'+(Join-Path $framework 'System.Runtime.WindowsRuntime.dll')
 & (Join-Path $framework 'csc.exe') $arguments
 if ($LASTEXITCODE -ne 0) { throw 'GLM glass console build failed' }
-& (Join-Path $framework 'csc.exe') /nologo /target:winexe /platform:x64 ('/win32icon:'+$brandIcon) /define:SENTINEL_DUCKY_POLICY_LAB ('/out:'+(Join-Path $output 'Sentinel.DuckyPolicy.exe')) ('/win32manifest:'+(Join-Path $PSScriptRoot 'password-approval.manifest')) ('/reference:'+(Join-Path $framework 'System.Web.Extensions.dll')) ('/resource:'+(Join-Path $PSScriptRoot '../../tools/usb/DuckyPolicyEntry.cs')+',Sentinel.Ducky.Entry') ('/resource:'+(Join-Path $PSScriptRoot '../../tools/usb/DuckyLocalGpo.cs')+',Sentinel.Ducky.Gpo') (Join-Path $PSScriptRoot 'DuckyPolicyHost.cs') (Join-Path $PSScriptRoot 'DuckyInputHealth.cs') (Join-Path $PSScriptRoot 'DuckyPolicyEnrollment.cs') (Join-Path $PSScriptRoot '../../tools/usb/DuckyPolicyEntry.cs') (Join-Path $PSScriptRoot '../../tools/usb/DuckyPolicyJournal.cs') (Join-Path $PSScriptRoot '../../tools/usb/DuckyLocalGpo.cs')
+& (Join-Path $framework 'csc.exe') /nologo /target:winexe /platform:x64 ('/win32icon:'+$brandIcon) /define:SENTINEL_DUCKY_POLICY_LAB ('/out:'+(Join-Path $output 'Sentinel.DuckyPolicy.exe')) ('/win32manifest:'+(Join-Path $PSScriptRoot 'password-approval.manifest')) ('/reference:'+(Join-Path $framework 'System.Web.Extensions.dll')) ('/resource:'+(Join-Path $PSScriptRoot '../../tools/usb/DuckyPolicyEntry.cs')+',Sentinel.Ducky.Entry') ('/resource:'+(Join-Path $PSScriptRoot '../../tools/usb/DuckyLocalGpo.cs')+',Sentinel.Ducky.Gpo') (Join-Path $PSScriptRoot 'DuckyPolicyHost.cs') (Join-Path $PSScriptRoot 'DuckyInputHealth.cs') (Join-Path $PSScriptRoot 'DuckyPolicyEnrollment.cs') (Join-Path $PSScriptRoot '../../tools/usb/DuckyPolicyEntry.cs') (Join-Path $PSScriptRoot '../../tools/usb/DuckyPolicyJournal.cs') (Join-Path $PSScriptRoot '../../tools/usb/DuckyLocalGpo.cs') $releaseMetadata
 if($LASTEXITCODE -ne 0){throw 'Profiled USB policy helper build failed'}

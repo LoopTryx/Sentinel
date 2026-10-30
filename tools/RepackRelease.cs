@@ -1,3 +1,4 @@
+// Historical embedded-ZIP repacker. Do not use with current appended-payload installers.
 using System;
 using System.IO;
 using System.IO.Compression;

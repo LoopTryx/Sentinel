@@ -1,1 +1,18 @@
-packages/contracts/src/generated/*.ts text eol=lf
+* text=auto
+*.md text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.rs text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.cs text eol=lf
+*.ps1 text eol=lf
+*.png binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.zip binary
+*.exe binary
