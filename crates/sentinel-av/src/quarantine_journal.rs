@@ -198,20 +198,12 @@ impl Journal {
             bytes: bytes.len() as u64,
             stage,
         };
-        let mut options = std::fs::OpenOptions::new();
-        options.write(true).create_new(true);
-        #[cfg(windows)]
-        {
-            use std::os::windows::fs::OpenOptionsExt;
-            options.share_mode(0).custom_flags(0x00200000);
-        }
-        let file = options
-            .open(journal_path(
-                dir,
-                reference,
-                record.stage != Stage::VerifiedBeforeRemoval,
-            )?)
-            .map_err(|_| "recovery journal creation failed; source retained".to_string())?;
+        let file = crate::storage_privacy::create_file(&journal_path(
+            dir,
+            reference,
+            record.stage != Stage::VerifiedBeforeRemoval,
+        )?)
+        .map_err(|_| "recovery journal creation failed; source retained".to_string())?;
         crate::storage_privacy::validate_file(&file)?;
         let mut journal = Self {
             file,

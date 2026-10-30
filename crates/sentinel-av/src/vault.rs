@@ -615,15 +615,7 @@ impl Vault {
         }
         let mut key = [0u8; 32];
         rand::thread_rng().fill_bytes(&mut key);
-        let mut options = std::fs::OpenOptions::new();
-        options.write(true).create_new(true);
-        #[cfg(windows)]
-        {
-            use std::os::windows::fs::OpenOptionsExt;
-            options.share_mode(0).custom_flags(0x00200000);
-        }
-        let mut output = options
-            .open(&self.key_path)
+        let mut output = crate::storage_privacy::create_file(&self.key_path)
             .map_err(|_| "quarantine key creation failed".to_string())?;
         crate::storage_privacy::validate_file(&output)?;
         output
@@ -731,15 +723,7 @@ impl Vault {
 
         let mut blob = nonce_bytes.to_vec();
         blob.extend_from_slice(&sealed);
-        let mut options = std::fs::OpenOptions::new();
-        options.read(true).write(true).create_new(true);
-        #[cfg(windows)]
-        {
-            use std::os::windows::fs::OpenOptionsExt;
-            options.share_mode(0).custom_flags(0x00200000);
-        }
-        let mut output = options
-            .open(&vault_path)
+        let mut output = crate::storage_privacy::create_file(&vault_path)
             .map_err(|_| "quarantine blob creation failed".to_string())?;
         crate::storage_privacy::validate_file(&output)?;
         output
