@@ -13,3 +13,21 @@ dist/
 
 /.local-handoff/
 /.pnpm-store/
+
+# Generated browser bundles, reports, diagnostics and local session state.
+/apps/extension/src/console-ui/
+/output/
+*.log
+*.pdb
+**/.env
+**/.env.*
+!**/.env.example
+**/demo-runtime.json
+**/native-host.json
+**/profile/
+**/profile-smoke/
+**/PrivateHistory/
+**/RecoveryBackups/
+**/PresentationBackup-*/
+**/chats.dat
+**/windows-key*
