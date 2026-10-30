@@ -13,7 +13,7 @@ A local-first Windows security companion with file inspection, encrypted passwor
 [![License: MIT](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](LICENSE)
 [![CI](https://github.com/LoopTryx/Sentinel/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/LoopTryx/Sentinel/actions/workflows/ci.yml)
 
-[**Get Sentinel**](https://github.com/LoopTryx/Sentinel/releases) · [Changelog](CHANGELOG.md) · [Architecture](docs/architecture.md) · [Contribute](CONTRIBUTING.md) · [Report a problem](https://github.com/LoopTryx/Sentinel/issues)
+[**Get Sentinel**](https://github.com/LoopTryx/Sentinel/releases) Â· [Changelog](CHANGELOG.md) Â· [Architecture](docs/architecture.md) Â· [Contribute](CONTRIBUTING.md) Â· [Report a problem](https://github.com/LoopTryx/Sentinel/issues)
 
 </div>
 
@@ -44,7 +44,7 @@ The Rust inspection core supports **YARA-X rules, SHA-256 matching, static heuri
 
 ### Browser companion
 
-![Chrome companion overview showing CPU, system RAM, Chrome memory and free storage](docs/images/browser-companion.png)
+![Chrome companion overview showing CPU, system RAM, Chrome memory and free storage](docs/images/browser-companion.jpg)
 
 *Companion preview using synthetic resource values.*
 
@@ -154,7 +154,7 @@ Automated tests, interface previews, installed-browser acceptance, and device qu
 
 ## Releases and contribution
 
-The original v1/v2/v3 previews are now **v0.1.0 / v0.2.0 / v0.3.0**. The current consolidated release line is **v1.0.0**. Original commits and authors are preserved; unavailable historical v4/v5 packages are documented rather than recreated under old labels. [Version migration](docs/releases/version-migration.md) · [Changelog](CHANGELOG.md).
+The original v1/v2/v3 previews are now **v0.1.0 / v0.2.0 / v0.3.0**. The current consolidated release line is **v1.0.0**. Original commits and authors are preserved; unavailable historical v4/v5 packages are documented rather than recreated under old labels. [Version migration](docs/releases/version-migration.md) Â· [Changelog](CHANGELOG.md).
 
 Contributions are welcome through scoped issues and reviewed pull requests. Start with [CONTRIBUTING.md](CONTRIBUTING.md). Use harmless fixtures and keep credentials, conversations, profiles, and generated binaries out of Git.
 
