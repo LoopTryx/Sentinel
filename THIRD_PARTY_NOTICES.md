@@ -17,3 +17,7 @@ Sentinel integrates existing engines, models and libraries. Their inclusion is n
 | Fonts and interface icons | Presentation assets | Font package licenses and `apps/ui/src/components/lucide-icons.LICENSE` |
 
 Release packaging must preserve the notices in each bundled distribution. This index is not a replacement for full license texts. The ClamAV engine source is available from [Cisco Talos/ClamAV](https://github.com/Cisco-Talos/clamav); match source to the exact binary version shipped.
+
+## Project license boundary
+
+The root MIT license applies to original Sentinel-authored code and documentation, except files with their own terms. It does not relicense dependencies or the complete installer. ClamAV/libclamav is GPLv2; linking and redistribution require compliance with the applicable GPL and dependency obligations. An MIT label on this repository is not a certification of binary-distribution compliance.
