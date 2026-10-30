@@ -224,15 +224,21 @@ impl Vault {
         #[cfg(windows)]
         {
             use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
-            let handle = std::fs::OpenOptions::new()
-                .read(true)
-                .write(true)
-                .create(true)
-                .truncate(false)
-                .share_mode(0)
-                .custom_flags(0x00200000)
-                .open(self.dir.join(".admission.lock"))
-                .map_err(|_| "quarantine storage admission busy or unavailable")?;
+            let lock_path = self.dir.join(".admission.lock");
+            let handle = match crate::storage_privacy::create_file(&lock_path) {
+                Ok(handle) => handle,
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                    // Existing locks are validated, never recreated or repaired.
+                    std::fs::OpenOptions::new()
+                        .read(true)
+                        .write(true)
+                        .share_mode(0)
+                        .custom_flags(0x00200000)
+                        .open(&lock_path)
+                        .map_err(|_| "quarantine storage admission busy or unavailable")?
+                }
+                Err(_) => return Err("quarantine storage admission busy or unavailable".into()),
+            };
             crate::storage_privacy::validate_file(&handle)?;
             let lock_metadata = handle
                 .metadata()
