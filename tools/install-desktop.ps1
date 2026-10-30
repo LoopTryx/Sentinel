@@ -1,6 +1,7 @@
 param([string]$ExtensionId,[string]$Destination,[switch]$TestInstall)
 $ErrorActionPreference='Stop'
 $source=Split-Path -Parent $PSScriptRoot
+if(!$TestInstall){$null=& (Join-Path $PSScriptRoot 'install-prerequisites.ps1')}
 if($TestInstall -and (-not $Destination -or (Test-Path -LiteralPath $Destination))){throw 'Test install requires a new destination.'}
 if(-not $Destination){$Destination=Join-Path $env:LOCALAPPDATA 'Sentinel\Desktop'}
 if(-not(Test-Path -LiteralPath (Join-Path $source 'Sentinel.exe'))){throw 'Run setup from the complete Sentinel app package.'}

@@ -1,3 +1,5 @@
+import {nativeCall} from './native-call.js';
+import {messageFingerprint,alertHistory,rememberAlert} from './message-alert-history.js';
 import {prepareMessageContext} from './message-candidates.js';
 import {autoConnect} from './auto-connect.js';
 import {messageExcerpt,messageSources} from './message-ai-data.js';
@@ -8,22 +10,27 @@ export async function messageAiRequest(message,sender,api=chrome){
  if(!source)throw Error('forbidden');
  const key=source==='whatsapp'?'whatsappOptIn':'emailOptIn_'+source;
  if((await api.storage.local.get(key))[key]!==true||!await api.permissions.contains({permissions:['scripting'],origins:source==='outlook'?['https://outlook.live.com/*','https://outlook.office.com/*','https://outlook.office365.com/*']:[messageSources[source]+'*']}))throw Error('feature_disabled');
- if(!['explain','result','open'].includes(message.action)||!(message.action==='explain'?['action,kind,text','action,history,kind,text'].includes(Object.keys(message).sort().join(',')):Object.keys(message).sort().join(',')==='action,kind,ref'))throw Error('invalid_request');
+ if(!['explain','result','open','notify'].includes(message.action)||!(message.action==='explain'?['action,kind,text','action,history,kind,text'].includes(Object.keys(message).sort().join(',')):Object.keys(message).sort().join(',')==='action,kind,ref'))throw Error('invalid_request');
  const scope=ref=>ref+':'+sender.tab.id+':'+String(sender.documentId??'')+':'+source;
  const now=Date.now();for(const [ref,row]of references)if(row.expiresAt<=now)references.delete(ref);
  if(message.action!=='explain'){const row=references.get(scope(message.ref));if(!row||row.tab!==sender.tab.id||row.document!==sender.documentId||row.source!==source)throw Error('finding_unknown_or_expired');}
- if(message.action==='open'){await api.tabs.create({url:api.runtime.getURL('continue.html')+'#'+message.ref});return {opened:true};}
+ const fingerprint=message.action==='explain'?await messageFingerprint(source,messageExcerpt(message.text)):null;
+ const history=message.action==='explain'?await alertHistory(api,source):null;
+ const silent=history?.hashes.includes(fingerprint)===true;
  if(pending>=8)throw Error('busy');pending++;
  try{
-  const data=message.action==='explain'?{source,text:messageExcerpt(message.text),...(message.history!==undefined?{history:prepareMessageContext(message.history)}:{}),nonce:crypto.randomUUID().replaceAll('-','')}:{ref:message.ref};
+  const data=message.action==='explain'?{source,...(silent?{silent:true}:{}),text:messageExcerpt(message.text),...(message.history!==undefined?{history:prepareMessageContext(message.history)}:{}),nonce:crypto.randomUUID().replaceAll('-','')}:{ref:message.ref};
   let config=(await api.storage.session.get('sentinelDemoConnection')).sentinelDemoConnection;
   if(!config)config=await autoConnect();
-  const route=message.action==='explain'?'ai-message':message.action==='open'?'ai-open':'ai-result';
+  const route=message.action==='explain'?'ai-message':message.action==='open'?'ai-open':message.action==='notify'?'ai-notify':'ai-result';
   const send=()=>{if(!config||!Number.isInteger(config.port)||config.port<1024||config.port>65535||!/^[a-f0-9]{64}$/.test(config.token))throw Error('connection_unavailable');return fetch(`http://127.0.0.1:${config.port}/${route}`,{method:'POST',redirect:'error',signal:AbortSignal.timeout(5000),headers:{Authorization:'Bearer '+config.token,'X-Sentinel-Extension':api.runtime.id,'Content-Type':'application/json'},body:JSON.stringify(data)});};
-  let response;try{response=await send();}catch{config=await autoConnect();response=await send();}
-  if(response.status===401||response.status===403){const fresh=(await api.storage.session.get('sentinelDemoConnection')).sentinelDemoConnection;config=fresh?.token&&fresh.token!==config.token?fresh:await autoConnect();response=await send();}
+  let response;try{response=await send();}catch{config=await autoConnect(true);response=await send();}
+  if(response.status===401||response.status===403){const fresh=(await api.storage.session.get('sentinelDemoConnection')).sentinelDemoConnection;config=fresh?.token&&fresh.token!==config.token?fresh:await autoConnect(true);response=await send();}
   const reader=response.body.getReader(),chunks=[];let size=0;try{while(true){const part=await reader.read();if(part.done)break;size+=part.value.byteLength;if(size>32000)throw Error('invalid_response');chunks.push(part.value);}}finally{await reader.cancel();}const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}const result=JSON.parse(new TextDecoder().decode(bytes));if(!response.ok||result.error)throw Error(['invalid_message','invalid_handoff','handoff_capacity','replayed_handoff','forbidden'].includes(result.error)?result.error:'desktop_unavailable');
-  if(message.action==='explain'){if(!/^[a-f0-9]{32}$/.test(result.finding?.ref))throw Error('invalid_response');if(references.size>=64)references.delete(references.keys().next().value);references.set(scope(result.finding.ref),{tab:sender.tab.id,document:sender.documentId,source,expiresAt:result.expiresAt});return {ref:result.finding.ref,expiresAt:result.expiresAt};}
+  if(message.action==='explain'){if(!/^[a-f0-9]{32}$/.test(result.finding?.ref))throw Error('invalid_response');if(references.size>=64)references.delete(references.keys().next().value);references.set(scope(result.finding.ref),{tab:sender.tab.id,document:sender.documentId,source,fingerprint,epoch:history.epoch,expiresAt:result.expiresAt});return {ref:result.finding.ref,expiresAt:result.expiresAt};}
+  if(message.action==='notify'){const row=references.get(scope(message.ref));await rememberAlert(api,source,row.fingerprint,row.epoch);const opened=await nativeCall('open-ai',api,4000);if(opened?.ok!==true)throw Error('connection_unavailable');return {notified:true};}
+  if(message.action==='open'){const opened=await nativeCall('open-ai',api,4000);if(opened?.ok!==true)throw Error('connection_unavailable');return {opened:true};}
+  if(source!=='whatsapp'&&result.quick?.verdict==='likely'){const row=references.get(scope(message.ref));await rememberAlert(api,source,row.fingerprint,row.epoch);}
   // Only the on-device answer is sent to the message page.
   if(result.localError)return {error:result.localError,message:'The quick explanation is unavailable. Open Sentinel for more details.'};
   return {quick:result.quick??null};

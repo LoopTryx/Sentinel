@@ -1,3 +1,5 @@
+import {installAiHandoff} from "./ai-handoff";
+import {consoleScale} from './console-scale';
 import {playUiSound,setUiSoundsEnabled,uiSoundsEnabled} from './ui-sounds';
 import { Fragment, useEffect, useRef, useState } from "react";
 import {useDemoState, demoCall} from './demo-bridge';
@@ -7,7 +9,6 @@ import Dashboard from "./views/Dashboard";
 import ScanView from "./views/ScanView";
 import PasswordManagerView from "./views/PasswordManagerView";
 import QuarantineView from "./views/QuarantineView";
-import ThreatLogView from "./views/ThreatLogView";
 import WatchtowerView from "./views/WatchtowerView";
 import UsbGuardView from "./features/usb/UsbGuardView";
 import SentinelAiView,{type AiFinding} from './views/SentinelAiView';
@@ -28,28 +29,26 @@ type ViewId =
   | "usb"
   | "password"
   | "quarantine"
-  | "log";
+;
 
 const NAV: { id: ViewId; label: string; icon: string }[] = [
-  { id: "ai", label: "SentinelAI", icon: "chat" },
-  { id: "dashboard", label: "Console", icon: "shield" },
+  { id: "dashboard", label: "Dashboard", icon: "shield" },
   { id: "scan", label: "Scan & Detect", icon: "scan" },
   { id: "watchtower", label: "Watchtower", icon: "wifi" },
   { id: "usb", label: "USB Guard", icon: "usb" },
   { id: "password", label: "Passwords", icon: "key" },
   { id: "quarantine", label: "Quarantine", icon: "vault" },
-  { id: "log", label: "Threat Log", icon: "list" },
+  { id: "ai", label: "Sentinel AI", icon: "chat" },
 ];
 
 const VIEW_TITLES: Record<ViewId, string> = {
-  ai: "SentinelAI",
-  dashboard: "Console",
+  ai: "Sentinel AI",
+  dashboard: "Dashboard",
   scan: "Scan & Detect",
   watchtower: "Watchtower",
   usb: "USB Guard",
   password: "Passwords",
   quarantine: "Quarantine",
-  log: "Threat Log",
 };
 
 function Shell() {
@@ -60,29 +59,33 @@ function Shell() {
   const [aiFocus,setAiFocus]=useState<string|null>(null);
   useEffect(()=>{const open=(e:Event)=>{setAiFocus((e as CustomEvent<string>).detail);setView("ai");};window.addEventListener("sentinel-ai-focus",open);return()=>window.removeEventListener("sentinel-ai-focus",open);},[]);
   const [aiContext,setAiContext]=useState<{finding:AiFinding;question:string}|null>(null);
+  useEffect(()=>installAiHandoff(window,document,h=>{setAiContext(h);setView("ai");}),[]);
   useEffect(()=>{let live=true,busy=false;const timer=setInterval(()=>{if(busy)return;busy=true;void demoCall('ai.inbox').then(r=>{if(live&&r.handoff){setAiContext({finding:r.handoff.finding,question:r.handoff.question});setView('ai');}}).catch(()=>{}).finally(()=>{busy=false;});},2000);return()=>{live=false;clearInterval(timer);};},[]);
   const { level, scanAlert,inspectionError,snapshot } = useThreat();
   const [soundEnabled,setSoundEnabled]=useState(uiSoundsEnabled);
+  useEffect(()=>{void demoCall('ui.sound',{enabled:soundEnabled}).catch(()=>{});},[soundEnabled]);
   const previousSoundState=useRef({level,error:'',completed:'',flagged:''});
   useEffect(()=>{
     const previous=previousSoundState.current;
+    const notify=(kind:'alert'|'error'|'notification')=>{void demoCall('ui.alert',{kind}).catch(()=>playUiSound(kind));};
     const completed=snapshot&&['finished','cancelled'].includes(snapshot.state)?snapshot.jobRef:'';
     const flagged=snapshot&&snapshot.reports.some(report=>report.verdict==='suspicious'||report.verdict==='signature_match')?JSON.stringify([snapshot.jobRef,snapshot.reports.filter(report=>report.verdict==='suspicious'||report.verdict==='signature_match').map(report=>[report.reportRef,report.verdict])]):'';
-    if(flagged&&flagged!==previous.flagged)void playUiSound('alert');
-    else if(inspectionError&&inspectionError!==previous.error)void playUiSound('error');
-    else if(level==='danger'&&previous.level!=='danger')void playUiSound('error');
-    else if(completed&&completed!==previous.completed&&snapshot?.state==='finished')void playUiSound('notification');
+    if(flagged&&flagged!==previous.flagged)notify('alert');
+    else if(inspectionError&&inspectionError!==previous.error)notify('error');
+    else if(level==='danger'&&previous.level!=='danger')notify('error');
+    else if(completed&&completed!==previous.completed&&snapshot?.state==='finished')notify('notification');
     previousSoundState.current={level,error:inspectionError,completed,flagged};
   },[level,inspectionError,snapshot]);
+  useEffect(()=>{const root=document.getElementById('root');if(!root)return;const resize=()=>root.style.setProperty('--console-scale',String(consoleScale(window.innerWidth,window.innerHeight)));resize();window.addEventListener('resize',resize);return()=>{window.removeEventListener('resize',resize);root.style.removeProperty('--console-scale');};},[]);
   const shellRef=useRef<HTMLDivElement>(null);
   useEffect(()=>{if(shellRef.current)shellRef.current.scrollTop=0;},[view]);
 
   const statusLabel =
-    scanAlert ? 'Scan finding · review required' : demo ? 'Connected · partial coverage' : level === "danger"
-      ? "Preview · scenario alert"
+    scanAlert ? 'Scan finding · review required' : demo ? 'Connected' : level === "danger"
+      ? "Review security activity"
       : level === "warn"
-        ? "Preview · scenario attention"
-        : "Preview · agent unavailable";
+        ? "Attention required"
+        : "Console disconnected";
 
 
 
@@ -100,8 +103,8 @@ function Shell() {
         }}
       >
         <GradientASCII
-          colors={level === "danger" ? ["#9f1239","#f43f5e","#fda4af","#fff1f2"] : ["#1e3fd8","#f6f8ff","#a5d8ff","#38bdf8"]}
-          style={{background:level === "danger" ? "radial-gradient(ellipse at 50% 100%, #9f1239, #260916 70%, #05081a)" : "radial-gradient(ellipse at 50% 100%, #1e3fd8, #101c49 48%, #05081a 80%)"}}
+          colors={level === "danger" ? ["#9f1239","#f43f5e","#fda4af","#fff1f2"] : level === "clear" ? ["#075c44","#d5ffed","#86efac","#34d399"] : ["#1e3fd8","#f6f8ff","#a5d8ff","#38bdf8"]}
+          style={{background:level === "danger" ? "radial-gradient(ellipse at 50% 100%, #9f1239, #260916 70%, #05081a)" : level === "clear" ? "radial-gradient(ellipse at 50% 100%, #087954, #0c3029 48%, #051a15 80%)" : "radial-gradient(ellipse at 50% 100%, #1e3fd8, #101c49 48%, #05081a 80%)"}}
           shape="horizon" characters=" =+xX0S8#@" cellSize={18} density={0.8}
           dpr={1} maxFps={24} mouseInteraction={false} clickEffect="none"
         />
@@ -109,11 +112,9 @@ function Shell() {
 
         <header className="topbar" onMouseDown={event => { if(canDragWindow(event.target,event.button)){ event.preventDefault(); void demoCall('window.drag').catch(()=>{}); } }} style={{ position: "relative", zIndex: 2 }}>
           <h1>{VIEW_TITLES[view]}</h1>
-          <button className="app-refresh" aria-label="Refresh entire app" title="Refresh app and background" onClick={()=>window.location.reload()}><Icon name="refresh" size={16}/>Refresh</button>
+          <button className="app-refresh startup-refresh" aria-label="Refresh entire app" title="Refresh app and background" onClick={()=>window.location.reload()}><Icon name="refresh" size={16}/>Refresh</button>
           <button className="sound-toggle" aria-pressed={soundEnabled} aria-label={soundEnabled?"Mute interface sounds":"Enable interface sounds"} onClick={()=>{const next=!soundEnabled;setUiSoundsEnabled(next);setSoundEnabled(next);}}>{soundEnabled?"Sound on":"Sound off"}</button>
-          <div className="protection-pill">
-            <span className="led" /> {statusLabel}
-          </div>
+
         </header>
 
       <LiquidSidebar collapsed={sidebarCollapsed} onToggle={()=>setSidebarCollapsed(value=>!value)}>
@@ -130,6 +131,7 @@ function Shell() {
           {n.id === "dashboard" && <div className="nav-label">Protect</div>}
           {n.id === "password" && <div className="nav-label">Tools</div>}
           {n.id === "quarantine" && <div className="nav-label">System</div>}
+          {n.id === "ai" && <div className="nav-label">Assistant</div>}
           <button
             key={n.id}
             aria-label={n.label}
@@ -167,13 +169,12 @@ function Shell() {
           className="content"
           style={{ position: "relative", zIndex: 1, background: "transparent" }}
         >
-          {view === "dashboard" && <Dashboard onNavigate={setView} onViewAll={() => setView("log")} onOpenUsb={() => setView("usb")} />}
+          {view === "dashboard" && <Dashboard onNavigate={setView} onOpenUsb={() => setView("usb")} />}
           {view === "scan" && <ScanView onOpenVault={()=>setView("quarantine")} />}
           {view === "watchtower" && <WatchtowerView />}
           {view === "usb" && <UsbGuardView />}
           {view === "password" && <PasswordManagerView />}
           {view === "quarantine" && <QuarantineView />}
-          {view === "log" && <ThreatLogView />}
           <div hidden={view!=="ai"}><SentinelAiView context={aiContext} focusRef={aiFocus}/></div>
 
         </div>

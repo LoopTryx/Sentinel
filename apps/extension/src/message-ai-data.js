@@ -1,4 +1,4 @@
-// Only the flagged excerpt crosses into the local desktop; no contact list or history.
+// Redacted candidate excerpt and a bounded visible context tail may cross to the local desktop; never contact lists or whole inboxes.
 export const messageSources={whatsapp:'https://web.whatsapp.com/',gmail:'https://mail.google.com/',outlook:'https://outlook.live.com/'};
 export function messageExcerpt(text){
  if(typeof text!=='string'||!text.trim()||text.length>3000)throw Error('invalid_message');

@@ -37,3 +37,16 @@ p:empty { display:none; }
 .overlay-close { position:absolute; top:8px; right:8px; width:36px; min-height:36px; padding:0; color:#b6e4ff; background:#171d3d; font-size:24px; }
 @keyframes sentinel-appear { from {opacity:0;transform:translateY(-8px)} to {opacity:1;transform:translateY(0)} }
 @media(prefers-reduced-motion:reduce) { .embedded-card {animation:none} }
+/* Backdrop blur lives on the host surface so it can sample the website. */
+.embedded-card{border-radius:18px;border:1px solid #c5e7ff3d;background:linear-gradient(130deg,#24426059,#13223966);backdrop-filter:blur(22px) saturate(150%);box-shadow:inset 0 1px #e7f7ff40,inset 0 -1px #b4d9ff12,0 18px 55px #0005;overflow:hidden}
+.sentinel-controls{border-radius:18px;background:transparent}
+@media(prefers-reduced-transparency:reduce){.embedded-card{background:#192b45;backdrop-filter:none}}
+@media(forced-colors:active){.embedded-card{background:Canvas;border-color:CanvasText;backdrop-filter:none}}
+.sentinel-controls{color-scheme:normal}
+/* Let mascots sit outside the rounded glass without clipping the iframe. */
+.embedded-card{overflow:visible}
+.embedded-card>.mascot{z-index:2;pointer-events:none}
+/* Stable dark tint keeps the glass legible on bright pages. */
+.embedded-card{height:min(660px,calc(100dvh - 160px));background:linear-gradient(135deg,rgb(27 48 70 / 80%),rgb(13 25 43 / 86%));border-color:#b8defb66;backdrop-filter:blur(26px) saturate(135%);box-shadow:inset 0 1px #f1fbff55,inset 0 -1px #b8dfff1a,0 20px 60px #0005}
+.overlay-close{background:#152b44cc;color:#e7f7ff;border:1px solid #cce9ff26;border-radius:11px}
+@media(prefers-reduced-transparency:reduce){.embedded-card{background:#192b45;backdrop-filter:none}}@media(forced-colors:active){.embedded-card{background:Canvas;border-color:CanvasText}.overlay-close{background:ButtonFace;color:ButtonText}}

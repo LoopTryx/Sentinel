@@ -1,6 +1,8 @@
 $ErrorActionPreference='Stop'
 Add-Type -Path "$PSScriptRoot/../UsbSavedAdmissionEntry.cs"
-$exe='C:\Users\LENOVO LOQ\.codex\worktrees\db54\CyberShield\target\debug\sentinel-usb-policy-plan.exe'
+$repo=(Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
+$buildTarget=if($env:CARGO_TARGET_DIR){$env:CARGO_TARGET_DIR}else{Join-Path $repo 'target'}
+$exe=Join-Path $buildTarget 'debug/sentinel-usb-policy-plan.exe'
 if(!(Test-Path $exe)){throw 'Build canonical Rust policy compiler first'}
 $id=[Text.Encoding]::ASCII.GetBytes('USB\SYNTHETIC\INTERFACE')
 $record=[Text.Encoding]::ASCII.GetBytes('SNTINP03')+[byte]1+[byte]$id.Length+$id

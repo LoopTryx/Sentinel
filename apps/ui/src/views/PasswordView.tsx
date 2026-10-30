@@ -295,9 +295,9 @@ export default function PasswordView({onUse}:{onUse?:(password:string)=>void}={}
                 fontSize:
                   a.crackTime.length <= 8 ? 30 : a.crackTime.length <= 16 ? 24 : 20,
                 maxWidth: "100%",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
+                overflowWrap: "anywhere",
+                whiteSpace: "normal",
+                lineHeight: 1.3,
                 padding: "0 8px",
               }}
             >
@@ -332,7 +332,7 @@ export default function PasswordView({onUse}:{onUse?:(password:string)=>void}={}
           {/* CHARACTER POOL — classes light up as they are used */}
           <div className="stat pw-card">
             <span className="pw-label">Character pool</span>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div className="pw-character-classes" style={{ display: "flex", gap: 8 }}>
               {CHAR_CLASSES.map((c) => (
                 <span key={c.key} className={`pw-chip${c.test.test(pw) ? " on" : ""}`}>
                   {c.label}
@@ -371,8 +371,8 @@ export default function PasswordView({onUse}:{onUse?:(password:string)=>void}={}
             LENGTH
             <input
               type="range"
-              min={8}
-              max={32}
+              min={12}
+              max={48}
               value={genLen}
               onChange={(e) => setGenLen(Number(e.target.value))}
               style={{ accentColor: "var(--cyan)", width: 140 }}

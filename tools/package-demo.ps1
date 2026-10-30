@@ -1,8 +1,9 @@
-param([string]$NodeLicensePath,[switch]$IncludeLegacyClamAV)
+param([string]$NodeLicensePath,[switch]$IncludeLegacyClamAV,[switch]$AssetHardlinks,[string]$NativeDirectory,[ValidatePattern('^v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$')][string]$Version='v1.0.0')
 $ErrorActionPreference='Stop'
 $repo=Split-Path -Parent $PSScriptRoot
-$inspectionEngine=Join-Path $repo 'apps\desktop\console-build\sentinel-inspect.exe'
-$inspectionReceipt=Join-Path $repo 'apps\desktop\console-build\inspection-engine.json'
+if(!$NativeDirectory){$NativeDirectory=Join-Path $repo 'apps\desktop\console-build'}
+$inspectionEngine=Join-Path $NativeDirectory 'sentinel-inspect.exe'
+$inspectionReceipt=Join-Path $NativeDirectory 'inspection-engine.json'
 if(-not(Test-Path -LiteralPath $inspectionEngine -PathType Leaf) -or -not(Test-Path -LiteralPath $inspectionReceipt -PathType Leaf)){throw 'Stage and verify the native inspection engine before packaging.'}
 $engineReceipt=Get-Content -LiteralPath $inspectionReceipt -Raw | ConvertFrom-Json
 if($engineReceipt.executable -ne 'sentinel-inspect.exe' -or $engineReceipt.sha256 -ne (Get-FileHash -LiteralPath $inspectionEngine -Algorithm SHA256).Hash.ToLowerInvariant()){throw 'Staged inspection engine differs from its build receipt.'}
@@ -11,12 +12,12 @@ $nodeLicense=(Resolve-Path -LiteralPath $NodeLicensePath).Path
 foreach($required in @('apps\ui\dist\index.html','apps\extension\dist\manifest.json','apps\desktop\console-build\Sentinel.Glass.exe','apps\desktop\console-build\Microsoft.Web.WebView2.Core.dll','apps\desktop\console-build\Microsoft.Web.WebView2.Wpf.dll','apps\desktop\console-build\WebView2Loader.dll')){
  if(-not(Test-Path -LiteralPath (Join-Path $repo $required) -PathType Leaf)){throw ('Build prerequisite missing: '+$required)}
 }
-$stage=Join-Path $repo ('artifacts\Sentinel-Demo-'+[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'))
+$stage=Join-Path $repo (('artifacts\Sentinel-'+$Version+'-')+[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'))
 New-Item -ItemType Directory -Path $stage -Force | Out-Null
 function Copy-DemoFile([string]$Source,[string]$Relative){
  $destination=Join-Path $stage $Relative
  New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
- Copy-Item -LiteralPath $Source -Destination $destination
+ if($AssetHardlinks -and (Get-Item -LiteralPath $Source).Length -gt 67108864){try{New-Item -ItemType HardLink -Path $destination -Value $Source -ErrorAction Stop | Out-Null}catch{Copy-Item -LiteralPath $Source -Destination $destination -Force}}else{Copy-Item -LiteralPath $Source -Destination $destination}
 }
 foreach($entry in @('apps\ui\dist','apps\extension\dist','apps\extension\src','apps\extension\data','apps\demo-runtime')){
  $destination=Join-Path $stage $entry
@@ -29,9 +30,14 @@ $aiStage=Join-Path $stage 'artifacts/local-ai'
 New-Item -ItemType Directory -Path $aiStage -Force | Out-Null
 foreach($name in @('manifest.json','SmolLM2-135M-Instruct-Q4_K_M.gguf','qwen2.5-1.5b-instruct-q4_k_m.gguf')){Copy-DemoFile (Join-Path $ai $name) ('artifacts/local-ai/'+$name)}
 foreach($name in @('runtime','licenses')){Copy-Item -LiteralPath (Join-Path $ai $name) -Destination (Join-Path $aiStage $name) -Recurse}
-foreach($file in Get-ChildItem -LiteralPath (Join-Path $repo 'apps\desktop\console-build') -File){
- if($file.Extension -in @('.exe','.dll')){Copy-DemoFile $file.FullName ('apps\desktop\console-build\'+$file.Name)}
+$desktopFiles=@('Sentinel.Glass.exe','Sentinel.exe','Setup.exe','Sentinel.NativeConnect.exe','Sentinel.PasswordApproval.exe','Sentinel.UsbBootstrap.exe','Sentinel.UsbBroker.exe','Sentinel.UsbRecovery.dll','Sentinel.DuckyPolicy.exe','sentinel-inspect.exe','sentinel-sweep.exe','Microsoft.Web.WebView2.Core.dll','Microsoft.Web.WebView2.Wpf.dll','WebView2Loader.dll','signature-runtime.manifest')
+foreach($name in $desktopFiles){Copy-DemoFile (Join-Path $NativeDirectory $name) ('apps/desktop/console-build/'+$name)}
+$scanEngine=Join-Path $NativeDirectory 'scan-engine'
+foreach($line in Get-Content (Join-Path $NativeDirectory 'signature-runtime.manifest')){
+ $parts=$line.Split('|');$file=Join-Path $scanEngine $parts[0]
+ if($parts.Count -ne 2 -or (Get-FileHash -LiteralPath $file).Hash -ne $parts[1]){throw 'Scanner runtime pin mismatch; package refused.'}
 }
+Copy-Item -LiteralPath $scanEngine -Destination (Join-Path $stage 'apps/desktop/console-build/scan-engine') -Recurse
 Copy-DemoFile $inspectionReceipt 'apps\desktop\console-build\inspection-engine.json'
 if($IncludeLegacyClamAV){
 $clam=Join-Path $repo '.local-handoff\clamav-1.5.4\portable\clamav-1.5.4.win.x64'
@@ -43,11 +49,13 @@ foreach($file in Get-ChildItem -LiteralPath $clam -File){
 Copy-DemoFile (Join-Path $repo '.local-handoff\clamav-1.5.4\databases\daily.cvd') '.local-handoff\clamav-1.5.4\databases\daily.cvd'
 }
 Copy-DemoFile (Join-Path $repo 'tools\launch-demo.ps1') 'tools\launch-demo.ps1'
+Copy-DemoFile (Join-Path $repo 'tools\install-prerequisites.ps1') 'tools\install-prerequisites.ps1'
+Copy-DemoFile (Join-Path $repo 'artifacts\prerequisites\MicrosoftEdgeWebview2Setup.exe') 'tools\runtime\MicrosoftEdgeWebview2Setup.exe'
 Copy-DemoFile (Join-Path $repo 'tools\install-desktop.ps1') 'tools\install-desktop.ps1'
 Copy-DemoFile (Join-Path $repo 'tools\extension-identity.ps1') 'tools\extension-identity.ps1'
-Copy-DemoFile (Join-Path $repo 'apps\desktop\console-build\Sentinel.exe') 'Sentinel.exe'
-Copy-DemoFile (Join-Path $repo 'apps\desktop\console-build\Setup.exe') 'Setup.exe'
-Copy-DemoFile (Join-Path $repo 'apps\desktop\console-build\Sentinel.NativeConnect.exe') 'apps\desktop\console-build\Sentinel.NativeConnect.exe'
+Copy-DemoFile (Join-Path $NativeDirectory 'Sentinel.exe') 'Sentinel.exe'
+Copy-DemoFile (Join-Path $NativeDirectory 'Setup.exe') 'Setup.exe'
+Copy-DemoFile (Join-Path $NativeDirectory 'Sentinel.NativeConnect.exe') 'apps\desktop\console-build\Sentinel.NativeConnect.exe'
 Copy-DemoFile (Join-Path $repo 'tools\usb\read-inventory.ps1') 'tools\usb\read-inventory.ps1'
 foreach($labFile in @('README.md','duck-code.py','test-guard.ps1','Start-Typing-Test.ps1')){
  Copy-DemoFile (Join-Path $repo ('tools\usb\lab\'+$labFile)) ('tools\usb\lab\'+$labFile)
@@ -64,8 +72,8 @@ $ErrorActionPreference='Stop'
 & (Join-Path $PSScriptRoot 'tools\launch-demo.ps1')
 '@ | Set-Content -LiteralPath (Join-Path $stage 'Start-Sentinel-Demo.ps1') -Encoding utf8
 @'
-Sentinel v3 local preview
-Windows x64, .NET Framework, WebView2 Runtime and Windows Hello are required.
+Sentinel v1.0.0
+Windows 10 (build 19041+) or Windows 11, x64, .NET Framework 4.8 and Windows Hello are required. Setup checks requirements and installs Microsoft WebView2 if absent (internet required). ARM64 and 32-bit Windows need separate engines.
 Setup creates a desktop shortcut and registers the native Chrome connector.
 Chrome requires one-time approval: chrome://extensions > Developer mode > Load unpacked. Select the ChromeExtension folder shown by setup.
 F11 toggles fullscreen. Enter sends a chat; Shift+Enter starts a new line.
@@ -80,5 +88,3 @@ $hashes=Get-ChildItem -LiteralPath $stage -Recurse -File | ForEach-Object {
 }
 $hashes | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath (Join-Path $stage 'manifest-sha256.json') -Encoding utf8
 Write-Output $stage
-
-

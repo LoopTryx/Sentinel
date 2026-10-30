@@ -9,7 +9,7 @@ const source=(await readFile(new URL('../src/warning.js',import.meta.url),'utf8'
 function render(hash){
  const element=()=>({textContent:'',style:{},children:[],append(...children){this.children.push(...children);},setAttribute(){},addEventListener(){}});
  const nodes=new Map(['classification','summary','reasons','list-status','list-source'].map(id=>[id,{textContent:'',hidden:false,children:[],append(child){this.children.push(child);}}]));
- const document={body:{dataset:{}},getElementById:id=>nodes.get(id),querySelector:()=>element(),createElement:()=>element()};
+ const document={body:{dataset:{}},getElementById:id=>nodes.get(id)||element(),querySelector:()=>element(),createElement:()=>element()};
  runInNewContext(source,{document,window:{addEventListener(){}},location:{hash},snapshot,listState,pendingAiHandoff:async()=>null,handoffInput:()=>{throw Error('Original URL unavailable');}});
  return {nodes,document};
 }

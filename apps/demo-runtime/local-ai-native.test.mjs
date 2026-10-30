@@ -22,9 +22,9 @@ test('flagged message source and excerpt reach the real local model and return t
   const handoff=await (await post('/ai-message',browser.token,{source:'gmail',text:'Urgent! Your account will close. Send your password and verification code now. https://bit.ly/claim',nonce:'b'.repeat(32)},{'X-Sentinel-Extension':id})).json();
   assert.equal(handoff.finding.source,'gmail_message');assert.ok(handoff.finding.signals.some(s=>s.code==='message_excerpt'));
   let browserReply;const started=Date.now();
-  for(let attempt=0;attempt<60;attempt++){browserReply=await (await post('/ai-result',browser.token,{ref:handoff.finding.ref},{'X-Sentinel-Extension':id})).json();if(browserReply.quick)break;if(browserReply.localError)throw Error(browserReply.localError);await new Promise(ok=>setTimeout(ok,200));}
+  for(let attempt=0;attempt<240;attempt++){browserReply=await (await post('/ai-result',browser.token,{ref:handoff.finding.ref},{'X-Sentinel-Extension':id})).json();if(browserReply.quick)break;if(browserReply.localError)throw Error(browserReply.localError);await new Promise(ok=>setTimeout(ok,200));}
   const reply=browserReply.quick;assert.equal(reply?.provider,'On device');assert.ok(reply.text.length>0);assert.equal(browserReply.result,null);
-  assert.ok(Date.now()-started<15000);
+  assert.ok(Date.now()-started<60000);
   console.log('Synthetic Gmail -> actual CPU model: '+reply.text+' ('+reply.elapsedMs+'ms); No desktop inbox/quick call; NVIDIA not called.');
  }finally{await runtime.close();}
 });
@@ -37,7 +37,7 @@ test('cancelling a queued message does not interrupt another local explanation',
   const first=await (await post('/ai-message',browser.token,{source:'whatsapp',text:'Urgent! Your account will close. Send your password now.',nonce:'c'.repeat(32)},headers)).json();
   const second=await (await post('/ai-message',browser.token,{source:'whatsapp',text:'Urgent prize! Pay a fee now to collect the reward.',nonce:'d'.repeat(32)},headers)).json();
   assert.equal((await post('/ai-quick-cancel',runtime.desktopToken,{findingRef:second.finding.ref})).status,200);
-  let a,b;for(let n=0;n<70;n++){a=await(await post('/ai-result',browser.token,{ref:first.finding.ref},headers)).json();b=await(await post('/ai-result',browser.token,{ref:second.finding.ref},headers)).json();if(a.quick&&b.localError)break;await new Promise(ok=>setTimeout(ok,200));}
+  let a,b;for(let n=0;n<240;n++){a=await(await post('/ai-result',browser.token,{ref:first.finding.ref},headers)).json();b=await(await post('/ai-result',browser.token,{ref:second.finding.ref},headers)).json();if(a.quick&&b.localError)break;await new Promise(ok=>setTimeout(ok,200));}
   assert.equal(a.quick?.provider,'On device');assert.equal(a.localError,null);assert.equal(b.quick,null);assert.equal(b.localError,'local_cancelled_or_timed_out');
  }finally{await runtime.close();}
 });

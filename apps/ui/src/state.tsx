@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import type {ScanJobSnapshot} from '@sentinel/contracts/generated/ScanJobSnapshot';
 import {validSnapshot} from '../../demo-runtime/inspection-wire.mjs';
 import {demoCall} from './demo-bridge';
-export type ThreatLevel = 'preview' | 'warn' | 'danger';
+export type ThreatLevel = 'preview' | 'warn' | 'danger' | 'clear';
 export interface TelemetryLine { kind: string; level: 'info' | 'warn' | 'danger'; message: string; detail: string | null; ts: string; seq: number }
 interface ThreatCtx { snapshot: ScanJobSnapshot|null; inspectionError: string; resetScan: () => void; resetConsole: () => void; scanAlert: boolean; level: ThreatLevel; feed: TelemetryLine[]; setLevel: (level: ThreatLevel) => void; push: (line: Omit<TelemetryLine, 'seq'>) => void }
 const Ctx = createContext<ThreatCtx | null>(null);
@@ -27,7 +27,8 @@ export function ThreatProvider({children}: {children: ReactNode}) {
     }catch(e){if(live&&epoch===generation.current)setInspectionError(e instanceof Error?e.message:'Inspection unavailable');}finally{busy=false;}}
     void poll();const timer=setInterval(poll,900);return()=>{live=false;clearInterval(timer);};
   },[]);
-  const level: ThreatLevel = scanAlert ? 'danger' : previewLevel;
+  const completedClear=!inspectionError&&snapshot?.state==='finished'&&!snapshot.cancellationRequested&&snapshot.reports.length>0&&snapshot.reports.every(r=>r.state==='completed'&&r.verdict==='none_observed'&&!!r.sha256&&r.logicalBytes===r.inspectedBytes);
+  const level: ThreatLevel = scanAlert ? 'danger' : previewLevel==='danger'||previewLevel==='warn'?previewLevel:completedClear?'clear':previewLevel;
   const [feed, setFeed] = useState<TelemetryLine[]>([]);
   const seq = useRef(0);
   const push = useCallback((line: Omit<TelemetryLine, 'seq'>) => setFeed(previous => [{...line, seq: seq.current++}, ...previous].slice(0, 200)), []);

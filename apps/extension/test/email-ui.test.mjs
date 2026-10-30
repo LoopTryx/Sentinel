@@ -68,23 +68,4 @@ test('footer centres on the framed email despite an avatar gutter and releases r
  cleanup();cleanup();assert.equal(disconnected,1);assert.equal(body.querySelector('[data-sentinel-email]'),null);dom.window.close();
 });
 
-test('email buttons require real acknowledgements, display failure/retry and never pretend a no-op saved feedback',async()=>{
- const dom=new JSDOM('<article></article>'),root=dom.window.document.querySelector('article');let shadow,calls=0;const attach=dom.window.Element.prototype.attachShadow;dom.window.Element.prototype.attachShadow=function(opts){shadow=attach.call(this,opts);return shadow;};
- const cleanup=showEmailWarning(root,{tier:'Likely Scam',reasons:[]},{onWrongFlag:async()=>{calls++;return calls===1?undefined:{recorded:true};},onManageTrust:async()=>({opened:true})});
- const tick=()=>new Promise(resolve=>setImmediate(resolve));try{const [feedback,trust]=shadow.querySelectorAll('button');feedback.click();await tick();assert.equal(feedback.disabled,false);assert.match(shadow.textContent,/Could not save feedback/);
- feedback.click();await tick();assert.equal(feedback.disabled,true);assert.match(shadow.textContent,/Feedback saved on this device/);feedback.click();assert.equal(calls,2);
- trust.click();await tick();assert.match(shadow.textContent,/Sender settings opened/);assert.equal(trust.disabled,false);
- }finally{cleanup();dom.window.close();}
-});
-
-test('trust-this-sender requires persistence acknowledgement and allows retry without opening settings',async()=>{
- const dom=new JSDOM('<article></article>'),root=dom.window.document.querySelector('article');let shadow,calls=0;
- const attach=dom.window.Element.prototype.attachShadow;dom.window.Element.prototype.attachShadow=function(opts){shadow=attach.call(this,opts);return shadow;};
- const cleanup=showEmailWarning(root,{tier:'Likely Scam',reasons:[]},{onTrustSender:async()=>{calls++;return calls===1?{error:'unavailable'}:{trusted:true};}});
- const tick=()=>new Promise(resolve=>setImmediate(resolve));
- try{const trust=[...shadow.querySelectorAll('button')].find(button=>button.textContent==='Trust this sender');
- trust.click();await tick();assert.equal(trust.disabled,false);assert.match(shadow.textContent,/Could not trust sender/);
- trust.click();await tick();assert.equal(trust.textContent,'Sender trusted');assert.equal(trust.disabled,true);assert.match(shadow.textContent,/Risky requests can still warn/);
- trust.click();assert.equal(calls,2);assert.ok(root.hasAttribute('data-sentinel-email-frame'));
- }finally{cleanup();dom.window.close();}
-});
+test('email banner omits removed reporting and trust actions',()=>{const dom=new JSDOM('<article></article>');let shadow;const attach=dom.window.Element.prototype.attachShadow;dom.window.Element.prototype.attachShadow=function(opts){shadow=attach.call(this,opts);return shadow;};const cleanup=showEmailWarning(dom.window.document.querySelector('article'),{tier:'Likely Scam',reasons:[]},{onWrongFlag:async()=>{throw Error('removed');},onTrustSender:async()=>{throw Error('removed');}});try{assert.equal(shadow.querySelectorAll('button').length,0);assert.doesNotMatch(shadow.textContent,/Report wrong flag|Trust this sender/);}finally{cleanup();dom.window.close();}});

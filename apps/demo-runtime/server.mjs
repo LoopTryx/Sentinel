@@ -1,3 +1,5 @@
+import {createPasswordVault} from './password-vault.mjs';
+import {passwordRoute} from './password-routes.mjs';
 import {watchtowerPreferences} from './watchtower-observe.mjs';
 import {rememberBrowserDomain,forgetBrowserDomains} from './watchtower-browser.mjs';
 import http from 'node:http';
@@ -45,9 +47,10 @@ const allowedCodes=new Set(['http','credentials','ip','internationalized','port'
 function equal(a,b){return typeof a==='string'&&/^[a-f0-9]{64}$/.test(a)&&a.length===b.length&&timingSafeEqual(Buffer.from(a),Buffer.from(b));}
 function keys(body,list){return body&&typeof body==='object'&&!Array.isArray(body)&&Object.keys(body).every(k=>list.includes(k));}
 
-export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=null,nativeAppDir=null,autoObserve=false,localExplanations=autoObserve}={}) {
+export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=null,nativeAppDir=null,autoObserve=false,localExplanations=autoObserve,passwordVaultPath=null}={}) {
+ const credentialSite=host=>{if(typeof host!=='string'||host.length>253||!/^[a-zA-Z0-9.:-]+$/.test(host))throw Error('invalid_origin');return new URL('https://'+host).origin;};
  const aiHandoff=createAiHandoff();
- const localAi=createLocalAi();const chatAi=createLocalAi({profile:'chat'});if(autoObserve)void localAi.warm().catch(()=>{});
+ const localAi=createLocalAi();const chatAi=createLocalAi({profile:'chat'});if(autoObserve){void localAi.warm().catch(()=>{});void chatAi.warm().catch(()=>{});}
  const chatQueue=createLocalQueue(chatAi);const runChat=(...args)=>chatQueue.run(...args);
  const localRequests=new Map();let localTail=Promise.resolve(),localPending=0,activeLocalRef=null;
  function startLocalExplanation(handoff){
@@ -65,6 +68,7 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
  const desktopToken=randomBytes(32).toString('hex');
  const nativeActionToken=randomBytes(32).toString('hex');
  let browserToken='',extensionId='',unlocked=false,scan=null,closed=false,revision=0,activeScan=Promise.resolve(),closing;
+ const passwordVault=passwordVaultPath?createPasswordVault({path:passwordVaultPath}):null;
  const events=[];
  const accounts=[
   {id:'mail',name:'Orbit Mail',user:'alex@example.test',host:'mail.example.test',password:'password123'},
@@ -73,7 +77,7 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
   {id:'games',name:'Arcade',user:'player@example.test',host:'arcade.example.test',password:'Sunshine2026!'},
  ];
  function event(source,kind,codes=[]){events.unshift({id:randomBytes(8).toString('hex'),at:new Date().toISOString(),source,kind,codes});events.splice(64);}
- function state(){return {revision,mode:'synthetic_demo',connected:true,unlocked,extensionId,accounts:accounts.map(({password,...a})=>({...a,...auditPassword(password),reused:accounts.filter(b=>b.password===password).length>1})),events,scan:scan?Object.fromEntries(Object.entries(scan).filter(([k])=>k!=='cancel')):null};}
+ function state(){if(passwordVault){accounts.splice(0);const v=passwordVault.status();if(unlocked===v.locked)revision++;unlocked=!v.locked;if(unlocked)accounts.push(...passwordVault.list());}return {revision,mode:passwordVault?'encrypted_vault':'synthetic_demo',connected:true,unlocked,extensionId,accounts:accounts.map(({password,...a})=>passwordVault?a:({...a,...auditPassword(password),reused:accounts.filter(b=>b.password===password).length>1})),events,scan:scan?Object.fromEntries(Object.entries(scan).filter(([k])=>k!=='cancel')):null};}
  let nativeSnapshot=null;
  let nativeService=null;
 
@@ -171,6 +175,24 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
   let body;
   const bodyLimit=req.url==='/ai-answer'&&desktop&&equal(req.headers['x-sentinel-native-action'],nativeActionToken)?24000:req.url==='/ai-message'&&browser?12000:4096;
   try{let size=0;const chunks=[];for await(const c of req){size+=c.length;if(size>bodyLimit)return respond(413,{error:'request_too_large'});chunks.push(c);}body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{return respond(400,{error:'invalid_request'});}
+  if(req.url==='/password-vault'){
+   if(!passwordVault)return respond(503,{error:'vault_unavailable'});
+   if(body.action!=='status'&&(!desktop||!equal(req.headers['x-sentinel-native-action'],nativeActionToken)))return respond(403,{error:'native_approval_required'});
+   try{if(!keys(body,['action','data'])||Object.keys(body).length!==2)throw Error('invalid_vault_request');const result=await passwordRoute(passwordVault,body.action,body.data);if(['unlock','lock','save'].includes(body.action))revision++;return respond(200,result);}catch(e){return respond(400,{error:['vault_locked','vault_busy','vault_try_later','vault_storage_busy','vault_invalid_file','vault_unlock_failed','invalid_origin','invalid_login','origin_mismatch','invalid_vault_request'].includes(e.message)?e.message:'vault_operation_failed'});}
+  }
+  if(passwordVault&&['/account-add','/account-update','/account-remove','/rotate','/reveal'].includes(req.url)){
+   if(!desktop||!equal(req.headers['x-sentinel-native-action'],nativeActionToken))return respond(403,{error:'native_approval_required'});
+   try{
+    const rows=passwordVault.list(),row=rows.find(a=>a.id===body.id);let result;
+    if(req.url==='/account-add')result=await passwordVault.save({origin:credentialSite(body.host),name:body.name,user:body.user,password:body.password||generatePassword(24,webcrypto)});
+    else if(!row)throw Error('invalid_account');
+    else if(req.url==='/account-remove')result=await passwordVault.remove(row.id);
+    else if(req.url==='/account-update')result=await passwordVault.edit(row.id,{origin:credentialSite(body.host),name:body.name,user:body.user,...(body.password?{password:body.password}:{})});
+    else if(req.url==='/rotate')result=await passwordVault.edit(row.id,{password:generatePassword(24,webcrypto)});
+    else result={...passwordVault.fill(row.id,row.origin),mode:'encrypted_vault'};
+    revision++;return respond(200,result);
+   }catch(e){return respond(400,{error:['vault_locked','invalid_account','account_exists','invalid_login','invalid_origin'].includes(e.message)?e.message:'vault_operation_failed'});}
+  }
   if(req.url==='/ai-chat'||req.url==='/ai-chat-status'||req.url==='/ai-chat-cancel'){
    if(!desktop||!equal(req.headers['x-sentinel-native-action'],nativeActionToken))return respond(403,{error:'forbidden'});
    if(req.url==='/ai-chat-status'&&Object.keys(body).length===0)return respond(200,chatAi.status());
@@ -186,10 +208,11 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
     try{const finding=body.findingRef===null?null:aiHandoff.resolve(body.findingRef);const prepared=localRequests.get(body.findingRef);const result=prepared&&prepared.question===body.question?await prepared.promise:await localAi.answer(body.question,finding);if(body.findingRef!==null)aiHandoff.publishQuick(body.findingRef,result);return respond(200,result);}catch(error){return respond(400,{error:['quick_question_too_long','local_model_busy','local_model_unavailable','local_cancelled_or_timed_out','local_response_unavailable','finding_unknown_or_expired'].includes(error.message)?error.message:'local_response_unavailable'});}
    }return respond(400,{error:'invalid_request'});
   }
-  if(req.url==='/ai-open'||req.url==='/ai-message'||req.url==='/ai-handoff'||req.url==='/ai-inbox'||req.url==='/ai-finding'||req.url==='/ai-answer'||req.url==='/ai-result'){
+  if(req.url==='/ai-notify'||req.url==='/ai-open'||req.url==='/ai-message'||req.url==='/ai-handoff'||req.url==='/ai-inbox'||req.url==='/ai-finding'||req.url==='/ai-answer'||req.url==='/ai-result'){
    try{
+    if(req.url==='/ai-notify'){if(!browser||Object.keys(body).join(',')!=='ref')return respond(403,{error:'forbidden'});return respond(200,aiHandoff.announce(body.ref));}
     if(req.url==='/ai-open'){if(!browser||Object.keys(body).join(',')!=='ref')return respond(403,{error:'forbidden'});return respond(200,aiHandoff.open(body.ref));}
-    if(req.url==='/ai-message'){if(!browser)return respond(403,{error:'forbidden'});const handoff=aiHandoff.createMessage(body);if(localExplanations)startLocalExplanation(handoff);return respond(200,handoff);}
+    if(req.url==='/ai-message'){if(!browser)return respond(403,{error:'forbidden'});if(body.silent!==undefined&&typeof body.silent!=='boolean')return respond(400,{error:'invalid_message'});const {silent,...message}=body;const handoff=aiHandoff.createMessage(message,{silent:silent===true,deferAnnouncement:message.source==='whatsapp'});if(localExplanations)startLocalExplanation(handoff);return respond(200,handoff);}
     if(req.url==='/ai-handoff'){
      if(!browser)return respond(403,{error:'forbidden'});
      const handoff=aiHandoff.create(body);if(localExplanations)startLocalExplanation(handoff);return respond(200,handoff);
@@ -266,7 +289,7 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
     return respond(200,result);
    }finally{nativeActionInFlight=false;}
   }
-  if(req.url==='/state'&&keys(body,[])){const snapshot=state();if(browser)snapshot.scan=null;return respond(200,snapshot);}
+  if(req.url==='/state'&&keys(body,[])){const snapshot=state();if(browser){snapshot.scan=null;if(passwordVault)snapshot.accounts=[];}return respond(200,snapshot);}
   if(req.url==='/inspection'&&desktop&&keys(body,[]))return respond(200,{snapshot:nativeSnapshot});
   if(req.url==='/shutdown'&&desktop&&keys(body,[])){res.once('finish',()=>{void close().then(onShutdown);});return respond(200,{ok:true});}
   if(req.url==='/event'&&browser&&keys(body,['risk','codes'])&&['suspicious','unknown'].includes(body.risk)&&Array.isArray(body.codes)&&body.codes.length<=16&&body.codes.every(c=>allowedCodes.has(c))){event('browser',body.risk,Array.from(new Set(body.codes)));return respond(200,{ok:true});}
@@ -301,13 +324,13 @@ export async function startRuntime({port=0,onShutdown=()=>{},nativeExecutable=nu
  });
  server.maxConnections=8;server.requestTimeout=5000;server.headersTimeout=5000;
  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});
- function close(){if(!closing){closed=true;if(scan)scan.cancel=true;closing=(async()=>{chatQueue.close();await Promise.all([wifiMonitor?.close(),usbMonitor?.close(),localAi.close(),chatAi.close()]);server.closeAllConnections();await new Promise(resolve=>server.close(resolve));if(nativeService)await nativeService.close();await activeScan;})();}return closing;}
+ function close(){if(!closing){closed=true;passwordVault?.close();if(scan)scan.cancel=true;closing=(async()=>{chatQueue.close();await Promise.all([wifiMonitor?.close(),usbMonitor?.close(),localAi.close(),chatAi.close()]);server.closeAllConnections();await new Promise(resolve=>server.close(resolve));if(nativeService)await nativeService.close();await activeScan;})();}return closing;}
  return {desktopToken,nativeActionToken,url:'http://127.0.0.1:'+server.address().port,port:server.address().port,close};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
  const nativeExecutable=fileURLToPath(new URL('../desktop/console-build/sentinel-inspect.exe',import.meta.url));
  const nativeAppDir=process.env.LOCALAPPDATA?join(process.env.LOCALAPPDATA,'Sentinel-School-Demo','inspection-vault'):null;
- const runtime=await startRuntime({onShutdown:()=>process.exit(0),nativeExecutable,nativeAppDir,autoObserve:true});
- await writeFile(new URL('../desktop/console-build/demo-runtime.json',import.meta.url),JSON.stringify({url:runtime.url,token:runtime.desktopToken,nativeActionToken:runtime.nativeActionToken}),{mode:0o600});
+ const runtime=await startRuntime({onShutdown:()=>process.exit(0),nativeExecutable,nativeAppDir,autoObserve:true,passwordVaultPath:join(process.env.LOCALAPPDATA,'Sentinel','Passwords','vault.json')});
+ await writeFile(new URL('../desktop/console-build/demo-runtime.json',import.meta.url),JSON.stringify({url:runtime.url,token:runtime.desktopToken,nativeActionToken:runtime.nativeActionToken,vaultPath:join(process.env.LOCALAPPDATA,'Sentinel','Passwords','vault.json')}),{mode:0o600});
  process.on('SIGTERM',async()=>{await runtime.close();process.exit(0);});
 }

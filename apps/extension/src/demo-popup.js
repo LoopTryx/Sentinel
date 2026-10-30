@@ -2,10 +2,11 @@ const $=id=>document.getElementById(id);
 const call=async(method,data={})=>{const r=await chrome.runtime.sendMessage({kind:'demo_call',method,data});if(r?.error)throw Error(r.error);return r?.data;};
 let busy=false,lastSignature='',checking=false;
 function priority(a){return a.reused||['Weak','Very weak'].includes(a.health)?'high':a.health==='Stronger'?'low':['Moderate','Fair','Good'].includes(a.health)?'medium':'unknown';}
-function paint(){for(const card of document.querySelectorAll('.vault-card'))card.dataset.priority=checking?card.dataset.audit:'';$('check-accounts').setAttribute('aria-pressed',String(checking));$('demo-accounts').classList.toggle('checking',checking);}
+function paint(){if(!$('demo-accounts'))return;for(const card of document.querySelectorAll('.vault-card'))card.dataset.priority=checking?card.dataset.audit:'';$('check-accounts').setAttribute('aria-pressed',String(checking));$('demo-accounts').classList.toggle('checking',checking);}
 async function refresh(){if(busy)return;busy=true;try{
- const state=await call('state');if(state?.mode!=='synthetic_demo'||!Array.isArray(state.accounts)||state.accounts.length>128)throw Error('Invalid state');
+ const state=await call('state');if(!['synthetic_demo','encrypted_vault'].includes(state?.mode)||!Array.isArray(state.accounts)||state.accounts.length>128)throw Error('Invalid state');
  $('desktop-status').textContent='Console connected';document.body.dataset.connected='true';
+ if(!$('demo-accounts'))return;
  const signature=JSON.stringify([state.accounts,state.revision]);if(signature===lastSignature)return;lastSignature=signature;
  const list=$('demo-accounts');list.replaceChildren();
  for(const account of state.accounts){const card=document.createElement('article');card.className='vault-card';card.dataset.audit=priority(account);card.dataset.search=JSON.stringify([account.name,account.user,account.host]).toLowerCase();
@@ -18,10 +19,10 @@ async function refresh(){if(busy)return;busy=true;try{
   card.append(heading,fields,health,actions);list.append(card);
  }
  paint();filter();
- }catch{$('desktop-status').textContent='Waiting for console';document.body.dataset.connected='false';lastSignature='';$('demo-accounts').replaceChildren();$('demo-feedback').textContent='Automatic connection unavailable. Open Sentinel and reload this extension.';}finally{busy=false;}}
+ }catch{$('desktop-status').textContent='Waiting for console';document.body.dataset.connected='false';lastSignature='';$('demo-accounts')?.replaceChildren();if($('demo-feedback'))$('demo-feedback').textContent='Automatic connection unavailable. Open Sentinel and reload this extension.';}finally{busy=false;}}
 function filter(){const query=$('account-search').value.toLowerCase();for(const card of document.querySelectorAll('.vault-card'))card.hidden=!card.dataset.search.includes(query);}
-$('account-search').addEventListener('input',filter);
-$('check-accounts').onclick=()=>{checking=!checking;paint();};
+$('account-search')?.addEventListener('input',filter);
+if($('check-accounts'))$('check-accounts').onclick=()=>{checking=!checking;paint();};
 for(const tab of document.querySelectorAll('[data-view]'))tab.addEventListener('click',()=>{checking=false;paint();});
 $('demo-reconnect').onclick=()=>{lastSignature='';void refresh();};
 window.addEventListener('pagehide',()=>{checking=false;});

@@ -12,3 +12,8 @@ test('rejects biased high bytes and bounds a failing random provider', () => {
  assert.equal(result, 'a'.repeat(12)); assert.equal(calls, 2);
  assert.throws(() => generatePassword(12, {getRandomValues(bytes) {return bytes.fill(255);}}), /unavailable/);
 });
+test('generator honours selected character groups and rejects empty options',()=>{
+ const numeric=generatePassword(20,webcrypto,{lower:false,upper:false,numbers:true,symbols:false});assert.match(numeric,/^[2-9]{20}$/);
+ assert.throws(()=>generatePassword(20,webcrypto,{lower:false,upper:false,numbers:false,symbols:false}),/character/);
+ for(let i=0;i<20;i++){const v=generatePassword(20,webcrypto,{lower:true,upper:true,numbers:true,symbols:true});assert.match(v,/[a-z]/);assert.match(v,/[A-Z]/);assert.match(v,/[2-9]/);assert.match(v,/[!@#$%*\-_+?]/);}
+});

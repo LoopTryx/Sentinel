@@ -29,3 +29,16 @@ test('message handoffs recompute evidence, redact secrets and retain the source'
 });
 
 test('message context is bounded/redacted, preserved in trusted finding and not announced for uncertain advice',()=>{const ai=createAiHandoff();const row=ai.createMessage({source:'gmail',text:'Never share your code',history:['Earlier discussion','password=secret 123456'],nonce:'f'.repeat(32)});const context=row.finding.signals.find(s=>s.code==='message_context').text;assert.ok(context.includes('Earlier discussion'));assert.ok(!context.includes('secret'));assert.ok(!context.includes('123456'));ai.publishQuick(row.finding.ref,{provider:'On device',kind:'local_interpretation',text:'Uncertain',verdict:'uncertain'});assert.equal(ai.take(),null);assert.throws(()=>ai.createMessage({source:'gmail',text:'hi',history:['x'.repeat(3001)],nonce:'e'.repeat(32)}));});
+
+test('refresh can recover a warning without repeating its desktop announcement',()=>{
+ const ai=createAiHandoff();const row=ai.createMessage({source:'whatsapp',text:'Claim your prize now',nonce:'a'.repeat(32)},{silent:true});
+ const quick={provider:'On device',kind:'local_interpretation',text:'Unexpected prize request.',verdict:'likely'};
+ ai.publishQuick(row.finding.ref,quick);assert.deepEqual(ai.quick(row.finding.ref),quick);assert.equal(ai.take(),null);
+ ai.open(row.finding.ref);assert.equal(ai.take().finding.ref,row.finding.ref,'explicit Learn more still opens');
+});
+
+test('deferred WhatsApp announcement waits for animation and is idempotent',()=>{
+ const ai=createAiHandoff();const h=ai.createMessage({source:'whatsapp',text:'Claim your prize now',nonce:'f'.repeat(32)},{deferAnnouncement:true});
+ ai.publishQuick(h.finding.ref,{provider:'On device',kind:'local_interpretation',verdict:'likely',text:'Prize bait.'});assert.equal(ai.take(),null);
+ ai.announce(h.finding.ref);assert.equal(ai.take().finding.ref,h.finding.ref);ai.announce(h.finding.ref);assert.equal(ai.take(),null);
+});

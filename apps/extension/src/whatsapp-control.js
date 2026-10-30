@@ -1,3 +1,4 @@
+import {resetAlerts} from './message-alert-history.js';
 const ID='sentinel-whatsapp';
 export const WHATSAPP_PERMISSION={permissions:['scripting'],origins:['https://web.whatsapp.com/*']};
 export async function whatsAppStatus(api){
@@ -11,6 +12,7 @@ export async function whatsAppStatus(api){
 export async function setWhatsAppWarnings(api,enabled){
  const granted=await api.permissions.contains(WHATSAPP_PERMISSION);
  if(enabled&&!granted)throw new Error('WhatsApp site and scripting permission required.');
+ if(!enabled)await resetAlerts(api,'whatsapp');
  // Persist opt-out before any asynchronous tab cleanup or API that can fail.
  await api.storage.local.set({whatsappOptIn:enabled});
  let scripts=[];

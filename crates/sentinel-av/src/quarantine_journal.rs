@@ -127,7 +127,7 @@ impl Journal {
             || record.source.len() > 1024
             || record.source.contains('\0')
             || association.to_str() != Some(record.source.as_str())
-            || plaintext.len() > 8 * 1024 * 1024
+            || plaintext.len() > crate::vault::MAX_PLAINTEXT_BYTES
             || record.bytes != plaintext.len() as u64
             || record.sha256 != hex::encode(Sha256::digest(plaintext))
         {
@@ -341,7 +341,7 @@ pub(crate) fn read_native_record(
                 break;
             }
         };
-        if record.bytes > 8 * 1024 * 1024
+        if record.bytes > crate::vault::MAX_PLAINTEXT_BYTES as u64
             || record.source.len() > 1024
             || !Path::new(&record.source).is_absolute()
             || record.source.contains('\0')

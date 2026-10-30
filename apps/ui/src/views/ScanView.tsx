@@ -1,3 +1,4 @@
+import SignatureScanPanel from '../components/SignatureScanPanel';
 import PageMascot from '../components/PageMascot';
 import {useEffect,useState} from 'react';
 import {demoCall,useDemoState} from '../demo-bridge';
@@ -30,7 +31,9 @@ export default function ScanView({onOpenVault}:{onOpenVault?:()=>void}={}){
    setNotice('Original bytes restored.');
   }else setNotice('Operation not completed: '+(r.data?.code||r.type||'unavailable'));
  }catch(e){setNotice(e instanceof Error?e.message:'Native operation unavailable');}finally{setBusy(false);}}
- return <section className="panel glm-page scan-page"><div className="glm-page-heading"><div><h1 className="page-title">Scan & Detect</h1></div><div className="page-mascot-aside"><span className="badge">{state?'Connected · partial coverage':'Scanner disconnected'}</span><PageMascot page="scan"/></div></div>
+ return <section className="panel glm-page scan-page"><div className="glm-page-heading"><div><h1 className="page-title">Scan & Detect</h1></div><div className="page-mascot-aside"><PageMascot page="scan"/></div></div>
+ <SignatureScanPanel/>
+ <section className="inspection-workspace" aria-label="Detailed file inspection"><header><h2>Inspect a file</h2><p>Get a detailed report and review a file for quarantine.</p></header>
  {hasFindings&&<div className="scan-finding-summary" role="alert"><strong>{signatureFound?'Threat signature detected':'Suspicious file detected'}</strong><p>{inspectionError?"Last available finding; scanner unavailable.":"Review the file below before taking action."}</p></div>}
  {quarantined.size>0&&onOpenVault&&<button className="btn" onClick={onOpenVault}>Open Quarantine Vault</button>}
  <ScanTargetPanel running={running} disabled={!state||busy||running} onChoose={kind=>void select(kind)}/>
@@ -39,7 +42,7 @@ export default function ScanView({onOpenVault}:{onOpenVault?:()=>void}={}){
  {(notice||error||inspectionError)&&<p role="status">{notice||error||inspectionError}</p>}
  {snapshot&&<section aria-live="polite">
  {inspectionError&&<p role="status">Last available report · current inspection unavailable.</p>}<div className="scan-results-heading"><h2>Scan results</h2><span>{snapshot.cancellationRequested?'Cancellation requested':snapshot.state==='finished'?'Inspection complete':snapshot.state} / {snapshot.reports.length} {snapshot.reports.length===1?'file':'files'}</span></div>
- {snapshot.reports.map(report=><div className="scan-result-card" data-contained={quarantined.has(snapshot.jobRef+':'+report.reportRef)} key={snapshot.jobRef+report.reportRef}>
+ {snapshot.reports.map(report=><div className="scan-result-card" data-verdict={report.verdict} data-complete={!inspectionError&&snapshot.state==='finished'&&!snapshot.cancellationRequested&&report.state==='completed'&&!!report.sha256&&report.logicalBytes===report.inspectedBytes} data-contained={quarantined.has(snapshot.jobRef+':'+report.reportRef)} key={snapshot.jobRef+report.reportRef}>
  <strong>{quarantined.has(snapshot.jobRef+':'+report.reportRef)?'Quarantined':report.verdict==='none_observed'?'No indicators found':report.verdict==='signature_match'?'Threat signature detected':report.verdict==='suspicious'?'Suspicious file':report.verdict.replaceAll('_',' ')}</strong>
  <p>Inspected {report.inspectedBytes} of {report.logicalBytes} bytes.</p>
  <details className="glm-details"><summary>Report details</summary><p>{report.sha256?<code style={{overflowWrap:'anywhere'}}>SHA-256: {report.sha256}</code>:'Full-file SHA-256 unavailable; inspection is incomplete.'}</p>
@@ -47,5 +50,5 @@ export default function ScanView({onOpenVault}:{onOpenVault?:()=>void}={}){
  </details><p>{report.findings.length?report.findings.map(f=>f.replaceAll('_',' ')).join(', '):'No local indicator observed. This does not guarantee safety.'}</p>
  <button className="btn ghost" disabled={quarantined.has(snapshot.jobRef+':'+report.reportRef)||!quarantineAvailable||busy||running||selection?.kind!=='file'||selection.id!==state?.scan?.id||snapshot.cancellationRequested||report.state!=='completed'||!report.sha256||report.logicalBytes!==report.inspectedBytes||!['suspicious','signature_match'].includes(report.verdict)||snapshot.reports.length!==1} onClick={()=>void disposition(false,report.reportRef)}>{quarantined.has(snapshot.jobRef+':'+report.reportRef)?'Quarantined':quarantineAvailable?'Quarantine…':'Quarantine unavailable'}</button>
  </div>)}</section>}
- </section>;
+ </section></section>;
 }

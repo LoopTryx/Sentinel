@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Sentinel Browser Companion",
-  "version": "0.2.20",
+  "version": "1.0.0",
   "optional_permissions": [
     "scripting"
   ],
@@ -19,7 +19,8 @@
     "storage",
     "nativeMessaging",
     "activeTab",
-    "scripting"
+    "scripting",
+    "sidePanel"
   ],
   "background": {
     "service_worker": "src/service-worker.js",
@@ -52,7 +53,11 @@
         "src/message-detector.js",
         "data/message-detector-config.js",
         "src/message-ai-inline.js",
-        "src/message-ai-data.js"
+        "src/message-ai-data.js",
+        "src/message-candidates.js",
+        "src/email/providers/shared.js",
+        "data/email-extraction-config.js",
+        "src/local-checks.js"
       ],
       "matches": [
         "https://web.whatsapp.com/*"
@@ -92,7 +97,8 @@
         "src/assets/red-alert-v1.png",
         "src/assets/CabinetGrotesk-Variable.woff2",
         "src/message-ai-inline.js",
-        "src/message-ai-data.js"
+        "src/message-ai-data.js",
+        "src/message-candidates.js"
       ],
       "matches": [
         "https://mail.google.com/*",
@@ -112,6 +118,25 @@
         "http://*/*",
         "https://*/*"
       ]
+    },
+    {
+      "resources": [
+        "field-vault.html",
+        "src/assets/brand/sentinel-32.png"
+      ],
+      "matches": [
+        "https://*/*"
+      ]
+    },
+    {
+      "resources": [
+        "src/console-ui/vault-console.html",
+        "src/console-ui/assets/*"
+      ],
+      "matches": [
+        "https://*/*",
+        "http://*/*"
+      ]
     }
   ],
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0AtiT+YOHVc5JEAF/IxEdHTGoP9KhPayoY3OaC1ipr2jcRmwbtXeby8zaE9FazEwcLqjC0/eSOeGbMpe9T8+8dbSN7sCg4+zcXY+owVwplrW3cdrarx6DdOtu7ZdCpLEX1Kr+m24rc7uzsEj7+CaFTt0QoO8AWogVlSmzcabn0mHTdXXv6MdDt4GE+lbvexgo+wURciTPiyW63xuv/MK0naDwljlzMaVCefH8LwwzI8avZhzhcqWn/Qitqq4gfn8H44UkMvhfNHTWuBRfy33M/8hfVLMdhPTDqPiYKej+M8dnHkdEPvIH3bTTo04SCbpRoQWzq697B9oLnU88oKKnQIDAQAB",
@@ -120,5 +145,8 @@
     "32": "src/assets/brand/sentinel-32.png",
     "48": "src/assets/brand/sentinel-48.png",
     "128": "src/assets/brand/sentinel-128.png"
+  },
+  "side_panel": {
+    "default_path": "popup.html?view=passwords&vault=1"
   }
 }

@@ -1,17 +1,10 @@
 // @vitest-environment jsdom
 import {act} from 'react';import {createRoot} from 'react-dom/client';import {expect,it,vi} from 'vitest';
-import Dashboard from './views/Dashboard';
-const {resetConsole}=vi.hoisted(()=>({resetConsole:vi.fn()}));
-vi.mock('./demo-bridge',()=>({useDemoState:()=>({state:null})}));
-vi.mock('./state',()=>({useThreat:()=>({level:'preview',feed:[],setLevel:vi.fn(),push:vi.fn(),snapshot:null,resetConsole})}));
-vi.mock('./components/ui/Grainient',()=>({default:()=>null}));
+import Dashboard from './views/Dashboard';import {demoCall} from './demo-bridge';
+vi.mock('./demo-bridge',()=>({demoCall:vi.fn(),useDemoState:()=>({state:{events:[]}})}));
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;
-it('dashboard quick actions and capability cards navigate without starting privileged work',async()=>{
- const host=document.createElement('div');document.body.append(host);const root=createRoot(host),navigate=vi.fn();
- try{await act(()=>root.render(<Dashboard onViewAll={()=>{}} onNavigate={navigate}/>));
-  resetConsole.mockClear();const reset=Array.from(host.querySelectorAll('button')).find(button=>button.textContent?.includes('RESET CONSOLE'));await act(()=>reset!.click());expect(resetConsole).toHaveBeenCalledOnce();
-  const buttons=Array.from(host.querySelectorAll<HTMLButtonElement>('.dashboard-actions button'));
-  for(const b of buttons)await act(()=>b.click());expect(navigate.mock.calls).toEqual([['scan'],['password'],['watchtower']]);
-  expect(host.querySelector('.module-action')).toBeNull();expect(host.textContent).not.toContain('SHIELD MODULES');expect(host.textContent).not.toContain('Open USB Guard');
- }finally{await act(()=>root.unmount());host.remove();}
+it('reads status without starting scans and sends only explicit bounded actions',async()=>{
+ vi.mocked(demoCall).mockImplementation(async method=>method==='security.status'?{available:true,monitoring:false,scan:{state:'idle'},events:[]}:{});
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ try{await act(async()=>root.render(<Dashboard/>));expect(demoCall).not.toHaveBeenCalledWith('security.scan',expect.anything());const full=Array.from(host.querySelectorAll('button')).find(b=>b.textContent?.includes('Full scan'))!;await act(async()=>full.click());expect(demoCall).toHaveBeenCalledWith('security.scan',{mode:'full'});expect(vi.mocked(demoCall).mock.calls.some(([method])=>method.startsWith('usb.')||method==='quarantine.request'||method==='scan.select')).toBe(false);expect(host.textContent).not.toContain('RESET CONSOLE');expect(host.textContent).not.toContain('SHIELD MODULES');}finally{await act(()=>root.unmount());host.remove();}
 });

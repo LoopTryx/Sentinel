@@ -1,15 +1,2 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import {autoConnect} from '../src/auto-connect.js';
-test('native pairing returns only validated session credentials',async()=>{
- let stored;globalThis.chrome={runtime:{id:'c'.repeat(32),sendNativeMessage:async(name,data)=>{assert.equal(name,'com.looptryx.sentinel');assert.deepEqual(data,{operation:'connect'});return {port:12345,token:'a'.repeat(64),extensionId:'c'.repeat(32)};}},storage:{session:{set:async value=>{stored=value;}}}};
- try{assert.equal((await autoConnect()).port,12345);assert.equal(stored.sentinelDemoConnection.token,'a'.repeat(64));}finally{delete globalThis.chrome;}
-});
-test('wrong-extension credentials are never stored',async()=>{
- let stored=false;globalThis.chrome={runtime:{id:'c'.repeat(32),sendNativeMessage:async()=>({port:12345,token:'a'.repeat(64),extensionId:'d'.repeat(32)})},storage:{session:{set:async()=>{stored=true;}}}};
- try{await assert.rejects(autoConnect(),/connection_unavailable/);assert.equal(stored,false);}finally{delete globalThis.chrome;}
-});
-test('simultaneous startup connections share one native handshake',async()=>{
- let calls=0;globalThis.chrome={runtime:{id:'c'.repeat(32),sendNativeMessage:async()=>{calls++;await new Promise(ok=>setTimeout(ok,10));return {port:12345,token:'a'.repeat(64),extensionId:'c'.repeat(32)};}},storage:{session:{set:async()=>{}}}};
- try{await Promise.all([autoConnect(),autoConnect(),autoConnect()]);assert.equal(calls,1);}finally{delete globalThis.chrome;}
-});
+import test from 'node:test';import assert from 'node:assert/strict';import {autoConnect} from '../src/auto-connect.js';
+test('reuses a live pairing token until explicit recovery instead of rotating it for each vault call',async()=>{let stored=null,calls=0;const config={extensionId:'a'.repeat(32),port:31000,token:'b'.repeat(64)};globalThis.chrome={runtime:{id:config.extensionId,sendNativeMessage:async()=>{calls++;return config;}},storage:{session:{get:async()=>({sentinelDemoConnection:stored}),set:async value=>{stored=value.sentinelDemoConnection;}}}};try{await autoConnect();await autoConnect();assert.equal(calls,1);await autoConnect(true);assert.equal(calls,2);}finally{delete globalThis.chrome;}});

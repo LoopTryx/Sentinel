@@ -199,7 +199,9 @@ await RefreshView(true,false);Hide();StartTabServer();return;}
   if(!string.Equals(Assembly.GetExecutingAssembly().Location,Path.Combine(CodeRoot,"Sentinel.UsbGuard.exe"),StringComparison.OrdinalIgnoreCase))return 4;
   bool created;using(var singleton=new Mutex(true,@"Global\SentinelUsbAdmissionOperator",out created)){if(!created)return 5;
    try{Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);using(var window=new UsbAdmissionWindow(PinAncestry(),owner,pipeName))Application.Run(window);return 0;}
-   catch{MessageBox.Show("USB Guard could not open its protected settings.","Sentinel",MessageBoxButtons.OK,MessageBoxIcon.Warning);return 1;}
+   // The console presents connection failures inline. Do not strand this
+   // elevated helper behind a modal error; keep all trust checks fail-closed.
+   catch{return 1;}
    finally{singleton.ReleaseMutex();}
   }
  }

@@ -17,7 +17,7 @@
  function cleanup(restore=true){if(closed)return;closed=true;observer.disconnect();doc.removeEventListener('pointerdown',outside,true);doc.removeEventListener('keydown',escape,true);win.removeEventListener('pagehide',unload);win.removeEventListener('message',frameMessage);host.remove();if(globalThis[key]===cleanup)delete globalThis[key];if(restore&&previous?.isConnected)previous.focus?.({preventScroll:true});}
  function outside(event){if(!event.composedPath().includes(host))cleanup(false);}
  function escape(event){if(event.key==='Escape'&&doc.activeElement===host){event.preventDefault();cleanup();}}
- function frameMessage(event){if(event.source===frame.contentWindow&&event.origin===chrome.runtime.getURL('').replace(/\/$/,'')&&event.data==='sentinel-overlay-close')cleanup();}
+ function frameMessage(event){if(event.source===frame.contentWindow&&event.origin===chrome.runtime.getURL('').replace(/\/$/,'') ){if(event.data==='sentinel-overlay-close')cleanup();else if(event.data?.kind==='sentinel-panel-size'&&typeof event.data.wide==='boolean'){card.style.height=event.data.wide?'min(620px,calc(100dvh - 100px))':'';host.style.setProperty('width',event.data.wide?'min(860px,calc(100vw - 32px))':event.data.view==='home'?'min(580px,calc(100vw - 32px))':'min(480px,calc(100vw - 32px))','important');}}}
  const unload=()=>cleanup(false),observer=new win.MutationObserver(()=>{if(!host.isConnected)cleanup(false);});
  card.append(frame,close);
  for(const [name,cls]of [['red-peeking-v1.png','red'],['blue-ledge-v1.png','blue']]){const image=doc.createElement('img');image.src=chrome.runtime.getURL('src/assets/'+name);image.className='mascot '+cls;image.alt='';image.setAttribute('aria-hidden','true');image.draggable=false;card.append(image);}

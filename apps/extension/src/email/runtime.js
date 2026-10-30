@@ -20,13 +20,27 @@ export async function startEmailWarnings(doc,api){
   if(stopped||!isCurrent())return;
   cleanups.get(root)?.();
   const result=assessEmail(snapshot,context,inspectEmail(snapshot));
-  const banner=showEmailWarning(root,result,{onWrongFlag:async()=>{const response=await request({kind:'email_feedback',tier:result.tier});if(response?.recorded!==true)throw new Error('Feedback unavailable.');return response;},onTrustSender:snapshot.sender.address?async event=>{if(event?.isTrusted!==true||stopped||!isCurrent())throw new Error('Current user action required.');const response=await request({kind:'email_trust_current',address:snapshot.sender.address});if(response?.trusted!==true)throw new Error('Trust unavailable.');return response;}:null});
-  const links=result.tier==='Likely Scam'?guardEmailLinks(root,{isCurrent}):()=>{};
-  const thread=root.closest('[role="main"]');const contextNodes=thread&&emailProvider(doc)?.id==='gmail'?Array.from(thread.querySelectorAll(gmailSelectors.roots)):[];const history=priorVisibleText(contextNodes,root,gmailSelectors.body);
-  const ai=result.tier!=='Safe'||isMessageCandidate(snapshot.body)?mountMessageAi(root.querySelector(gmailSelectors.body+','+outlookSelectors.body)||root,((snapshot.subject||'')+'\n'+snapshot.body).slice(0,3000),api,{isCurrent,history,candidateOnly:result.tier==='Safe'}):()=>{};
+  let banner=()=>{},links=()=>{};
+  const showConfirmed=verdict=>{
+   if(stopped||!isCurrent())return;
+   banner();links();banner=()=>{};links=()=>{};
+   if(verdict!=='likely')return;
+   const confirmed={...result,tier:'Likely Scam'};
+   banner=showEmailWarning(root,confirmed,{...(snapshot.sender.address?{onTrustSender:()=>request({kind:'email_trust_current',address:snapshot.sender.address})}:{}),onWrongFlag:async()=>{const response=await request({kind:'email_feedback',tier:confirmed.tier});if(response?.recorded!==true)throw Error('Feedback unavailable.');return response;}});
+   links=guardEmailLinks(root,{isCurrent});
+  };
+  const provider=emailProvider(doc)?.id;
+  // Outlook context is accepted only inside an explicitly identified conversation.
+  // Never gather unrelated reading panes or inbox rows as past messages.
+  const thread=provider==='gmail'?root.closest('[role="main"]'):root.closest('[data-conversation-id]');
+  const selectors=provider==='gmail'?gmailSelectors:outlookSelectors;
+  const contextNodes=thread?Array.from(thread.querySelectorAll(selectors.roots)):[];
+  const history=priorVisibleText(contextNodes,root,selectors.body);
+  const current=((snapshot.subject||'')+'\n'+snapshot.body).slice(0,3000);
+  const ai=result.tier!=='Safe'||isMessageCandidate(current)?mountMessageAi(root.querySelector(selectors.body)||root,current,api,{isCurrent,history,candidateOnly:true,animate:true,onVerdict:showConfirmed}):()=>{};
   cleanups.set(root,()=>{links();ai();banner();});
  },onStatus:status=>{lastStatus={kind:'email_reader_status',state:status.state,messages:status.messages||0};void request(lastStatus).catch(()=>{});for(const [root,cleanup]of cleanups)if(!root.isConnected||['unsupported_open_layout','no_supported_open_message','extraction_unavailable'].includes(status.state)){cleanup();cleanups.delete(root);}}});
- async function poll(){try{if(!(await request({kind:'email_status'}))?.enabled){stop();return;}if(lastStatus)await request(lastStatus);}catch{stop();return;}if(!stopped)timer=doc.defaultView.setTimeout(poll,5000);}
+ async function poll(){try{if(!(await request({kind:'email_status'}))?.enabled){stop();return;}if(lastStatus)await request(lastStatus);}catch{if(!stopped)timer=doc.defaultView.setTimeout(poll,2000);return;}if(!stopped)timer=doc.defaultView.setTimeout(poll,5000);}
  timer=doc.defaultView.setTimeout(poll,5000);
  return stop;
 }

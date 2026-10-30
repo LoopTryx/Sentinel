@@ -1,6 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {candidateCategories,prepareMessageContext,isMessageCandidate} from '../src/message-candidates.js';
 test('candidate vocabulary covers independent scam themes without declaring guilt',()=>{assert.ok(Object.values(candidateCategories).flat().length>=100);assert.equal(isMessageCandidate('Your parcel is held; pay customs fee'),true);assert.equal(isMessageCandidate('Lunch at noon?'),false);assert.equal(isMessageCandidate('Do not share a one time password'),true);});
+test('owner prize-pressure example reaches contextual local review',()=>{assert.equal(isMessageCandidate('CONGRATULATIONS! YOU’VE WON A PRIZE! 🎉🚨 UR NAME HAS BEEN SELECTED AS OUR LUCKY WINNER! YOUR EXCLUSIVE PRIZE IS WAITING FOR YOU! HURRY UP! CLAIM NOW BEFORE YOUR REWARD EXPIRES! CLICK HERE TO CLAIM YOUR PRIZE NOW!!! DON’T MISS THIS GOLDEN OPPORTUNITY! CLAIM IT NOW… OR LOSE IT FOREVER!'),true);});
 test('context includes only a bounded redacted tail and rejects hidden authority fields',()=>{const rows=prepareMessageContext(['older','one','two','password=hidden 123456']);assert.equal(rows.length,3);assert.ok(!JSON.stringify(rows).includes('hidden'));assert.ok(!JSON.stringify(rows).includes('123456'));assert.throws(()=>prepareMessageContext('all inbox'));assert.throws(()=>prepareMessageContext(['x'.repeat(3001)]));});
 
 import {createRequire} from 'node:module';import {priorVisibleText} from '../src/message-candidates.js';

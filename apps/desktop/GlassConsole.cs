@@ -38,6 +38,7 @@ public sealed class SentinelGlassConsole : Window
     readonly UsbInputMonitor inputMonitor=new UsbInputMonitor();
     readonly SentinelAiNative sentinelAi=new SentinelAiNative();
     UsbGuardArrival usbArrival;
+    NativeProtectionCoordinator security;
     readonly WebView2 view = new WebView2();
     readonly StackPanel loadingSurface=new StackPanel { HorizontalAlignment=HorizontalAlignment.Center, VerticalAlignment=VerticalAlignment.Center };
     readonly string assets, evidence;
@@ -86,12 +87,13 @@ public sealed class SentinelGlassConsole : Window
         Process worker = null;
         Mutex instance = null;
         bool owns = false;
+        string startupStage="instance";
         try {
             if (standalone) {
-                if(!HelloStartup.Require())return;
                 instance = new Mutex(false, "Local\\SentinelDesktopApp");
                 try { owns = instance.WaitOne(0); } catch (AbandonedMutexException) { owns = true; }
-                if (!owns) { using(var signal = EventWaitHandle.OpenExisting(AppEventName)) signal.Set(); return; }
+                if (!owns) { EventWaitHandle signal;if(EventWaitHandle.TryOpenExisting(AppEventName,out signal)){using(signal)signal.Set();}return; }
+                startupStage="Windows Hello";if(!HelloStartup.Require())return;startupStage="runtime";
                 string configPath = Path.Combine(here, "demo-runtime.json");
                 if(File.Exists(configPath)) File.Delete(configPath);
                 string bundled = Path.Combine(root, "tools/runtime/node.exe");
@@ -99,8 +101,9 @@ public sealed class SentinelGlassConsole : Window
                 for(int i=0;i<150 && !File.Exists(configPath);i++) { if(worker.HasExited) throw new InvalidOperationException("Runtime did not start."); Thread.Sleep(100); }
                 if(!File.Exists(configPath)) throw new InvalidOperationException("Runtime startup timed out.");
             }
-            var app = new Application();
+            startupStage="window";var app = new Application();
             var console = new SentinelGlassConsole(Path.Combine(root, "apps/ui/dist"), Path.Combine(here, "glass-smoke.txt"), Array.IndexOf(args, "--smoke") >= 0, standalone || Array.IndexOf(args, "--demo") >= 0, Array.IndexOf(args,"--display-check")>=0);
+            if(standalone&&Array.IndexOf(args,"--smoke")<0&&Array.IndexOf(args,"--fullscreen-smoke")<0&&Array.IndexOf(args,"--lifecycle-smoke")<0)console.security=new NativeProtectionCoordinator(text=>console.Dispatcher.BeginInvoke(new Action(()=>{console.NotifyScan(text);})));
             if(Array.IndexOf(args,"--usb-tab-smoke")>=0||Array.IndexOf(args,"--usb-browse-smoke")>=0)console.Loaded+=async delegate {
                 await Task.Delay(800);
                 try{bool browse=Array.IndexOf(args,"--usb-browse-smoke")>=0;string response=browse?await UsbAdmissionControl.ReadTabSnapshot():await UsbAdmissionControl.TabRequest(new WindowInteropHelper(console).Handle,"{\"action\":\"snapshot\"}");var result=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(response);bool ok=result.ContainsKey("schemaVersion")&&Convert.ToInt32(result["schemaVersion"])==1&&result.ContainsKey("devices")&&!result.ContainsKey("error");File.WriteAllText(Path.Combine(here,"usb-tab-smoke.txt"),(ok?"native_snapshot=passed\n":"native_snapshot=failed\n")+"no_device_action=True\nbroker_started="+UsbAdmissionControl.HasBrokerProcess+"\n");}catch{File.WriteAllText(Path.Combine(here,"usb-tab-smoke.txt"),"native_pipe_snapshot=failed\nno_device_action=True\n");}
@@ -121,8 +124,8 @@ public sealed class SentinelGlassConsole : Window
                     console.quitting=true;console.Close();
                 };timer.Start();
             };
-            app.Run(console);
-        } catch(Exception) { MessageBox.Show("Sentinel could not start. Check that the complete app folder is present and Microsoft Edge WebView2 Runtime is installed.", "Sentinel"); }
+            startupStage="console";app.Run(console);
+        } catch(Exception error) { try{File.WriteAllText(Path.Combine(here,"startup-error.txt"),DateTime.UtcNow.ToString("O")+" stage="+startupStage+" type="+error.GetType().Name+" code="+error.HResult.ToString("X8"));}catch{}MessageBox.Show("Sentinel could not finish starting at "+startupStage+" ("+error.HResult.ToString("X8")+"). Please reopen Sentinel.", "Sentinel"); }
         finally {
             if(worker!=null) {
                 try { if(!worker.HasExited) {
@@ -176,7 +179,7 @@ public sealed class SentinelGlassConsole : Window
         loadingSurface.Children.Add(new TextBlock { Text="Starting Sentinel…", Foreground=Brushes.White, FontSize=20, Margin=new Thickness(0,0,0,18), HorizontalAlignment=HorizontalAlignment.Center });
         loadingSurface.Children.Add(new System.Windows.Controls.ProgressBar { IsIndeterminate=true, Width=240, Height=4 });Grid.SetRow(loadingSurface,1);grid.Children.Add(loadingSurface);Content = grid;
         SourceInitialized += delegate { EnableBackdrop();var handle=new WindowInteropHelper(this).Handle;inputMonitor.Start(handle);usbArrival=new UsbGuardArrival(this,handle,null,()=>UsbAdmissionControl.Open(new WindowInteropHelper(this).Handle));HwndSource.FromHwnd(handle).AddHook(delegate(IntPtr hwnd,int message,IntPtr wParam,IntPtr lParam,ref bool handled){if(message==0x00FF)inputMonitor.Receive(lParam);if(message==0x00FE&&wParam.ToInt32()==2)inputMonitor.Removed(lParam);if(message==0x0219&&usbArrival!=null)usbArrival.Receive(wParam,lParam);return IntPtr.Zero;}); };
-        Closed+=delegate{if(usbArrival!=null)usbArrival.Dispose();};
+        Closed+=delegate{if(usbArrival!=null)usbArrival.Dispose();if(security!=null)security.Dispose();};
         Loaded += Initialize;
         Loaded += delegate { Dispatcher.BeginInvoke(new Action(EnableBackdrop),DispatcherPriority.ContextIdle); };
         Loaded += delegate {
@@ -192,7 +195,6 @@ public sealed class SentinelGlassConsole : Window
             tray=new System.Windows.Forms.NotifyIcon { Icon=System.Drawing.Icon.ExtractAssociatedIcon(System.Reflection.Assembly.GetExecutingAssembly().Location), Text="Sentinel", Visible=true };
             var menu=new System.Windows.Forms.ContextMenuStrip();
             menu.Items.Add("Open Sentinel",null,delegate { Dispatcher.Invoke(new Action(OpenFromTray)); });
-            menu.Items.Add("USB input controls",null,delegate { Dispatcher.Invoke(new Action(delegate{OpenFromTray();OpenDuckyControl();})); });
             menu.Items.Add("Quit Sentinel",null,delegate { Dispatcher.Invoke(new Action(delegate { quitting=true; Close(); })); });
             tray.ContextMenuStrip=menu;
             tray.MouseClick += delegate(object sender,System.Windows.Forms.MouseEventArgs e) { if(e.Button==System.Windows.Forms.MouseButtons.Left)Dispatcher.Invoke(new Action(OpenFromTray)); };
@@ -206,11 +208,13 @@ public sealed class SentinelGlassConsole : Window
         var openSignal=new EventWaitHandle(false,EventResetMode.AutoReset,AppEventName);
         var openTimer=new DispatcherTimer { Interval=TimeSpan.FromMilliseconds(300) };
         openTimer.Tick += delegate { if(openSignal.WaitOne(0)) OpenFromTray(); };openTimer.Start();
+        var aiInboxTimer=new DispatcherTimer { Interval=TimeSpan.FromSeconds(1) };aiInboxTimer.Tick+=async delegate { await PollAiInbox(); };aiInboxTimer.Start();Closed+=delegate { aiInboxTimer.Stop(); };
         Closed += delegate { closing = true; deadline.Stop(); duckyPolicyTimer.Stop(); openTimer.Stop(); openSignal.Dispose(); if(tray!=null) tray.Dispose(); runtimeClient.Dispose(); view.Dispose(); };
     }
 
     void ClearVisibleSecrets() { try{if(view.CoreWebView2!=null)view.CoreWebView2.PostWebMessageAsJson("{\"kind\":\"vault-clear\"}");}catch{} }
     void HideToTray() { ClearVisibleSecrets(); ShowInTaskbar=false; Hide(); }
+    void NotifyScan(string text){if(closing)return;AlertSound.Play();if(tray!=null)tray.ShowBalloonTip(5000,"Sentinel scan",text,System.Windows.Forms.ToolTipIcon.Info);}
     void NotifyDucky(string text){if(tray!=null&&!closing)tray.ShowBalloonTip(5000,"Sentinel USB Guard",text,System.Windows.Forms.ToolTipIcon.Info);}
     async void OpenDuckyControl(){
         if(actionDialog||selectionRequest)return;
@@ -267,19 +271,30 @@ public sealed class SentinelGlassConsole : Window
         return Uri.TryCreate(value, UriKind.Absolute, out uri) && uri.Scheme == "https" && uri.Host == "sentinel.example" && uri.Port == 443 && uri.UserInfo.Length == 0;
     }
 
+    bool aiInboxBusy;Dictionary<string,object> pendingAiInbox;
+    async Task PollAiInbox(){
+        if(aiInboxBusy||closing||!demo||view.CoreWebView2==null)return;
+        aiInboxBusy=true;try{
+            if(await view.CoreWebView2.ExecuteScriptAsync("document.documentElement.dataset.sentinelAiReady === 'true'")!="true")return;
+            if(pendingAiInbox==null)pendingAiInbox=await NativeActionCall("ai-inbox",new{});
+            await DeliverAiInbox(pendingAiInbox,true);pendingAiInbox=null;
+        }catch{/* Retain the handoff until the mounted UI acknowledges delivery. */}finally{aiInboxBusy=false;}
+    }
+    async Task DeliverAiInbox(Dictionary<string,object> inbox,bool focus){
+        object raw;if(!inbox.TryGetValue("handoff",out raw))return;var handoff=raw as Dictionary<string,object>;if(handoff==null)return;
+        var finding=handoff["finding"] as Dictionary<string,object>;if(finding==null)return;string reference=finding["ref"] as string;
+        if(!System.Text.RegularExpressions.Regex.IsMatch(reference??"","^[a-f0-9]{32}$"))return;
+        if(focus){OpenFromTray();string delivered=await view.CoreWebView2.ExecuteScriptAsync("(()=>{if(document.documentElement.dataset.sentinelAiReady!=='true')return false;delete document.documentElement.dataset.sentinelAiHandoffAck;window.dispatchEvent(new CustomEvent('sentinel-ai-handoff',{detail:"+json.Serialize(handoff)+"}));return document.documentElement.dataset.sentinelAiHandoffAck==='"+reference+"';})()");if(delivered!="true")throw new IOException("Assistant interface is not ready.");}
+        NotifyAi(reference,finding["source"] as string,"A message is ready to review in SentinelAI. Open it for the explanation and suggested next steps.");
+    }
     readonly HashSet<string> aiNotified=new HashSet<string>();
     void NotifyAi(string reference,string source,string explanation) {
         if(!System.Text.RegularExpressions.Regex.IsMatch(reference??"","^[a-f0-9]{32}$")||!aiNotified.Add(reference))return;
         if(aiNotified.Count>64)aiNotified.Clear();
-        var card=new Window{Title="Sentinel",Width=360,Height=190,WindowStyle=WindowStyle.None,ResizeMode=ResizeMode.NoResize,ShowInTaskbar=false,ShowActivated=false,Topmost=true,Background=new SolidColorBrush(Color.FromRgb(20,29,49))};
-        card.Left=SystemParameters.WorkArea.Right-card.Width-18;card.Top=SystemParameters.WorkArea.Bottom-card.Height-18;
-        var panel=new StackPanel{Margin=new Thickness(20)};card.Content=panel;
-        string label=source=="whatsapp_message"?"Check this WhatsApp message":source.EndsWith("_message")?"Check this email":"Check this link";
-        panel.Children.Add(new TextBlock{Text="Sentinel · "+label,Foreground=Brushes.White,FontWeight=FontWeights.SemiBold,FontSize=15,Margin=new Thickness(0,0,0,10)});
-        panel.Children.Add(new TextBlock{Text=explanation.Length>180?explanation.Substring(0,177)+"…":explanation,Foreground=new SolidColorBrush(Color.FromRgb(195,209,227)),TextWrapping=TextWrapping.Wrap,MaxHeight=65});
-        var learn=new Button{Content="Learn more",HorizontalAlignment=HorizontalAlignment.Left,Padding=new Thickness(12,6,12,6),Margin=new Thickness(0,12,0,0)};panel.Children.Add(learn);
-        learn.Click+=async delegate{card.Close();OpenFromTray();try{await view.CoreWebView2.ExecuteScriptAsync("window.dispatchEvent(new CustomEvent('sentinel-ai-focus',{detail:'"+reference+"'}))");}catch{}};
-        var timer=new DispatcherTimer{Interval=TimeSpan.FromSeconds(5)};timer.Tick+=delegate{timer.Stop();card.Close();};card.Closed+=delegate{timer.Stop();};card.Show();timer.Start();
+        var card=SentinelAiNotification.Create(source,explanation,async delegate{
+            OpenFromTray();try{await view.CoreWebView2.ExecuteScriptAsync("window.dispatchEvent(new CustomEvent('sentinel-ai-focus',{detail:'"+reference+"'}))");}catch{}
+        });
+        AlertSound.Play();card.Show();
     }
 
     async void RuntimeMessage(object sender, CoreWebView2WebMessageReceivedEventArgs e)
@@ -298,6 +313,14 @@ public sealed class SentinelGlassConsole : Window
             string method = request["method"] as string;
             if(raw.Length>4096&&method!="ai.history.save"){Reply(id,new{error="invalid_request"});return;}
             if (id == null || !System.Text.RegularExpressions.Regex.IsMatch(id, "^[a-zA-Z0-9_-]{1,64}$")) return;
+            if(method=="ui.alert"){var alert=request["data"] as Dictionary<string,object>;if(alert==null||alert.Count!=1||!alert.ContainsKey("kind")||Array.IndexOf(new[]{"alert","error","notification"},alert["kind"] as string)<0)throw new InvalidOperationException();AlertSound.Play();Reply(id,new{ok=true});return;}
+            if(method=="ui.sound"){var settings=request["data"] as Dictionary<string,object>;if(settings==null||settings.Count!=1||!settings.ContainsKey("enabled")||!(settings["enabled"] is bool))throw new InvalidOperationException();AlertSound.SetEnabled((bool)settings["enabled"]);Reply(id,new{ok=true});return;}
+            if(method=="password.vault"){
+                var input=request["data"] as Dictionary<string,object>;if(input==null||input.Count!=2||!input.ContainsKey("action")||!input.ContainsKey("data"))throw new InvalidOperationException();string operation=input["action"] as string;var payload=input["data"] as Dictionary<string,object>;if(payload==null)throw new InvalidOperationException();
+                if(operation!="status"&&operation!="lock"&&(!IsActive||!IsVisible||actionDialog)){Reply(id,new{error="action_unavailable"});return;}
+                bool prompt=operation!="status"&&operation!="lock";if(prompt)actionDialog=true;
+                try{Reply(id,await WindowsVault.Request(this,operation,payload));}catch(Exception failure){Reply(id,new{error=failure is IOException?failure.Message:"Vault unavailable."});}finally{if(prompt)actionDialog=false;}return;
+            }
             if(method!=null&&method.StartsWith("ai.")){
                 var aiData=request["data"] as Dictionary<string,object>;
                 if(aiData==null)throw new InvalidOperationException();
@@ -320,7 +343,7 @@ public sealed class SentinelGlassConsole : Window
                 if(method=="ai.status"&&aiData.Count==0){Reply(id,sentinelAi.Status());return;}
                 if(method=="ai.cancel"&&aiData.Count==0){sentinelAi.Cancel();try{await NativeActionCall("ai-quick-cancel",new{});}catch{}Reply(id,new{ok=true});return;}
                 if(method=="ai.remove"&&aiData.Count==0&&IsVisible&&IsActive){try{Reply(id,sentinelAi.Remove());}catch(SentinelAiException failure){Reply(id,new{error=failure.Code});}return;}
-                if(method=="ai.inbox"&&aiData.Count==0){var inbox=await NativeActionCall("ai-inbox",new{});object rawHandoff;if(inbox.TryGetValue("handoff",out rawHandoff)&&rawHandoff is Dictionary<string,object>){var handoff=(Dictionary<string,object>)rawHandoff;var finding=handoff["finding"] as Dictionary<string,object>;if(finding!=null)try{string q=(string)handoff["question"];var quick=await NativeActionCall("ai-quick",new{question=q.Length>512?q.Substring(0,512):q,findingRef=(string)finding["ref"]});if(quick.ContainsKey("text"))NotifyAi((string)finding["ref"],(string)finding["source"],(string)quick["text"]);}catch{/* A notification failure never discards the finding. */}}Reply(id,inbox);return;}
+                if(method=="ai.inbox"&&aiData.Count==0){var inbox=await NativeActionCall("ai-inbox",new{});Reply(id,inbox);await DeliverAiInbox(inbox,false);return;}
                 if(((!IsVisible||!IsActive)&&!(method=="ai.send"&&aiData.ContainsKey("findingRef")&&aiData["findingRef"] is string))||actionDialog||selectionRequest){Reply(id,new{error="action_unavailable"});return;}
                 actionDialog=true;
                 try{
@@ -373,6 +396,25 @@ public sealed class SentinelGlassConsole : Window
                 if(actionDialog){Reply(id,new{error="action_busy"});return;}
                 OpenDuckyControl();Reply(id,new{ok=true});return;
             }
+            if(method=="security.select"){
+                var input=request["data"] as Dictionary<string,object>;if(input==null||input.Count!=1||!input.ContainsKey("kind")||!IsActive||!IsVisible||actionDialog||security==null)throw new InvalidOperationException();
+                string kind=input["kind"] as string,path=null;actionDialog=true;
+                try{if(kind=="file"){var picker=new Microsoft.Win32.OpenFileDialog{Title="Select a file to scan"};if(picker.ShowDialog(this)==true)path=picker.FileName;}else if(kind=="folder"){using(var picker=new System.Windows.Forms.FolderBrowserDialog{Description="Select a folder to scan"}){if(picker.ShowDialog()==System.Windows.Forms.DialogResult.OK)path=picker.SelectedPath;}}else throw new InvalidOperationException();if(path!=null)security.ScanSelected(path);Reply(id,security.Snapshot());}finally{actionDialog=false;}return;
+            }
+            if(method=="security.cancel"){
+                var empty=request["data"] as Dictionary<string,object>;if(empty==null||empty.Count!=0||!IsVisible||!IsActive||security==null)throw new InvalidOperationException();security.Cancel();Reply(id,security.Snapshot());return;
+            }
+            if(method=="device.snapshot"||method=="security.status"){
+                var empty=request["data"] as Dictionary<string,object>;if(empty==null||empty.Count!=0)throw new InvalidOperationException();
+                if(method=="device.snapshot"){Reply(id,await DeviceHealth.Snapshot());return;}
+                if(method=="security.status"){Reply(id,security==null?new{available=false,error="Protection is not running."}:security.Snapshot());return;}
+            }
+            if(method=="security.scan"||method=="security.monitor"){
+                var action=request["data"] as Dictionary<string,object>;if(action==null||action.Count!=1||!IsVisible||!IsActive||security==null)throw new InvalidOperationException();
+                if(method=="security.scan"){if(!action.ContainsKey("mode")||!(action["mode"] is string))throw new InvalidOperationException();security.Scan((string)action["mode"]);}
+                else{if(!action.ContainsKey("enabled")||!(action["enabled"] is bool))throw new InvalidOperationException();security.SetMonitoring((bool)action["enabled"]);}
+                Reply(id,security.Snapshot());return;
+            }
             string route = null;
             object data = request["data"];
             if(method=="window.drag") {
@@ -403,15 +445,15 @@ public sealed class SentinelGlassConsole : Window
                     if(lease==null){Reply(id,new {error="action_busy"});return;}
                     bool copy=method=="vault.copy";
                     string operation=update?"update":add?"add":method=="vault.view"?"view":method=="vault.remove"?"remove":copy?"copy":"rotate";
-                    bool approved=await Task.Run(()=>VaultApproval.Approve(operation,accountId));
-                    if(!approved){Reply(id,new {error=VaultApproval.LastError});return;}
+                    bool approved=await UsbOwnerVerification.Verify(new WindowInteropHelper(this).Handle,"Verify to "+operation+" this saved login");
+                    if(!approved){Reply(id,new {error="Windows Hello cancelled or unavailable."});return;}
                     using(var message=new HttpRequestMessage(HttpMethod.Post,runtimeUrl+(update?"/account-update":add?"/account-add":operation=="remove"?"/account-remove":copy||operation=="view"?"/reveal":"/rotate"))) {
                         message.Headers.Authorization=new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer",runtimeToken);
                         message.Headers.Add("X-Sentinel-Native-Action",runtimeActionToken);
                         message.Content=new StringContent(json.Serialize(add||update?(object)account:new {id=accountId}),Encoding.UTF8,"application/json");
                         using(var response=await runtimeClient.SendAsync(message)) {
                             response.EnsureSuccessStatusCode();
-                            if(copy||operation=="view"){var result=json.Deserialize<Dictionary<string,object>>(await response.Content.ReadAsStringAsync());if((string)result["mode"]!="synthetic_demo")throw new InvalidOperationException();if(copy)Clipboard.SetText((string)result["password"]);else{if(!IsActive||!IsVisible){Reply(id,new{error="Viewing cancelled after focus changed."});return;}Reply(id,new{password=(string)result["password"]});return;}}
+                            if(copy||operation=="view"){var result=json.Deserialize<Dictionary<string,object>>(await response.Content.ReadAsStringAsync());if((string)result["mode"]!="synthetic_demo"&&(string)result["mode"]!="encrypted_vault")throw new InvalidOperationException();if(copy)Clipboard.SetText((string)result["password"]);else{if(!IsActive||!IsVisible){Reply(id,new{error="Viewing cancelled after focus changed."});return;}Reply(id,new{password=(string)result["password"]});return;}}
                             Reply(id,json.Deserialize<object>(await response.Content.ReadAsStringAsync()));
                         }
                     }
@@ -482,7 +524,8 @@ public sealed class SentinelGlassConsole : Window
                 if (empty == null || empty.Count != 0) throw new InvalidOperationException();
                 route = "wifi";
 
-            } else if (method == "state" || method == "lock" || method == "unlock" || method == "cancel" || method == "pair") route = method;
+            } else if (method == "password.vault") route = "password-vault";
+            else if (method == "state" || method == "lock" || method == "unlock" || method == "cancel" || method == "pair") route = method;
             else throw new InvalidOperationException();
             requests++;
             try {
@@ -636,7 +679,12 @@ public sealed class SentinelGlassConsole : Window
             core.SetVirtualHostNameToFolderMapping("sentinel.example", assets, CoreWebView2HostResourceAccessKind.Deny);
             core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
             core.WebResourceRequested += delegate(object s, CoreWebView2WebResourceRequestedEventArgs e) {
-                if (!Local(e.Request.Uri)) e.Response = env.CreateWebResourceResponse(new MemoryStream(Encoding.UTF8.GetBytes("External requests unavailable")), 403, "Forbidden", "Content-Type: text/plain");
+                if (!Local(e.Request.Uri)) { e.Response = env.CreateWebResourceResponse(new MemoryStream(Encoding.UTF8.GetBytes("External requests unavailable")),403,"Forbidden","Content-Type: text/plain");return; }
+                var resourceUri=new Uri(e.Request.Uri);string relative=Uri.UnescapeDataString(resourceUri.AbsolutePath).TrimStart('/');if(relative.Length==0)relative="index.html";
+                string resourcePath=Path.GetFullPath(Path.Combine(assets,relative.Replace('/',Path.DirectorySeparatorChar)));
+                if(!resourcePath.StartsWith(Path.GetFullPath(assets)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase)||!File.Exists(resourcePath)){e.Response=env.CreateWebResourceResponse(null,404,"Not Found","Content-Type: text/plain");return;}
+                string extension=Path.GetExtension(resourcePath).ToLowerInvariant();string mime=extension==".html"?"text/html; charset=utf-8":extension==".js"?"text/javascript; charset=utf-8":extension==".css"?"text/css; charset=utf-8":extension==".png"?"image/png":extension==".svg"?"image/svg+xml":extension==".woff2"?"font/woff2":extension==".woff"?"font/woff":"application/octet-stream";
+                e.Response=env.CreateWebResourceResponse(File.OpenRead(resourcePath),200,"OK","Content-Type: "+mime+"\r\nCache-Control: no-store");
             };
             core.NavigationCompleted += async delegate(object s, CoreWebView2NavigationCompletedEventArgs e) {
                 try {
@@ -645,7 +693,7 @@ public sealed class SentinelGlassConsole : Window
                     string heading = "\"\"";
                     for (int attempt = 0; attempt < 40 && !closing; attempt++) {
                         heading = await core.ExecuteScriptAsync("document.querySelector('h1')?.textContent || ''");
-                        if (heading == "\"Console\"") break;
+                        if (heading == "\"Dashboard\"") break;
                         await Task.Delay(50);
                     }
                     if (closing) return;
@@ -659,7 +707,7 @@ public sealed class SentinelGlassConsole : Window
                             using (var response = await runtimeClient.SendAsync(probe)) {
                                 if (!response.IsSuccessStatusCode) throw new InvalidOperationException();
                                 var snapshot = json.Deserialize<Dictionary<string, object>>(await response.Content.ReadAsStringAsync());
-                                if ((string)snapshot["mode"] != "synthetic_demo" || !(bool)snapshot["connected"]) throw new InvalidOperationException();
+                                if (!RuntimeReadiness.Accept(snapshot)) throw new InvalidOperationException();
                                 backend = "demo_runtime";
                             }
                         }
@@ -673,13 +721,23 @@ public sealed class SentinelGlassConsole : Window
                             if (inspectionBridge == "\"\"") throw new InvalidOperationException();
                         }
                     }
-                    if(glass!="true"||heading!="\"Console\""){Fail("console_not_ready");return;}
+                    if(glass!="true"||heading!="\"Dashboard\""){Fail("console_not_ready");return;}
                     deadline.Stop();loadingSurface.Visibility=Visibility.Collapsed;
                     File.WriteAllText(evidence, "navigation=True\nglass=" + glass + "\nheading=" + heading + "\ncustom_chrome=True\nbackdrop_requested=" + backdrop + "\nbackend=" + backend + "\ninspection_bridge=" + inspectionBridge + "\n");
-                    if (smoke) { if (glass != "true" || heading != "\"Console\"") Environment.ExitCode = 1; Close(); }
+                    if(Array.IndexOf(Environment.GetCommandLineArgs(),"--protection-status-smoke")>=0&&security!=null){
+                        for(int attempt=0;attempt<120&&!closing;attempt++){
+                            string controls=await core.ExecuteScriptAsync("JSON.stringify({page:document.querySelector('h1')?.textContent,quickPresent:[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Quick scan')),quickEnabled:[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Quick scan')&&!b.disabled),definitionsVisible:document.body.textContent.includes(' signatures · Updated ')})");
+                            var status=json.Deserialize<Dictionary<string,object>>(json.Serialize(security.Snapshot()));
+                            File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"protection-smoke.txt"),"native="+json.Serialize(status)+"\nui="+controls+"\n");
+                            if(Convert.ToBoolean(status["available"])&&Convert.ToBoolean(json.Deserialize<Dictionary<string,object>>(json.Deserialize<string>(controls))["quickEnabled"])&&Convert.ToBoolean(json.Deserialize<Dictionary<string,object>>(json.Deserialize<string>(controls))["definitionsVisible"])){File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"protection-smoke.txt"),"native="+json.Serialize(status)+"\nui="+controls+"\n");break;}
+                            await Task.Delay(1000);
+                        }
+                    }
+                    if (smoke) { if (glass != "true" || heading != "\"Dashboard\"") Environment.ExitCode = 1; Close(); }
                 } catch (Exception error) { Fail(error.GetType().Name + "_" + error.HResult.ToString("X8")); }
             };
             File.WriteAllText(evidence, "initializing=True\nassets_exist=" + File.Exists(Path.Combine(assets, "index.html")) + "\n");
+            await core.Profile.ClearBrowsingDataAsync(CoreWebView2BrowsingDataKinds.DiskCache);
             core.Navigate("https://sentinel.example/index.html?desktop=glass");
         } catch (Exception error) { Fail(error.GetType().Name + "_" + error.HResult.ToString("X8")); }
     }

@@ -111,7 +111,7 @@ test('class reward and pay-to-activate regressions stay distinct without a schoo
 });
 test('WhatsApp removes class-prize flags and detects payment demands in recycled message bubbles',()=>{
  const {dom,doc,node}=fixture('claim the prize for your excellence in the class today');const control=mountWhatsAppWarnings(doc);
- try{assert.equal(node.querySelector('[data-sentinel-scam]'),null);node.querySelector('.selectable-text').textContent='You have won 1 lakh rupees in the SBI money draw, so send me 10k rupees to activate this.';control.refresh();assert.match(node.querySelector('[data-sentinel-scam]').textContent+node.querySelector('[data-sentinel-scam]').shadowRoot.textContent,/Likely Scam/);node.querySelector('.selectable-text').textContent='come claim the prize papi';control.refresh();assert.equal(node.querySelector('[data-sentinel-scam]'),null);}finally{control.stop();dom.window.close();}
+ try{assert.equal(node.querySelector('[data-sentinel-scam]'),null);node.querySelector('.selectable-text').textContent='You have won 1 lakh rupees in the SBI money draw, so send me 10k rupees to activate this.';control.refresh();assert.match(node.querySelector('[data-sentinel-scam]').textContent+node.querySelector('[data-sentinel-scam]').shadowRoot.textContent,/Review message/);node.querySelector('.selectable-text').textContent='come claim the prize papi';control.refresh();assert.equal(node.querySelector('[data-sentinel-scam]'),null);}finally{control.stop();dom.window.close();}
 });
 
 test('payment prefixes and negation are handled without requiring links or a brand name',()=>{

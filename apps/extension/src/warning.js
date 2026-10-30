@@ -33,6 +33,9 @@ async function explain(){
   answerTimer=setInterval(async()=>{if(Date.now()>handoff.expiresAt){clearInterval(answerTimer);return;}if(polling)return;polling=true;try{const response=await chrome.runtime.sendMessage({kind:'demo_call',method:'ai-result',data:{ref:handoff.finding.ref}});const quick=response?.data?.quick;if(quick){clearInterval(answerTimer);status.textContent=quick.text;}}catch{}finally{polling=false;}},1000);
  }catch{status.textContent='Open Sentinel to connect your assistant.';}
 }
-button.addEventListener('click',async()=>{if(button.disabled)return;button.disabled=true;try{if(!handoff)await explain();if(handoff){await chrome.tabs.create({url:chrome.runtime.getURL('continue.html')+'#'+handoff.finding.ref});}}catch{status.textContent='Open Sentinel to continue.';}finally{button.disabled=!original;}});
+button.addEventListener('click',async()=>{if(button.disabled)return;button.disabled=true;try{if(!handoff)await explain();if(handoff){const opened=await chrome.runtime.sendMessage({kind:'demo_call',method:'ai-open',data:{ref:handoff.finding.ref}});if(opened?.error||opened?.data?.ok!==true)throw Error('open_failed');}}catch{status.textContent='Open Sentinel to continue.';}finally{button.disabled=!original;}});
 window.addEventListener('pagehide',()=>{if(answerTimer)clearInterval(answerTimer);});
 if(original&&['listed','keywords'].includes(assessNavigation(original).kind))void explain();
+
+const proceed=document.getElementById('continue-site');proceed.hidden=!original;
+proceed.addEventListener('click',async()=>{proceed.disabled=true;try{const result=await chrome.runtime.sendMessage({kind:'warning_continue'});if(result?.ok!==true)throw Error();}catch{document.getElementById('continue-status').textContent='Could not open this site. Refresh and try again.';proceed.disabled=false;}});

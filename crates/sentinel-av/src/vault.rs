@@ -5,7 +5,8 @@ use sha2::Digest;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
-const MAX_PLAINTEXT_BYTES: usize = 8 * 1024 * 1024;
+pub const MAX_PLAINTEXT_BYTES: usize = 64 * 1024 * 1024;
+pub const MAX_STORAGE_BYTES: u64 = 512 * 1024 * 1024;
 const MAX_BLOB_BYTES: usize = MAX_PLAINTEXT_BYTES + 12 + 16;
 
 #[cfg(test)]
@@ -267,7 +268,7 @@ impl Vault {
                 bytes = bytes
                     .checked_add(metadata.len())
                     .ok_or("quarantine storage byte limit reached")?;
-                if bytes > 64 * 1024 * 1024 {
+                if bytes > MAX_STORAGE_BYTES {
                     return Err("quarantine storage byte limit reached".into());
                 }
                 files.insert(entry.file_name(), metadata.len());
@@ -313,7 +314,7 @@ impl Vault {
             }
             if bytes
                 .checked_add(additional_bytes)
-                .is_none_or(|count| count > 64 * 1024 * 1024)
+                .is_none_or(|count| count > MAX_STORAGE_BYTES)
             {
                 return Err("quarantine storage byte limit reached".into());
             }
@@ -453,7 +454,7 @@ impl Vault {
             total = total
                 .checked_add(metadata.len())
                 .ok_or("vault inventory limit reached")?;
-            if total > 64 * 1024 * 1024 {
+            if total > MAX_STORAGE_BYTES {
                 return Err("vault inventory limit reached".into());
             }
             references.insert(reference);
@@ -1260,7 +1261,7 @@ mod retained_source_tests {
             .map(|entry| entry.metadata().unwrap().len())
             .sum();
         let filler = std::fs::File::create(vault.dir.join("harmless-sparse-budget")).unwrap();
-        let size = 64 * 1024 * 1024 - current_bytes - 2051;
+        let size = MAX_STORAGE_BYTES - current_bytes - 2051;
         filler.set_len(size).unwrap();
         drop(filler);
         let receipt = vault.dir.join(reference.replace(".qtn", ".qlj"));

@@ -128,3 +128,11 @@ html[data-glass-effects=off] #root :is(.glass-card,.panel,.stat)::before{content
 @media(forced-colors:active){#root .page-title,#root .panel .page-title{color:HighlightText!important;background:Highlight}}
 
 #root .watchtower-domain{margin:12px 0;padding:14px 16px;background:rgba(8,15,30,.7);border:1px solid #ffffff20;border-radius:16px}#root .watchtower-domain summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer}#root .watchtower-domain code{overflow-wrap:anywhere;min-width:0;color:#d2e8ff}#root .watchtower-domain [data-risk="Suspicious"]{color:#ffd391}#root .watchtower-domain [data-risk="Likely Malicious"]{color:#ff9ea7}
+#root .app-refresh,#root .sound-toggle{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;gap:7px;width:106px;height:36px;padding:0 12px;flex:0 0 106px}
+#root .startup-refresh svg{animation:sentinel-boot-refresh .85s cubic-bezier(.3,.7,.2,1) 1}
+@keyframes sentinel-boot-refresh{from{transform:rotate(-360deg)}to{transform:rotate(0)}}
+@media(prefers-reduced-motion:reduce){#root .startup-refresh svg{animation:none}}
+#root .scan-result-card[data-verdict=none_observed][data-complete=true]{border-color:#74e3ac66;background:linear-gradient(130deg,#153f362b,#091b20a6)}
+#root .scan-result-card[data-verdict=none_observed][data-complete=true]>strong{color:#86edb5}
+#root .scan-result-card[data-verdict=signature_match]:not([data-contained=true]){border-color:#ff6c7c70;background:#541b2a35}
+#root .scan-result-card[data-verdict=signature_match]:not([data-contained=true])>strong{color:#ff8c99}

@@ -1,3 +1,4 @@
+import {resetAlerts} from '../message-alert-history.js';
 import {canonicalSender,createSenderStore} from './sender-store.js';
 export const emailOrigins={gmail:['https://mail.google.com/*'],outlook:['https://outlook.live.com/*','https://outlook.office.com/*','https://outlook.office365.com/*']};
 export function installEmailControl(api){
@@ -5,6 +6,7 @@ export function installEmailControl(api){
  const readerStates=['partial','unsupported_open_layout','no_supported_open_message','paused','extraction_unavailable','consumer_unavailable'];
  const status=async provider=>{const enabled=(await api.storage.local.get(`emailOptIn_${provider}`))[`emailOptIn_${provider}`]===true&&await api.permissions.contains({permissions:['scripting'],origins:emailOrigins[provider]});for(const [id,row]of readers)if(Date.now()-row.at>15000)readers.delete(id);const latest=[...readers.values()].filter(row=>row.provider===provider).sort((a,b)=>b.at-a.at)[0];return {enabled,...(latest&&enabled?{reader:latest.state,messages:latest.messages}:{})};};
  async function toggle(provider,enabled){
+  if(!enabled)await resetAlerts(api,provider);
   if(!enabled)for(const [id,row]of observed)if(row.provider===provider)observed.delete(id);
   if(enabled&&!await api.permissions.contains({permissions:['scripting'],origins:emailOrigins[provider]}))throw new Error('Site access required.');
   await api.storage.local.setAccessLevel({accessLevel:'TRUSTED_CONTEXTS'});
@@ -37,7 +39,7 @@ export function installEmailControl(api){
     }
     if(message.kind==='email_open_settings'){
      if(Object.keys(message).length!==1||!await status(provider).then(s=>s.enabled))throw new Error();
-     await api.tabs.create({url:api.runtime.getURL('popup.html?view=settings#email-trust-form')});return {opened:true};
+     await api.tabs.create({url:'https://www.google.com/'});return {opened:true};
     }
     if(message.kind==='email_reader_status'){
      if(Object.keys(message).some(k=>!['kind','state','messages'].includes(k))||!readerStates.includes(message.state)||!Number.isInteger(message.messages)||message.messages<0||message.messages>8||!await status(provider).then(s=>s.enabled))throw new Error();

@@ -10,7 +10,7 @@ test('manifest keeps bounded capabilities and enables toolbar injection', async 
   const manifest = await json('manifest.json');
   assert.equal(manifest.manifest_version, 3);
   assert.equal(manifest.name, 'Sentinel Browser Companion');
-  assert.deepEqual(manifest.permissions, ['declarativeNetRequest', 'storage', 'nativeMessaging', 'activeTab', 'scripting']);
+  assert.deepEqual(manifest.permissions, ['declarativeNetRequest', 'storage', 'nativeMessaging', 'activeTab', 'scripting', 'sidePanel']);
   assert.deepEqual(manifest.host_permissions, ['http://127.0.0.1/*']);
   assert.deepEqual(manifest.optional_host_permissions,['http://127.0.0.1/*','http://*/*','https://*/*']);
   assert.equal(manifest.background.service_worker, 'src/service-worker.js');
@@ -57,8 +57,8 @@ test('popup renders truthful states and a fixture-only toggle', async () => {
   assert.match(html, /id="harness-status"/);
   assert.match(html, /id="fixture-toggle"/);
   assert.match(html, /blocked\.sentinel\.invalid/);
-  assert.match(html, /Session accounts reset when the console closes/);
-  assert.match(html, /Persistent encrypted storage, import, account editing and autofill are unavailable/);
+  assert.match(html, /encrypted vault shared with Sentinel/);
+  assert.match(html, /saved logins fill only after you select one for the matching HTTPS website/);
   assert.match(html, /id="check-accounts"/);
   assert.doesNotMatch(html, /id="demo-lock"|id="generate-password"/);
 

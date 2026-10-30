@@ -22,13 +22,14 @@ it('shows partial large-file evidence without full hash and gates quarantine wit
   expect(host.querySelector('.scan-finding-summary')?.textContent).toContain('Suspicious file detected');
   expect(host.querySelector('.scan-global-alert')).toBeNull();
   expect(host.textContent).toContain('Inspected 8388608 of 67108864 bytes');
-  expect(host.textContent).toContain('Full-file SHA-256 unavailable');
+  expect(host.textContent).toContain('Full-file SHA-256 unavailable');expect(host.querySelector('.scan-result-card')?.getAttribute('data-complete')).toBe('false');
   expect(button('Quarantine').disabled).toBe(true);
   expect(host.textContent).not.toContain('ClamAV');
   model.snapshot={...(model.snapshot as object),jobRef:'next-job',reports:[{...report,state:'completed',verdict:'none_observed',logicalBytes:'3',inspectedBytes:'3',sha256:'a'.repeat(64),evidence:null,findings:[]}]};
   await act(async()=>button('Choose file').click());
   await act(async()=>{await new Promise(r=>setTimeout(r,950));});
   expect(button('Quarantine').disabled).toBe(true);
+  expect(host.querySelector('.scan-result-card')?.getAttribute('data-complete')).toBe('true');expect(document.body.dataset.threat).toBe('clear');
   await act(async()=>button('Quarantine').click());
   expect(demoCall).not.toHaveBeenCalledWith('quarantine.request',{reportRef:'report_0'});
   expect(host.textContent).toContain('Quarantine requires a complete selected-file report and native confirmation');

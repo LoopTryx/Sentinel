@@ -9,6 +9,7 @@ function harness(){
  const context=vm.createContext({location:{origin:'https://web.whatsapp.com'},window,document:{},chrome:{runtime:{id:'sentinel-test',sendMessage:async()=>({enabled}),getURL:p=>p,onMessage:{addListener:f=>listeners.push(f)}}},loadModule:async()=>module,setInterval:f=>{intervals.push(f);return intervals.length;},clearInterval:()=>{}});
  return {context,module,listeners,intervals,set enabled(value){enabled=value;},get active(){return active;},inject:()=>vm.runInContext(source,context),stop:()=>listeners[0]({kind:'whatsapp_stop'},{id:'sentinel-test'})};
 }
+test('bootstrap passes its isolated-world messaging API explicitly to the imported adapter',async()=>{const h=harness();let api;h.module.mountWhatsAppWarnings=(doc,value)=>{api=value;return {stop(){}};};h.inject();await tick();assert.equal(api,h.context.chrome);});
 test('pause during module loading prevents observer mounting',async()=>{
  const h=harness();let release;h.context.loadModule=()=>new Promise(resolve=>{release=resolve;});
  h.inject();await tick();assert.equal(h.listeners.length,1);h.stop();release(h.module);await tick();assert.equal(h.active,0);

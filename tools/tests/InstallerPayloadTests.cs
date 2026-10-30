@@ -1,0 +1,6 @@
+using System;using System.IO;using System.Security.Cryptography;
+class InstallerPayloadTests {
+ static string Hash(byte[] b){using(var h=SHA256.Create())return BitConverter.ToString(h.ComputeHash(b)).Replace("-","").ToLowerInvariant();}
+ static void Reject(Action a){bool failed=false;try{a();}catch(IOException){failed=true;}if(!failed)throw new Exception("Expected refusal");}
+ static int Main(){string p=Path.Combine(Path.GetTempPath(),"SentinelPayload-"+Guid.NewGuid()+".bin");byte[] data=new byte[]{1,2,3,4,5};try{using(var w=new BinaryWriter(File.Create(p))){w.Write(new byte[31]);w.Write(data);w.Write((long)data.Length);w.Write(System.Text.Encoding.ASCII.GetBytes("SNTLZIP6"));}using(var s=InstallerPayload.Open(p,Hash(data))){if(s.Length!=5||s.Position!=0)throw new Exception("bounds");byte[] b=new byte[20];if(s.Read(b,0,20)!=5||s.Read(b,0,1)!=0)throw new Exception("read escaped slice");s.Seek(-1,SeekOrigin.End);if(s.ReadByte()!=5)throw new Exception("seek");Reject(()=>s.Seek(-1,SeekOrigin.Begin));}Reject(()=>InstallerPayload.Open(p,new string('0',64)));using(var f=File.OpenWrite(p)){f.Position=f.Length-1;f.WriteByte(0);}Reject(()=>InstallerPayload.Open(p,Hash(data)));Console.WriteLine("PASS bounded appended payload, seek/read bounds, hash mismatch and invalid footer refusal");return 0;}finally{File.Delete(p);}}
+}

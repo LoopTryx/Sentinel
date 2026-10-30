@@ -23,8 +23,8 @@ it('shows network collection failure without synthetic alerts or message inputs'
  await act(() => root!.render(<WatchtowerView/>));
  expect(host.querySelector('textarea')).toBeNull();
  expect(host.textContent).not.toContain('Synthetic alert');
- const check=Array.from(host.querySelectorAll('button')).find(button=>button.textContent?.includes('Check network'))!;
+ const check=Array.from(host.querySelectorAll('button')).find(button=>button.textContent?.includes('Check connection'))!;
  await act(() => check.click());
- expect(host.textContent).toContain('Network observations are unavailable');
+ expect(host.textContent).toContain('Could not check this connection');
  expect(host.textContent).not.toContain('Open Wi-Fi');
 });

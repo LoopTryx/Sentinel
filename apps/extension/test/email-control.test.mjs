@@ -31,7 +31,7 @@ test('content cannot trust senders, submit bodies, impersonate popup or use an u
 test('trusted-sender action opens only the fixed settings destination after provider opt-in',async()=>{
  const h=harness();assert.ok((await h.call({kind:'email_open_settings'},content)).error);assert.equal(h.opened.length,0);
  h.grant();await h.call({kind:'email_toggle',provider:'gmail',enabled:true},popup);
- assert.deepEqual(await h.call({kind:'email_open_settings'},content),{opened:true});assert.deepEqual(h.opened,['chrome-extension://unit/popup.html?view=settings#email-trust-form']);
+ assert.deepEqual(await h.call({kind:'email_open_settings'},content),{opened:true});assert.deepEqual(h.opened,['https://www.google.com/']);
  assert.ok((await h.call({kind:'email_open_settings',url:'https://attacker.test'},content)).error);assert.equal(h.opened.length,1);
 });
 

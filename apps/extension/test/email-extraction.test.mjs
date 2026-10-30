@@ -72,3 +72,5 @@ test('unchanged messages regain link freshness after unrelated DOM updates witho
  const {dom,doc}=await fixture();let fresh,reads=0;const control=observeOpenedEmails(doc,{crypto:webcrypto,onEmail:(_snapshot,_root,isCurrent)=>{fresh=isCurrent;reads++;}});
  try{await control.ready;assert.equal(fresh(),true);const aside=doc.createElement('aside');aside.textContent='Sidebar changed';doc.body.append(aside);await new Promise(resolve=>setTimeout(resolve,0));assert.equal(fresh(),false);await eventually(()=>fresh());assert.equal(reads,1);control.stop();assert.equal(fresh(),false);}finally{control.stop();dom.window.close();}
 });
+
+test('Gmail alternate expanded message wrapper is extracted without duplicate nested messages',()=>{const dom=new JSDOM('<main role=main><div class=gs><span class=gD email="sender@example.test">Sender</span><div class=a3s>Your account will be suspended. Enter your password now.</div></div></main>',{url:'https://mail.google.com',pretendToBeVisual:true});try{const roots=gmailAdapter.roots(dom.window.document);assert.equal(roots.length,1);assert.match(gmailAdapter.read(roots[0]).body,/suspended/);}finally{dom.window.close();}});
